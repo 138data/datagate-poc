@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const multer = require('multer');
 const crypto = require('crypto');
 const path = require('path');
@@ -359,3 +359,4 @@ app.get('/api/health', (req, res) => {
 
 // Vercel用のエクスポート
 module.exports = app;
+
