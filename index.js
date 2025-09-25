@@ -169,7 +169,7 @@ class DataGateServer {
                                 </div>
                                 <div class="stat">
                                     <span>システムバージョン</span>
-                                    <span class="stat-value">0.3.1</span>
+                                    <span class="stat-value">0.3.2</span>
                                 </div>
                             </div>
                             
@@ -223,7 +223,7 @@ class DataGateServer {
             res.json({
                 status: 'healthy',
                 service: 'DataGate',
-                version: '0.3.1',
+                version: '0.3.2',
                 timestamp: new Date().toISOString(),
                 baseUrl: this.baseUrl,
                 features: {
@@ -320,9 +320,10 @@ class DataGateServer {
                                 <a href="${result.secureLink}" target="_blank">${result.secureLink}</a>
                             </div>
                             <div class="info-box">
-                                <h3>📝 テスト情報</h3>
-                                <p><strong>パスワード:</strong> ${result.password || '取得できませんでした'}</p>
+                                <h3>📝 重要情報</h3>
                                 <p><strong>有効期限:</strong> 7日間</p>
+                                <p><strong>セキュリティ:</strong> パスワード保護あり</p>
+                                <p style="color: #92400e; font-size: 12px;">※パスワードは元のメール本文をご確認ください</p>
                             </div>
                             <a href="/" class="back-btn">ダッシュボードに戻る</a>
                         </div>
@@ -392,8 +393,7 @@ class DataGateServer {
             return {
                 status: 'success',
                 message: 'PPAP detected and converted',
-                secureLink: link,
-                password: password
+                secureLink: link
             };
         } else {
             // 通常転送
