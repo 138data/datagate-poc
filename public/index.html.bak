@@ -1,0 +1,248 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DataGate - セキュアファイル転送</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 32px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .upload-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .file-label {
+            background: #f7fafc;
+            border: 2px dashed #cbd5e0;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .file-label:hover {
+            border-color: #667eea;
+            background: #edf2f7;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        input[type="email"] {
+            padding: 12px;
+            border: 1px solid #cbd5e0;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        button:hover:not(:disabled) {
+            background: #5a67d8;
+        }
+
+        button:disabled {
+            background: #cbd5e0;
+            cursor: not-allowed;
+        }
+
+        #result {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .success {
+            background: #f0fff4;
+            border: 1px solid #9ae6b4;
+            color: #22543d;
+        }
+
+        .error {
+            background: #fff5f5;
+            border: 1px solid #feb2b2;
+            color: #742a2a;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        #selectedFile {
+            color: #667eea;
+            margin-top: 10px;
+            font-weight: 500;
+        }
+
+        .link-box {
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            word-break: break-all;
+            font-family: monospace;
+            border: 1px solid #e2e8f0;
+        }
+
+        .copy-btn {
+            background: #48bb78;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .copy-btn:hover {
+            background: #38a169;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 DataGate</h1>
+        
+        <form id="uploadForm" class="upload-form">
+            <label for="fileInput" class="file-label">
+                📁 ファイルを選択
+                <div id="selectedFile"></div>
+            </label>
+            <input type="file" id="fileInput" name="file" required>
+            
+            <input type="email" 
+                   id="emailInput" 
+                   name="recipientEmail" 
+                   placeholder="受信者のメールアドレス" 
+                   required>
+            
+            <button type="submit" id="submitBtn">
+                ファイルをアップロード
+            </button>
+        </form>
+
+        <div class="loading">
+            ⏳ アップロード中...
+        </div>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        const form = document.getElementById("uploadForm");
+        const fileInput = document.getElementById("fileInput");
+        const selectedFile = document.getElementById("selectedFile");
+        const submitBtn = document.getElementById("submitBtn");
+        const result = document.getElementById("result");
+        const loading = document.querySelector(".loading");
+
+        fileInput.addEventListener("change", (e) => {
+            if (e.target.files[0]) {
+                selectedFile.textContent = e.target.files[0].name;
+            }
+        });
+
+        form.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(form);
+            
+            // UIの更新
+            submitBtn.disabled = true;
+            loading.classList.add("active");
+            result.style.display = "none";
+
+            try {
+                const response = await fetch("/api/upload", {
+                    method: "POST",
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    const downloadUrl = window.location.origin + data.downloadLink;
+                    
+                    result.className = "success";
+                    result.style.display = "block";
+                    result.innerHTML = `
+                        <h3>✅ アップロード成功！</h3>
+                        <p style="margin: 10px 0;">ファイルが正常にアップロードされました。</p>
+                        
+                        <p><strong>ダウンロードリンク:</strong></p>
+                        <div class="link-box">${downloadUrl}</div>
+                        <button class="copy-btn" onclick="navigator.clipboard.writeText('${downloadUrl}').then(() => alert('コピーしました！'))">
+                            📋 リンクをコピー
+                        </button>
+                        
+                        <p style="margin-top: 20px; padding: 15px; background: #fff8dc; border-radius: 6px;">
+                            <strong>⚠️ テスト用OTP:</strong> 
+                            <span style="font-size: 24px; color: #d97706; font-weight: bold;">${data.otp}</span><br>
+                            <small style="color: #92400e;">※ 本番環境ではメールで送信されます</small>
+                        </p>
+                    `;
+                } else {
+                    throw new Error(data.error || "アップロードに失敗しました");
+                }
+            } catch (error) {
+                result.className = "error";
+                result.style.display = "block";
+                result.innerHTML = `
+                    <h3>❌ エラー</h3>
+                    <p>${error.message}</p>
+                `;
+            } finally {
+                loading.classList.remove("active");
+                submitBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
