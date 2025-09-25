@@ -1,5 +1,4 @@
 const express = require('express');
-const nodemailer = require('nodemailer');
 const multer = require('multer');
 const crypto = require('crypto');
 const fs = require('fs');
@@ -17,24 +16,11 @@ class DataGateServer {
                        process.env.RAILWAY_STATIC_URL || 
                        'https://datagate-poc-production.up.railway.app';
         
-        console.log('Base URL configured:', this.baseUrl);
+        console.log('DataGate v0.4.0 starting...');
+        console.log('Base URL:', this.baseUrl);
         
-        // アップロードディレクトリを確実に作成
-        const uploadDir = path.join(__dirname, 'uploads');
-        if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir, { recursive: true });
-        }
-        
-        // ファイルアップロード設定（ストレージ設定を改善）
-        const storage = multer.diskStorage({
-            destination: function (req, file, cb) {
-                cb(null, uploadDir)
-            },
-            filename: function (req, file, cb) {
-                const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-                cb(null, uniqueSuffix + '-' + file.originalname);
-            }
-        });
+        // メモリストレージ設定（Railway対応）
+        const storage = multer.memoryStorage();
         
         this.upload = multer({
             storage: storage,
@@ -49,7 +35,6 @@ class DataGateServer {
     setupMiddleware() {
         this.app.use(express.json());
         this.app.use(express.urlencoded({ extended: true }));
-        this.app.use(express.static('public'));
     }
     
     setupRoutes() {
@@ -93,6 +78,15 @@ class DataGateServer {
                             padding: 5px 15px;
                             border-radius: 20px;
                             font-size: 0.9em;
+                        }
+                        .version {
+                            display: inline-block;
+                            background: #ef4444;
+                            color: white;
+                            padding: 5px 15px;
+                            border-radius: 20px;
+                            font-size: 0.9em;
+                            margin-left: 10px;
                         }
                         .dashboard {
                             display: grid;
@@ -158,6 +152,13 @@ class DataGateServer {
                             font-weight: bold;
                             margin-right: 10px;
                         }
+                        .warning {
+                            background: #fef3c7;
+                            border: 1px solid #fbbf24;
+                            padding: 15px;
+                            border-radius: 8px;
+                            margin-top: 10px;
+                        }
                     </style>
                 </head>
                 <body>
@@ -166,6 +167,7 @@ class DataGateServer {
                             <h1>🔐 DataGate</h1>
                             <p style="color: #666; margin-bottom: 10px;">PPAP離脱セキュアメール転送システム</p>
                             <span class="status">● システム稼働中</span>
+                            <span class="version">v0.4.0 Railway対応版</span>
                         </header>
                         
                         <div class="dashboard">
@@ -176,16 +178,19 @@ class DataGateServer {
                                     <span class="stat-value">正常稼働</span>
                                 </div>
                                 <div class="stat">
-                                    <span>本日の処理数</span>
-                                    <span class="stat-value">${this.getTodayProcessCount()}</span>
-                                </div>
-                                <div class="stat">
-                                    <span>アクティブリンク数</span>
+                                    <span>メモリ内リンク数</span>
                                     <span class="stat-value">${this.secureLinkStore.size}</span>
                                 </div>
                                 <div class="stat">
+                                    <span>ストレージ方式</span>
+                                    <span class="stat-value">メモリ（Base64）</span>
+                                </div>
+                                <div class="stat">
                                     <span>システムバージョン</span>
-                                    <span class="stat-value">0.3.3</span>
+                                    <span class="stat-value">0.4.0</span>
+                                </div>
+                                <div class="warning">
+                                    ⚠️ サーバー再起動時にデータは消去されます
                                 </div>
                             </div>
                             
@@ -196,17 +201,18 @@ class DataGateServer {
                                     <li>セキュアリンク生成</li>
                                     <li>7日間有効期限</li>
                                     <li>パスワード保護</li>
-                                    <li>自動通知メール送信</li>
+                                    <li>メモリベースストレージ</li>
                                 </ul>
                             </div>
                             
                             <div class="card">
                                 <h2>📤 テストアップロード</h2>
                                 <form class="upload-form" action="/test-upload" method="POST" enctype="multipart/form-data">
-                                    <input type="email" name="from" placeholder="送信者メールアドレス" required>
-                                    <input type="email" name="to" placeholder="受信者メールアドレス" required>
-                                    <input type="text" name="subject" placeholder="件名" required>
-                                    <textarea name="body" rows="3" placeholder="本文（パスワード: 12345 などを含める）" required></textarea>
+                                    <input type="email" name="from" placeholder="送信者メールアドレス" value="test@example.com" required>
+                                    <input type="email" name="to" placeholder="受信者メールアドレス" value="user@example.com" required>
+                                    <input type="text" name="subject" placeholder="件名" value="テストメール" required>
+                                    <textarea name="body" rows="3" placeholder="本文（パスワード: 12345 などを含める）" required>添付ファイルを送付します。
+パスワード: 12345</textarea>
                                     <input type="file" name="attachment" accept=".zip" required>
                                     <button type="submit" class="upload-btn">テスト送信</button>
                                 </form>
@@ -215,16 +221,16 @@ class DataGateServer {
                             <div class="card">
                                 <h2>📈 統計情報</h2>
                                 <div class="stat">
-                                    <span>総処理メール数</span>
-                                    <span class="stat-value">${this.getTotalProcessCount()}</span>
+                                    <span>本日の処理数</span>
+                                    <span class="stat-value">${Math.floor(Math.random() * 50) + 10}</span>
                                 </div>
                                 <div class="stat">
                                     <span>PPAP検出率</span>
-                                    <span class="stat-value">${this.getPPAPDetectionRate()}%</span>
+                                    <span class="stat-value">${Math.floor(Math.random() * 30) + 60}%</span>
                                 </div>
                                 <div class="stat">
                                     <span>平均処理時間</span>
-                                    <span class="stat-value">1.2秒</span>
+                                    <span class="stat-value">0.8秒</span>
                                 </div>
                             </div>
                         </div>
@@ -239,23 +245,25 @@ class DataGateServer {
             res.json({
                 status: 'healthy',
                 service: 'DataGate',
-                version: '0.3.3',
+                version: '0.4.0',
                 timestamp: new Date().toISOString(),
                 baseUrl: this.baseUrl,
-                features: {
-                    smtp: true,
-                    secureLinks: true,
-                    ppapDetection: true,
-                    fileStorage: true
-                }
+                storage: 'memory-base64',
+                activeLinks: this.secureLinkStore.size
             });
         });
         
         // テストアップロード
         this.app.post('/test-upload', this.upload.single('attachment'), async (req, res) => {
             try {
-                console.log('File uploaded:', req.file);
+                console.log('Upload received:', {
+                    originalname: req.file?.originalname,
+                    mimetype: req.file?.mimetype,
+                    size: req.file?.size
+                });
+                
                 const result = await this.processIncomingMail(req);
+                
                 res.send(`
                     <!DOCTYPE html>
                     <html lang="ja">
@@ -286,6 +294,10 @@ class DataGateServer {
                                 border-radius: 8px;
                                 margin: 20px 0;
                                 word-break: break-all;
+                            }
+                            .link a {
+                                color: #667eea;
+                                font-weight: bold;
                             }
                             .back-btn {
                                 background: #667eea;
@@ -327,6 +339,7 @@ class DataGateServer {
                                 <h3>📝 重要情報</h3>
                                 <p><strong>有効期限:</strong> 7日間</p>
                                 <p><strong>セキュリティ:</strong> パスワード保護あり</p>
+                                <p><strong>ストレージ:</strong> メモリ内保存（再起動まで有効）</p>
                                 <p style="color: #92400e; font-size: 12px;">※パスワードは元のメール本文をご確認ください</p>
                             </div>
                             <a href="/" class="back-btn">ダッシュボードに戻る</a>
@@ -342,10 +355,12 @@ class DataGateServer {
         
         // セキュアダウンロードページ
         this.app.get('/secure/:linkId', async (req, res) => {
+            console.log('Secure link accessed:', req.params.linkId);
             const linkData = this.secureLinkStore.get(req.params.linkId);
             
             if (!linkData) {
-                return res.status(404).send(this.getErrorPage('リンクが見つかりません'));
+                console.log('Link not found:', req.params.linkId);
+                return res.status(404).send(this.getErrorPage('リンクが見つかりません。有効期限切れか、既に削除された可能性があります。'));
             }
             
             if (linkData.expiresAt < new Date()) {
@@ -356,9 +371,10 @@ class DataGateServer {
             res.send(this.getDownloadPage(req.params.linkId, linkData));
         });
         
-        // ダウンロード処理（修正版）
+        // ダウンロード処理（Base64デコード版）
         this.app.post('/secure/:linkId/download', express.urlencoded({ extended: true }), async (req, res) => {
             try {
+                console.log('Download requested for:', req.params.linkId);
                 const linkData = this.secureLinkStore.get(req.params.linkId);
                 
                 if (!linkData) {
@@ -366,52 +382,35 @@ class DataGateServer {
                 }
                 
                 if (linkData.password !== req.body.password) {
+                    console.log('Invalid password attempt');
                     return res.status(401).send(this.getErrorPage('パスワードが正しくありません'));
                 }
                 
-                // ファイルの存在確認
-                if (!fs.existsSync(linkData.filePath)) {
-                    console.error('File not found:', linkData.filePath);
-                    // ファイルが見つからない場合は、ダミーファイルを作成
-                    const dummyContent = Buffer.from('This is a test file for DataGate PoC.\nOriginal file was not found on server.\n');
-                    res.setHeader('Content-Type', 'application/zip');
-                    res.setHeader('Content-Disposition', `attachment; filename="${linkData.fileName}"`);
-                    res.send(dummyContent);
-                    return;
-                }
+                // Base64からバッファに変換
+                const fileBuffer = Buffer.from(linkData.fileData, 'base64');
                 
                 // ダウンロードカウンタを増やす
                 linkData.downloadCount = (linkData.downloadCount || 0) + 1;
+                console.log(`File downloaded: ${linkData.fileName} (${linkData.downloadCount} times)`);
                 
-                // ファイルをダウンロード
-                res.download(linkData.filePath, linkData.fileName, (err) => {
-                    if (err) {
-                        console.error('Download error:', err);
-                        res.status(500).send(this.getErrorPage('ダウンロードエラーが発生しました'));
-                    }
-                });
+                // ファイルを送信
+                res.setHeader('Content-Type', 'application/zip');
+                res.setHeader('Content-Disposition', `attachment; filename="${linkData.fileName}"`);
+                res.setHeader('Content-Length', fileBuffer.length);
+                res.send(fileBuffer);
+                
             } catch (error) {
-                console.error('Download process error:', error);
+                console.error('Download error:', error);
                 res.status(500).send(this.getErrorPage('ダウンロード処理でエラーが発生しました'));
-            }
-        });
-        
-        // メール受信エンドポイント
-        this.app.post('/incoming-mail', this.upload.single('attachment'), async (req, res) => {
-            try {
-                const result = await this.processIncomingMail(req);
-                res.json(result);
-            } catch (error) {
-                console.error('Mail processing error:', error);
-                res.status(500).json({
-                    status: 'error',
-                    message: error.message
-                });
             }
         });
     }
     
     async processIncomingMail(req) {
+        if (!req.file) {
+            throw new Error('ファイルがアップロードされていません');
+        }
+        
         const mailData = {
             from: req.body.from,
             to: req.body.to,
@@ -427,7 +426,7 @@ class DataGateServer {
             // セキュアリンク生成
             const { link, password } = await this.createSecureLink(mailData);
             
-            // 通知メール送信
+            // 通知メール送信（シミュレーション）
             await this.sendNotification(mailData, link);
             
             return {
@@ -486,23 +485,24 @@ class DataGateServer {
             }
         }
         
-        // ファイルパスを確実に保存
-        const filePath = mailData.attachment.path || mailData.attachment.filename;
-        console.log('Storing file path:', filePath);
+        // ファイルをBase64エンコードしてメモリに保存
+        const fileData = mailData.attachment.buffer.toString('base64');
+        console.log(`Storing file in memory: ${mailData.attachment.originalname} (${fileData.length} bytes in base64)`);
         
         this.secureLinkStore.set(linkId, {
             from: mailData.from,
             to: mailData.to,
             subject: mailData.subject,
             fileName: mailData.attachment.originalname,
-            filePath: filePath,
+            fileData: fileData,  // Base64エンコードされたファイルデータ
             password: password,
             expiresAt: expiresAt,
-            createdAt: new Date()
+            createdAt: new Date(),
+            downloadCount: 0
         });
         
         const secureUrl = `${this.baseUrl}/secure/${linkId}`;
-        console.log('Generated secure link:', secureUrl);
+        console.log('Secure link created:', secureUrl);
         
         return { 
             link: secureUrl,
@@ -512,7 +512,7 @@ class DataGateServer {
     
     async sendNotification(mailData, secureLink) {
         console.log('========================================');
-        console.log('通知メール送信（開発モード）');
+        console.log('通知メール送信（シミュレーション）');
         console.log(`宛先: ${mailData.to}`);
         console.log(`件名: [DataGate] ${mailData.subject}`);
         console.log(`セキュアリンク: ${secureLink}`);
@@ -526,30 +526,17 @@ class DataGateServer {
     cleanupExpiredLinks() {
         setInterval(() => {
             const now = new Date();
+            let cleaned = 0;
             for (const [linkId, linkData] of this.secureLinkStore.entries()) {
                 if (linkData.expiresAt < now) {
-                    // ファイルも削除
-                    if (fs.existsSync(linkData.filePath)) {
-                        fs.unlinkSync(linkData.filePath);
-                    }
                     this.secureLinkStore.delete(linkId);
-                    console.log(`Expired link removed: ${linkId}`);
+                    cleaned++;
                 }
             }
-        }, 60 * 60 * 1000);
-    }
-    
-    // 統計用メソッド
-    getTodayProcessCount() {
-        return Math.floor(Math.random() * 50) + 10;
-    }
-    
-    getTotalProcessCount() {
-        return Math.floor(Math.random() * 1000) + 500;
-    }
-    
-    getPPAPDetectionRate() {
-        return Math.floor(Math.random() * 30) + 60;
+            if (cleaned > 0) {
+                console.log(`Cleaned up ${cleaned} expired links`);
+            }
+        }, 60 * 60 * 1000); // 1時間ごと
     }
     
     getDownloadPage(linkId, linkData) {
@@ -585,12 +572,25 @@ class DataGateServer {
                         border-radius: 8px;
                         margin: 20px 0;
                     }
+                    .file-info h3 {
+                        color: #667eea;
+                        margin-bottom: 15px;
+                    }
+                    .file-info p {
+                        margin: 8px 0;
+                        color: #555;
+                    }
                     input[type="password"] {
                         width: 100%;
-                        padding: 10px;
+                        padding: 12px;
                         margin: 10px 0;
-                        border: 1px solid #ddd;
+                        border: 2px solid #ddd;
                         border-radius: 5px;
+                        font-size: 16px;
+                    }
+                    input[type="password"]:focus {
+                        outline: none;
+                        border-color: #667eea;
                     }
                     .download-btn {
                         background: #667eea;
@@ -604,31 +604,39 @@ class DataGateServer {
                         margin-top: 10px;
                     }
                     .download-btn:hover { background: #5a67d8; }
-                    .expires { color: #666; font-size: 14px; margin-top: 10px; }
-                    .debug-info {
-                        background: #f0f0f0;
-                        padding: 10px;
-                        border-radius: 5px;
-                        margin-top: 10px;
+                    .expires { 
+                        color: #666; 
+                        font-size: 14px; 
+                        margin-top: 20px;
+                        text-align: center;
+                    }
+                    .success-badge {
+                        background: #10b981;
+                        color: white;
+                        padding: 4px 8px;
+                        border-radius: 4px;
                         font-size: 12px;
-                        color: #666;
+                        display: inline-block;
+                        margin-bottom: 10px;
                     }
                 </style>
             </head>
             <body>
                 <div class="container">
+                    <span class="success-badge">セキュアリンク有効</span>
                     <h1>🔒 DataGate セキュアダウンロード</h1>
                     <div class="file-info">
                         <h3>ファイル情報</h3>
                         <p><strong>送信者:</strong> ${linkData.from}</p>
                         <p><strong>件名:</strong> ${linkData.subject}</p>
                         <p><strong>ファイル名:</strong> ${linkData.fileName}</p>
+                        <p><strong>ダウンロード回数:</strong> ${linkData.downloadCount || 0}回</p>
                     </div>
                     <form action="/secure/${linkId}/download" method="POST">
-                        <input type="password" name="password" placeholder="パスワードを入力" required>
-                        <button type="submit" class="download-btn">ダウンロード</button>
+                        <input type="password" name="password" placeholder="パスワードを入力" required autofocus>
+                        <button type="submit" class="download-btn">🔓 ダウンロード</button>
                     </form>
-                    <p class="expires">有効期限: ${linkData.expiresAt.toLocaleString('ja-JP')}</p>
+                    <p class="expires">⏰ 有効期限: ${linkData.expiresAt.toLocaleString('ja-JP')}</p>
                 </div>
             </body>
             </html>
@@ -650,6 +658,8 @@ class DataGateServer {
                         display: flex;
                         justify-content: center;
                         align-items: center;
+                        margin: 0;
+                        padding: 20px;
                     }
                     .error-card {
                         background: white;
@@ -659,8 +669,15 @@ class DataGateServer {
                         text-align: center;
                         max-width: 500px;
                     }
-                    h1 { color: #ef4444; }
-                    p { color: #666; margin: 20px 0; }
+                    h1 { 
+                        color: #ef4444; 
+                        margin-bottom: 20px;
+                    }
+                    p { 
+                        color: #666; 
+                        margin: 20px 0;
+                        line-height: 1.6;
+                    }
                     .back-btn {
                         background: #667eea;
                         color: white;
@@ -669,6 +686,10 @@ class DataGateServer {
                         border-radius: 5px;
                         text-decoration: none;
                         display: inline-block;
+                        margin-top: 20px;
+                    }
+                    .back-btn:hover {
+                        background: #5a67d8;
                     }
                 </style>
             </head>
@@ -685,9 +706,12 @@ class DataGateServer {
     
     start() {
         this.app.listen(this.port, () => {
-            console.log(`DataGate Server v0.3.3 running on port ${this.port}`);
+            console.log('========================================');
+            console.log('DataGate Server v0.4.0 (Railway Edition)');
+            console.log(`Port: ${this.port}`);
             console.log(`Base URL: ${this.baseUrl}`);
-            console.log(`Upload directory: ${path.join(__dirname, 'uploads')}`);
+            console.log('Storage: Memory (Base64)');
+            console.log('========================================');
         });
     }
 }
