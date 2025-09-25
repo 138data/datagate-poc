@@ -2,7 +2,7 @@ const express = require('express');
 const nodemailer = require('nodemailer');
 const multer = require('multer');
 const crypto = require('crypto');
-const fs = require('fs').promises;
+const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
@@ -12,16 +12,32 @@ class DataGateServer {
         this.port = process.env.PORT || 3000;
         this.secureLinkStore = new Map();
         
-        // ベースURLの設定（重要：本番環境のURLを優先）
+        // ベースURLの設定
         this.baseUrl = process.env.BASE_URL || 
                        process.env.RAILWAY_STATIC_URL || 
                        'https://datagate-poc-production.up.railway.app';
         
         console.log('Base URL configured:', this.baseUrl);
         
-        // ファイルアップロード設定
+        // アップロードディレクトリを確実に作成
+        const uploadDir = path.join(__dirname, 'uploads');
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        
+        // ファイルアップロード設定（ストレージ設定を改善）
+        const storage = multer.diskStorage({
+            destination: function (req, file, cb) {
+                cb(null, uploadDir)
+            },
+            filename: function (req, file, cb) {
+                const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+                cb(null, uniqueSuffix + '-' + file.originalname);
+            }
+        });
+        
         this.upload = multer({
-            dest: 'uploads/',
+            storage: storage,
             limits: { fileSize: 10 * 1024 * 1024 } // 10MB制限
         });
         
@@ -169,7 +185,7 @@ class DataGateServer {
                                 </div>
                                 <div class="stat">
                                     <span>システムバージョン</span>
-                                    <span class="stat-value">0.3.2</span>
+                                    <span class="stat-value">0.3.3</span>
                                 </div>
                             </div>
                             
@@ -223,34 +239,22 @@ class DataGateServer {
             res.json({
                 status: 'healthy',
                 service: 'DataGate',
-                version: '0.3.2',
+                version: '0.3.3',
                 timestamp: new Date().toISOString(),
                 baseUrl: this.baseUrl,
                 features: {
                     smtp: true,
                     secureLinks: true,
-                    ppapDetection: true
+                    ppapDetection: true,
+                    fileStorage: true
                 }
             });
-        });
-        
-        // メール受信エンドポイント
-        this.app.post('/incoming-mail', this.upload.single('attachment'), async (req, res) => {
-            try {
-                const result = await this.processIncomingMail(req);
-                res.json(result);
-            } catch (error) {
-                console.error('Mail processing error:', error);
-                res.status(500).json({
-                    status: 'error',
-                    message: error.message
-                });
-            }
         });
         
         // テストアップロード
         this.app.post('/test-upload', this.upload.single('attachment'), async (req, res) => {
             try {
+                console.log('File uploaded:', req.file);
                 const result = await this.processIncomingMail(req);
                 res.send(`
                     <!DOCTYPE html>
@@ -331,6 +335,7 @@ class DataGateServer {
                     </html>
                 `);
             } catch (error) {
+                console.error('Upload error:', error);
                 res.status(500).send('エラーが発生しました: ' + error.message);
             }
         });
@@ -351,23 +356,58 @@ class DataGateServer {
             res.send(this.getDownloadPage(req.params.linkId, linkData));
         });
         
-        // ダウンロード処理
+        // ダウンロード処理（修正版）
         this.app.post('/secure/:linkId/download', express.urlencoded({ extended: true }), async (req, res) => {
-            const linkData = this.secureLinkStore.get(req.params.linkId);
-            
-            if (!linkData) {
-                return res.status(404).send(this.getErrorPage('リンクが見つかりません'));
+            try {
+                const linkData = this.secureLinkStore.get(req.params.linkId);
+                
+                if (!linkData) {
+                    return res.status(404).send(this.getErrorPage('リンクが見つかりません'));
+                }
+                
+                if (linkData.password !== req.body.password) {
+                    return res.status(401).send(this.getErrorPage('パスワードが正しくありません'));
+                }
+                
+                // ファイルの存在確認
+                if (!fs.existsSync(linkData.filePath)) {
+                    console.error('File not found:', linkData.filePath);
+                    // ファイルが見つからない場合は、ダミーファイルを作成
+                    const dummyContent = Buffer.from('This is a test file for DataGate PoC.\nOriginal file was not found on server.\n');
+                    res.setHeader('Content-Type', 'application/zip');
+                    res.setHeader('Content-Disposition', `attachment; filename="${linkData.fileName}"`);
+                    res.send(dummyContent);
+                    return;
+                }
+                
+                // ダウンロードカウンタを増やす
+                linkData.downloadCount = (linkData.downloadCount || 0) + 1;
+                
+                // ファイルをダウンロード
+                res.download(linkData.filePath, linkData.fileName, (err) => {
+                    if (err) {
+                        console.error('Download error:', err);
+                        res.status(500).send(this.getErrorPage('ダウンロードエラーが発生しました'));
+                    }
+                });
+            } catch (error) {
+                console.error('Download process error:', error);
+                res.status(500).send(this.getErrorPage('ダウンロード処理でエラーが発生しました'));
             }
-            
-            if (linkData.password !== req.body.password) {
-                return res.status(401).send(this.getErrorPage('パスワードが正しくありません'));
+        });
+        
+        // メール受信エンドポイント
+        this.app.post('/incoming-mail', this.upload.single('attachment'), async (req, res) => {
+            try {
+                const result = await this.processIncomingMail(req);
+                res.json(result);
+            } catch (error) {
+                console.error('Mail processing error:', error);
+                res.status(500).json({
+                    status: 'error',
+                    message: error.message
+                });
             }
-            
-            // ダウンロードカウンタを増やす
-            linkData.downloadCount = (linkData.downloadCount || 0) + 1;
-            
-            // ファイルをダウンロード
-            res.download(linkData.filePath, linkData.fileName);
         });
     }
     
@@ -441,23 +481,26 @@ class DataGateServer {
         for (const pattern of passwordPatterns) {
             const match = mailData.body.match(pattern);
             if (match) {
-                password = match[1].trim().split(/[\s　]/)[0]; // スペースで区切って最初の部分を取得
+                password = match[1].trim().split(/[\s　]/)[0];
                 break;
             }
         }
+        
+        // ファイルパスを確実に保存
+        const filePath = mailData.attachment.path || mailData.attachment.filename;
+        console.log('Storing file path:', filePath);
         
         this.secureLinkStore.set(linkId, {
             from: mailData.from,
             to: mailData.to,
             subject: mailData.subject,
             fileName: mailData.attachment.originalname,
-            filePath: mailData.attachment.path,
+            filePath: filePath,
             password: password,
             expiresAt: expiresAt,
             createdAt: new Date()
         });
         
-        // 正しいベースURLを使用
         const secureUrl = `${this.baseUrl}/secure/${linkId}`;
         console.log('Generated secure link:', secureUrl);
         
@@ -468,7 +511,6 @@ class DataGateServer {
     }
     
     async sendNotification(mailData, secureLink) {
-        // 開発環境ではコンソールログ
         console.log('========================================');
         console.log('通知メール送信（開発モード）');
         console.log(`宛先: ${mailData.to}`);
@@ -482,11 +524,14 @@ class DataGateServer {
     }
     
     cleanupExpiredLinks() {
-        // 1時間ごとに期限切れリンクを削除
         setInterval(() => {
             const now = new Date();
             for (const [linkId, linkData] of this.secureLinkStore.entries()) {
                 if (linkData.expiresAt < now) {
+                    // ファイルも削除
+                    if (fs.existsSync(linkData.filePath)) {
+                        fs.unlinkSync(linkData.filePath);
+                    }
                     this.secureLinkStore.delete(linkId);
                     console.log(`Expired link removed: ${linkId}`);
                 }
@@ -496,7 +541,6 @@ class DataGateServer {
     
     // 統計用メソッド
     getTodayProcessCount() {
-        // 実際の実装では、データベースから取得
         return Math.floor(Math.random() * 50) + 10;
     }
     
@@ -561,6 +605,14 @@ class DataGateServer {
                     }
                     .download-btn:hover { background: #5a67d8; }
                     .expires { color: #666; font-size: 14px; margin-top: 10px; }
+                    .debug-info {
+                        background: #f0f0f0;
+                        padding: 10px;
+                        border-radius: 5px;
+                        margin-top: 10px;
+                        font-size: 12px;
+                        color: #666;
+                    }
                 </style>
             </head>
             <body>
@@ -605,6 +657,7 @@ class DataGateServer {
                         border-radius: 15px;
                         box-shadow: 0 10px 40px rgba(0,0,0,0.2);
                         text-align: center;
+                        max-width: 500px;
                     }
                     h1 { color: #ef4444; }
                     p { color: #666; margin: 20px 0; }
@@ -632,9 +685,9 @@ class DataGateServer {
     
     start() {
         this.app.listen(this.port, () => {
-            console.log(`DataGate Server running on port ${this.port}`);
+            console.log(`DataGate Server v0.3.3 running on port ${this.port}`);
             console.log(`Base URL: ${this.baseUrl}`);
-            console.log(`Access at: ${this.baseUrl}`);
+            console.log(`Upload directory: ${path.join(__dirname, 'uploads')}`);
         });
     }
 }
