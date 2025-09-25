@@ -10,22 +10,16 @@
         .container { max-width: 800px; margin: 0 auto; }
         .header { text-align: center; color: white; padding: 40px 0; }
         .header h1 { font-size: 48px; margin-bottom: 10px; }
-        .header p { font-size: 18px; opacity: 0.9; }
         .upload-card { background: white; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); padding: 40px; }
-        .upload-area { border: 3px dashed #e2e8f0; border-radius: 12px; padding: 40px; text-align: center; cursor: pointer; background: #f7fafc; transition: all 0.3s; }
+        .upload-area { border: 3px dashed #e2e8f0; border-radius: 12px; padding: 40px; text-align: center; cursor: pointer; background: #f7fafc; }
         .upload-area:hover { border-color: #667eea; background: #edf2ff; }
-        .upload-icon { font-size: 64px; margin-bottom: 20px; }
-        .upload-text { color: #4a5568; margin-bottom: 10px; font-size: 18px; }
-        .upload-subtext { color: #999; font-size: 14px; }
-        .file-input { display: none; }
         .form-group { margin: 20px 0; }
-        .form-group label { display: block; margin-bottom: 8px; color: #4a5568; font-weight: 600; }
         .form-group input { width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 16px; }
         .upload-button { width: 100%; background: #667eea; color: white; padding: 16px; border: none; border-radius: 8px; font-size: 18px; font-weight: 600; cursor: pointer; }
-        .upload-button:hover { background: #5a67d8; }
-        .upload-button:disabled { background: #cbd5e0; cursor: not-allowed; }
-        .error { background: #fee; padding: 10px; border-radius: 8px; color: #c00; margin: 10px 0; }
-        .warning { background: #fff8e1; padding: 15px; border-radius: 8px; color: #f57c00; margin: 20px 0; text-align: center; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        .otp-display { background: #fff3cd; padding: 15px; border-radius: 8px; text-align: center; margin: 15px 0; }
+        .otp-code { font-size: 32px; font-weight: bold; color: #856404; letter-spacing: 5px; }
+        .link-display { background: #e7f3ff; padding: 10px; border-radius: 5px; word-break: break-all; margin: 10px 0; }
     </style>
 </head>
 <body>
@@ -35,41 +29,72 @@
             <p>セキュアファイル転送システム</p>
         </div>
         <div class="upload-card">
-            <div class="warning">
-                ⚠️ デモ版：最大4MBまでのファイルをアップロード可能
-            </div>
-            <form id="uploadForm" action="/api/upload" method="POST" enctype="multipart/form-data">
+            <form id="uploadForm">
                 <div class="upload-area" onclick="document.getElementById('fileInput').click()">
-                    <div class="upload-icon">📁</div>
-                    <div class="upload-text">ファイルを選択</div>
-                    <div class="upload-subtext">最大4MBまで（Vercel無料プラン制限）</div>
-                    <input type="file" id="fileInput" name="file" class="file-input" required />
-                </div>
-                <div id="error" class="error" style="display:none;"></div>
-                <div class="form-group">
-                    <label>受信者メールアドレス</label>
-                    <input type="email" name="recipientEmail" required />
+                    <div style="font-size: 64px;">📁</div>
+                    <div style="margin: 10px 0;">ファイルを選択（最大4MB）</div>
+                    <input type="file" id="fileInput" style="display:none;" required />
                 </div>
                 <div class="form-group">
-                    <label>送信者名</label>
-                    <input type="text" name="senderName" placeholder="山田太郎" />
+                    <input type="email" id="email" placeholder="受信者のメールアドレス" required />
+                </div>
+                <div class="form-group">
+                    <input type="text" id="sender" placeholder="送信者名（オプション）" />
                 </div>
                 <button type="submit" class="upload-button">📤 送信</button>
             </form>
+            
+            <div id="result" style="display:none;">
+                <div class="success">
+                    <h3>✅ ファイル送信完了！</h3>
+                    <div class="otp-display">
+                        <p>認証コード（OTP）</p>
+                        <div class="otp-code" id="otpCode"></div>
+                    </div>
+                    <div class="link-display">
+                        <strong>ダウンロードリンク：</strong><br>
+                        <a id="downloadLink" href="#" target="_blank"></a>
+                    </div>
+                    <p>※ このOTPとリンクを受信者に共有してください</p>
+                </div>
+            </div>
         </div>
     </div>
+
     <script>
-        document.getElementById("fileInput").addEventListener("change", function(e) {
-            const file = e.target.files[0];
-            if (file && file.size > 4 * 1024 * 1024) {
-                const error = document.getElementById("error");
-                error.textContent = "ファイルサイズが4MBを超えています。小さいファイルを選択してください。";
-                error.style.display = "block";
-                e.target.value = "";
-                return;
+    document.getElementById("uploadForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        
+        const file = document.getElementById("fileInput").files[0];
+        if (!file) { alert("ファイルを選択してください"); return; }
+        if (file.size > 4 * 1024 * 1024) { alert("4MB以下のファイルを選択してください"); return; }
+        
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("recipientEmail", document.getElementById("email").value);
+        formData.append("senderName", document.getElementById("sender").value || "送信者");
+        
+        try {
+            const response = await fetch("/api/upload", {
+                method: "POST",
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                document.getElementById("otpCode").textContent = data.otp;
+                document.getElementById("downloadLink").href = data.downloadLink;
+                document.getElementById("downloadLink").textContent = data.downloadLink;
+                document.getElementById("result").style.display = "block";
+                document.getElementById("uploadForm").style.display = "none";
+            } else {
+                alert("エラー: " + (data.error || "アップロードに失敗しました"));
             }
-            document.getElementById("error").style.display = "none";
-        });
+        } catch (error) {
+            alert("通信エラーが発生しました");
+        }
+    });
     </script>
 </body>
 </html>
