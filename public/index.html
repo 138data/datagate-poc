@@ -6,7 +6,7 @@
     <title>DataGate - セキュアファイル転送</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        body { font-family: "Segoe UI", sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
         .container { max-width: 800px; margin: 0 auto; }
         .header { text-align: center; color: white; padding: 40px 0; }
         .header h1 { font-size: 48px; margin-bottom: 10px; }
@@ -16,12 +16,16 @@
         .upload-area:hover { border-color: #667eea; background: #edf2ff; }
         .upload-icon { font-size: 64px; margin-bottom: 20px; }
         .upload-text { color: #4a5568; margin-bottom: 10px; font-size: 18px; }
+        .upload-subtext { color: #999; font-size: 14px; }
         .file-input { display: none; }
         .form-group { margin: 20px 0; }
         .form-group label { display: block; margin-bottom: 8px; color: #4a5568; font-weight: 600; }
         .form-group input { width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 16px; }
         .upload-button { width: 100%; background: #667eea; color: white; padding: 16px; border: none; border-radius: 8px; font-size: 18px; font-weight: 600; cursor: pointer; }
         .upload-button:hover { background: #5a67d8; }
+        .upload-button:disabled { background: #cbd5e0; cursor: not-allowed; }
+        .error { background: #fee; padding: 10px; border-radius: 8px; color: #c00; margin: 10px 0; }
+        .warning { background: #fff8e1; padding: 15px; border-radius: 8px; color: #f57c00; margin: 20px 0; text-align: center; }
     </style>
 </head>
 <body>
@@ -31,23 +35,41 @@
             <p>セキュアファイル転送システム</p>
         </div>
         <div class="upload-card">
+            <div class="warning">
+                ⚠️ デモ版：最大4MBまでのファイルをアップロード可能
+            </div>
             <form id="uploadForm" action="/api/upload" method="POST" enctype="multipart/form-data">
                 <div class="upload-area" onclick="document.getElementById('fileInput').click()">
                     <div class="upload-icon">📁</div>
                     <div class="upload-text">ファイルを選択</div>
+                    <div class="upload-subtext">最大4MBまで（Vercel無料プラン制限）</div>
                     <input type="file" id="fileInput" name="file" class="file-input" required />
                 </div>
+                <div id="error" class="error" style="display:none;"></div>
                 <div class="form-group">
                     <label>受信者メールアドレス</label>
                     <input type="email" name="recipientEmail" required />
                 </div>
                 <div class="form-group">
                     <label>送信者名</label>
-                    <input type="text" name="senderName" />
+                    <input type="text" name="senderName" placeholder="山田太郎" />
                 </div>
                 <button type="submit" class="upload-button">📤 送信</button>
             </form>
         </div>
     </div>
+    <script>
+        document.getElementById("fileInput").addEventListener("change", function(e) {
+            const file = e.target.files[0];
+            if (file && file.size > 4 * 1024 * 1024) {
+                const error = document.getElementById("error");
+                error.textContent = "ファイルサイズが4MBを超えています。小さいファイルを選択してください。";
+                error.style.display = "block";
+                e.target.value = "";
+                return;
+            }
+            document.getElementById("error").style.display = "none";
+        });
+    </script>
 </body>
 </html>
