@@ -1,29 +1,8 @@
-{
+﻿{
   "name": "datagate-poc",
   "version": "2.0.0",
-  "description": "DataGate PPAP Alternative with Email Integration",
-  "main": "api/index.js",
-  "scripts": {
-    "start": "node api/index.js",
-    "dev": "node api/index.js",
-    "test": "echo \"Test mode\" && node api/index.js"
-  },
-  "engines": {
-    "node": ">=18.0.0"
-  },
+  "description": "DataGate PPAP Alternative",
   "dependencies": {
-    "@sendgrid/mail": "^7.7.0",
-    "dotenv": "^16.0.3",
-    "express": "^4.18.2",
     "multer": "^1.4.5-lts.1"
-  },
-  "keywords": [
-    "file-transfer",
-    "secure",
-    "ppap-alternative",
-    "sendgrid",
-    "otp"
-  ],
-  "author": "138data",
-  "license": "MIT"
+  }
 }

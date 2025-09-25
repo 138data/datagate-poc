@@ -1,9 +1,8 @@
 ﻿{
-  "framework": "static",
-  "cleanUrls": true,
-  "trailingSlash": false,
-  "routes": [
-    { "src": "^/$", "dest": "/index.html" },
-    { "src": "^/api/(.*)$", "dest": "/api/$1" }
+  "rewrites": [
+    {
+      "source": "/download/:id",
+      "destination": "/download.html"
+    }
   ]
 }
