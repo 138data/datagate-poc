@@ -1,7 +1,6 @@
 ﻿{
   "name": "datagate-poc",
   "version": "2.0.0",
-  "description": "DataGate PPAP Alternative",
   "dependencies": {
     "multer": "^1.4.5-lts.1"
   }

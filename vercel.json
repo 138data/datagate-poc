@@ -1,8 +1,0 @@
-﻿{
-  "rewrites": [
-    {
-      "source": "/download/:id",
-      "destination": "/download.html"
-    }
-  ]
-}
