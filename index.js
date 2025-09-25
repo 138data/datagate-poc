@@ -12,6 +12,13 @@ class DataGateServer {
         this.port = process.env.PORT || 3000;
         this.secureLinkStore = new Map();
         
+        // ベースURLの設定（重要：本番環境のURLを優先）
+        this.baseUrl = process.env.BASE_URL || 
+                       process.env.RAILWAY_STATIC_URL || 
+                       'https://datagate-poc-production.up.railway.app';
+        
+        console.log('Base URL configured:', this.baseUrl);
+        
         // ファイルアップロード設定
         this.upload = multer({
             dest: 'uploads/',
@@ -162,7 +169,7 @@ class DataGateServer {
                                 </div>
                                 <div class="stat">
                                     <span>システムバージョン</span>
-                                    <span class="stat-value">0.3.0</span>
+                                    <span class="stat-value">0.3.1</span>
                                 </div>
                             </div>
                             
@@ -216,8 +223,9 @@ class DataGateServer {
             res.json({
                 status: 'healthy',
                 service: 'DataGate',
-                version: '0.3.0',
+                version: '0.3.1',
                 timestamp: new Date().toISOString(),
+                baseUrl: this.baseUrl,
                 features: {
                     smtp: true,
                     secureLinks: true,
@@ -264,7 +272,7 @@ class DataGateServer {
                                 padding: 40px;
                                 border-radius: 15px;
                                 box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-                                max-width: 500px;
+                                max-width: 600px;
                                 text-align: center;
                             }
                             .success { color: #10b981; }
@@ -285,6 +293,22 @@ class DataGateServer {
                                 display: inline-block;
                                 margin-top: 20px;
                             }
+                            .info-box {
+                                background: #fef3c7;
+                                border: 1px solid #fbbf24;
+                                padding: 15px;
+                                border-radius: 8px;
+                                margin: 20px 0;
+                                text-align: left;
+                            }
+                            .info-box h3 {
+                                color: #92400e;
+                                margin-bottom: 10px;
+                            }
+                            .info-box p {
+                                color: #78350f;
+                                margin: 5px 0;
+                            }
                         </style>
                     </head>
                     <body>
@@ -294,6 +318,11 @@ class DataGateServer {
                             <div class="link">
                                 <strong>セキュアリンク:</strong><br>
                                 <a href="${result.secureLink}" target="_blank">${result.secureLink}</a>
+                            </div>
+                            <div class="info-box">
+                                <h3>📝 テスト情報</h3>
+                                <p><strong>パスワード:</strong> ${result.password || '取得できませんでした'}</p>
+                                <p><strong>有効期限:</strong> 7日間</p>
                             </div>
                             <a href="/" class="back-btn">ダッシュボードに戻る</a>
                         </div>
@@ -355,15 +384,16 @@ class DataGateServer {
         
         if (isPPAP) {
             // セキュアリンク生成
-            const secureLink = await this.createSecureLink(mailData);
+            const { link, password } = await this.createSecureLink(mailData);
             
             // 通知メール送信
-            await this.sendNotification(mailData, secureLink);
+            await this.sendNotification(mailData, link);
             
             return {
                 status: 'success',
                 message: 'PPAP detected and converted',
-                secureLink: secureLink
+                secureLink: link,
+                password: password
             };
         } else {
             // 通常転送
@@ -427,8 +457,14 @@ class DataGateServer {
             createdAt: new Date()
         });
         
-        const baseUrl = process.env.BASE_URL || `http://localhost:${this.port}`;
-        return `${baseUrl}/secure/${linkId}`;
+        // 正しいベースURLを使用
+        const secureUrl = `${this.baseUrl}/secure/${linkId}`;
+        console.log('Generated secure link:', secureUrl);
+        
+        return { 
+            link: secureUrl,
+            password: password
+        };
     }
     
     async sendNotification(mailData, secureLink) {
@@ -597,7 +633,8 @@ class DataGateServer {
     start() {
         this.app.listen(this.port, () => {
             console.log(`DataGate Server running on port ${this.port}`);
-            console.log(`Access at: http://localhost:${this.port}`);
+            console.log(`Base URL: ${this.baseUrl}`);
+            console.log(`Access at: ${this.baseUrl}`);
         });
     }
 }
