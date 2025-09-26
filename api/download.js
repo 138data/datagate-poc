@@ -1,4 +1,15 @@
-﻿module.exports = (req, res) => {
+﻿let fileStorage;
+
+module.exports = async (req, res) => {
+    if (!fileStorage) {
+        try {
+            const uploadModule = require('./upload');
+            fileStorage = uploadModule.fileStorage || new Map();
+        } catch (e) {
+            fileStorage = new Map();
+        }
+    }
+    
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -9,37 +20,69 @@
     
     const { id } = req.query;
     
+    if (!id) {
+        return res.status(400).json({
+            success: false,
+            error: 'File ID is required'
+        });
+    }
+    
+    const fileInfo = fileStorage.get(id);
+    
+    if (!fileInfo) {
+        return res.status(404).json({
+            success: false,
+            error: 'File not found'
+        });
+    }
+    
     if (req.method === 'GET') {
         return res.status(200).json({
             success: true,
-            message: 'Download GET endpoint working',
-            fileId: id || 'none',
-            timestamp: new Date().toISOString()
+            exists: true,
+            fileName: fileInfo.fileName,
+            fileSize: fileInfo.fileSize,
+            uploadTime: fileInfo.uploadTime,
+            remainingDownloads: fileInfo.maxDownloads - fileInfo.downloadCount,
+            requiresOTP: true
         });
     }
     
     if (req.method === 'POST') {
         let body = '';
-        req.on('data', chunk => {
-            body += chunk.toString();
+        await new Promise((resolve) => {
+            req.on('data', chunk => {
+                body += chunk.toString();
+            });
+            req.on('end', resolve);
         });
         
-        req.on('end', () => {
-            try {
-                const data = body ? JSON.parse(body) : {};
-                res.status(200).json({
-                    success: true,
-                    message: 'Download POST endpoint working',
-                    fileId: id || 'none',
-                    otp: data.otp || 'none',
-                    timestamp: new Date().toISOString()
-                });
-            } catch (e) {
-                res.status(400).json({ error: 'Invalid JSON' });
-            }
-        });
-        return;
+        const data = JSON.parse(body);
+        
+        if (data.otp !== fileInfo.otp) {
+            return res.status(401).json({
+                success: false,
+                error: 'Invalid OTP'
+            });
+        }
+        
+        if (fileInfo.downloadCount >= fileInfo.maxDownloads) {
+            return res.status(403).json({
+                success: false,
+                error: 'Download limit exceeded'
+            });
+        }
+        
+        fileInfo.downloadCount++;
+        
+        res.setHeader('Content-Type', 'application/octet-stream');
+        res.setHeader('Content-Disposition', `attachment; filename="${fileInfo.fileName}"`);
+        
+        return res.status(200).send(fileInfo.fileData);
     }
     
-    res.status(405).json({ error: 'Method not allowed' });
+    return res.status(405).json({
+        success: false,
+        error: 'Method not allowed'
+    });
 };
