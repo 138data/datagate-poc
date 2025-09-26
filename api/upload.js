@@ -43,6 +43,7 @@ module.exports = async (req, res) => {
             fileName: 'uploaded-file.dat',
             fileData: buffer,
             fileSize: buffer.length,
+            mimeType: 'application/octet-stream',
             otp: otp,
             uploadTime: new Date().toISOString(),
             downloadCount: 0,
@@ -51,11 +52,16 @@ module.exports = async (req, res) => {
         
         module.exports.fileStorage = fileStorage;
         
+        // 完全なURLを生成
+        const baseUrl = 'https://datagate-poc.vercel.app';
+        const downloadPath = `/download.html?id=${fileId}`;
+        const fullDownloadUrl = `${baseUrl}${downloadPath}`;
+        
         return res.status(200).json({
             success: true,
-            message: 'File uploaded successfully',
+            message: 'ファイルが正常にアップロードされました',
             fileId: fileId,
-            downloadLink: `/download/${fileId}`,
+            downloadLink: fullDownloadUrl,  // 完全なURL
             otp: otp,
             fileName: 'uploaded-file.dat',
             fileSize: buffer.length
