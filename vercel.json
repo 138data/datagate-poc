@@ -1,12 +1,5 @@
 ﻿{
   "rewrites": [
-    {
-      "source": "/api/download/:id",
-      "destination": "/api/download/[id]"
-    },
-    {
-      "source": "/download/:id",
-      "destination": "/download.html"
-    }
+    { "source": "/download/:id", "destination": "/download.html" }
   ]
 }
