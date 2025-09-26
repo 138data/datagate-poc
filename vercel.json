@@ -1,5 +1,7 @@
 ﻿{
-  "rewrites": [
-    { "source": "/download/:id", "destination": "/download.html" }
-  ]
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 10
+    }
+  }
 }
