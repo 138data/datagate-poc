@@ -6,13 +6,14 @@
     <title>DataGate - ファイルダウンロード</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            margin: 0;
             display: flex;
             justify-content: center;
             align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
         }
         .container {
             background: white;
@@ -20,180 +21,197 @@
             border-radius: 20px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
             max-width: 500px;
-            width: 90%;
-            text-align: center;
-        }
-        h1 { color: #333; }
-        .otp-input {
             width: 100%;
-            padding: 15px;
-            font-size: 24px;
-            text-align: center;
-            letter-spacing: 8px;
-            border: 2px solid #cbd5e0;
-            border-radius: 8px;
-            margin: 20px 0;
-            box-sizing: border-box;
         }
-        .otp-input:focus {
+        h1 {
+            color: #333;
+            font-size: 32px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .form-group {
+            margin-bottom: 25px;
+        }
+        label {
+            display: block;
+            color: #555;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        input:focus {
             outline: none;
             border-color: #667eea;
         }
         button {
             width: 100%;
-            padding: 15px;
             background: #667eea;
             color: white;
+            padding: 15px;
             border: none;
             border-radius: 8px;
             font-size: 18px;
-            cursor: pointer;
             font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
         }
-        button:hover:not(:disabled) { 
-            background: #5a67d8; 
+        button:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
         }
-        button:disabled { 
-            background: #cbd5e0;
+        button:disabled {
+            background: #ccc;
             cursor: not-allowed;
+            transform: none;
         }
-        #message {
-            margin: 20px 0;
+        .message {
             padding: 15px;
             border-radius: 8px;
-            display: none;
+            margin-bottom: 20px;
+            text-align: center;
         }
         .error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-            display: block;
+            background: #fee;
+            color: #c33;
+            border: 1px solid #fcc;
         }
         .success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-            display: block;
+            background: #efe;
+            color: #3c3;
+            border: 1px solid #cfc;
         }
-        .info-text {
-            color: #666;
-            margin: 10px 0;
-            font-size: 14px;
+        .info {
+            background: #e6f4ff;
+            color: #0066cc;
+            border: 1px solid #b3d9ff;
+        }
+        #loading {
+            display: none;
+            text-align: center;
+            color: #667eea;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🔐 DataGate</h1>
-        <h2>ファイルダウンロード</h2>
-        
-        <p class="info-text">認証コード（OTP）を入力してください</p>
-        <p class="info-text">※アップロード時に表示された6桁の数字</p>
-        
-        <input type="text" 
-               id="otpInput" 
-               class="otp-input" 
-               placeholder="000000" 
-               maxlength="6"
-               pattern="[0-9]{6}"
-               autocomplete="off">
-        
-        <button id="downloadBtn">ダウンロード</button>
+        <h1>🔐 セキュアファイルダウンロード</h1>
         
         <div id="message"></div>
+        
+        <div id="downloadForm">
+            <div class="form-group">
+                <label for="otp">ワンタイムパスワード (OTP)</label>
+                <input type="text" 
+                       id="otp" 
+                       placeholder="6桁のコードを入力" 
+                       maxlength="6"
+                       pattern="[0-9]{6}"
+                       required>
+                <small style="color: #666; display: block; margin-top: 5px;">
+                    ※ メールで送信された6桁のコードを入力してください
+                </small>
+            </div>
+            
+            <button onclick="downloadFile()">
+                ダウンロード
+            </button>
+            
+            <div id="loading">
+                <p>処理中...</p>
+            </div>
+        </div>
     </div>
     
     <script>
-        // URLからファイルIDを取得
-        const pathParts = window.location.pathname.split('/');
-        const fileId = pathParts[pathParts.length - 1];
+        const fileId = window.location.pathname.split('/').pop();
         
-        console.log('File ID:', fileId); // デバッグ用
-        
-        const otpInput = document.getElementById('otpInput');
-        const downloadBtn = document.getElementById('downloadBtn');
-        const messageDiv = document.getElementById('message');
-        
-        // Enterキーでもダウンロード
-        otpInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                downloadBtn.click();
-            }
-        });
-        
-        downloadBtn.addEventListener('click', async () => {
-            const otp = otpInput.value.trim();
+        async function downloadFile() {
+            const otp = document.getElementById('otp').value;
+            const messageDiv = document.getElementById('message');
+            const loadingDiv = document.getElementById('loading');
             
-            // バリデーション
-            if (otp.length !== 6 || !/^\d{6}$/.test(otp)) {
-                messageDiv.className = 'error';
-                messageDiv.textContent = '6桁の数字を入力してください';
-                messageDiv.style.display = 'block';
+            if (otp.length !== 6 || !/^\d+$/.test(otp)) {
+                showMessage('6桁の数字を入力してください', 'error');
                 return;
             }
             
-            // ボタンを無効化
-            downloadBtn.disabled = true;
-            downloadBtn.textContent = 'ダウンロード中...';
-            messageDiv.style.display = 'none';
+            loadingDiv.style.display = 'block';
+            document.querySelector('button').disabled = true;
             
             try {
-                // APIにPOSTリクエスト
-                const response = await fetch(`/api/download/${fileId}`, {
+                const response = await fetch(`/api/download?id=${fileId}`, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ otp: otp })
+                    body: JSON.stringify({ otp })
                 });
                 
-                console.log('Response status:', response.status); // デバッグ用
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'ダウンロードに失敗しました');
+                }
                 
-                if (response.ok) {
-                    // ファイルのダウンロード処理
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.style.display = 'none';
-                    a.href = url;
-                    
-                    // ファイル名を取得（可能な場合）
-                    const contentDisposition = response.headers.get('Content-Disposition');
-                    let filename = 'download';
-                    if (contentDisposition) {
-                        const match = contentDisposition.match(/filename="(.+)"/);
-                        if (match) filename = match[1];
-                    }
-                    
-                    a.download = filename;
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    document.body.removeChild(a);
-                    
-                    messageDiv.className = 'success';
-                    messageDiv.textContent = 'ダウンロードが開始されました';
-                    messageDiv.style.display = 'block';
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = 'download';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                
+                showMessage('ダウンロードが開始されました', 'success');
+                
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 3000);
+                
+            } catch (error) {
+                showMessage(error.message, 'error');
+                document.querySelector('button').disabled = false;
+            } finally {
+                loadingDiv.style.display = 'none';
+            }
+        }
+        
+        function showMessage(text, type) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.className = `message ${type}`;
+            messageDiv.textContent = text;
+            messageDiv.style.display = 'block';
+        }
+        
+        // ファイルの存在確認
+        window.addEventListener('load', async () => {
+            try {
+                const response = await fetch(`/api/download?id=${fileId}`);
+                if (!response.ok) {
+                    showMessage('ファイルが見つかりません', 'error');
+                    document.getElementById('downloadForm').style.display = 'none';
                 } else {
-                    // エラー処理
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || 'ダウンロードに失敗しました');
+                    showMessage('OTPを入力してダウンロードしてください', 'info');
                 }
             } catch (error) {
-                console.error('Download error:', error); // デバッグ用
-                messageDiv.className = 'error';
-                messageDiv.textContent = error.message;
-                messageDiv.style.display = 'block';
-            } finally {
-                downloadBtn.disabled = false;
-                downloadBtn.textContent = 'ダウンロード';
+                showMessage('エラーが発生しました', 'error');
             }
         });
         
-        // ページ読み込み時にフォーカス
-        window.onload = () => {
-            otpInput.focus();
-        };
+        // Enterキーでダウンロード
+        document.getElementById('otp').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                downloadFile();
+            }
+        });
     </script>
 </body>
 </html>
