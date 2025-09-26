@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DataGate - 統合テスト</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 2em;
+        }
+        
+        h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+        
+        .upload-area {
+            border: 3px dashed #cbd5e0;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            transition: all 0.3s;
+            cursor: pointer;
+            background: #f9fafb;
+        }
+        
+        .upload-area:hover {
+            border-color: #667eea;
+            background: #f0f4f8;
+        }
+        
+        .upload-area.dragover {
+            border-color: #764ba2;
+            background: #e9d8fd;
+        }
+        
+        input[type="file"] {
+            display: none;
+        }
+        
+        .file-info {
+            margin-top: 15px;
+            padding: 10px;
+            background: #edf2f7;
+            border-radius: 5px;
+            display: none;
+        }
+        
+        .file-info.show {
+            display: block;
+        }
+        
+        input[type="email"], input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 16px;
+            margin-bottom: 15px;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            background: #667eea;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+        }
+        
+        button:hover:not(:disabled) {
+            background: #5a67d8;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:disabled {
+            background: #cbd5e0;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .result {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 8px;
+            display: none;
+        }
+        
+        .result.success {
+            background: #c6f6d5;
+            border: 1px solid #9ae6b4;
+            color: #22543d;
+            display: block;
+        }
+        
+        .result.error {
+            background: #fed7d7;
+            border: 1px solid #fc8181;
+            color: #742a2a;
+            display: block;
+        }
+        
+        .otp-display {
+            background: #fef5e7;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            margin: 20px 0;
+            border: 2px solid #f39c12;
+        }
+        
+        .otp-code {
+            font-size: 48px;
+            font-weight: bold;
+            color: #e74c3c;
+            letter-spacing: 10px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .link-box {
+            background: #f7fafc;
+            padding: 15px;
+            border-radius: 8px;
+            word-break: break-all;
+            margin: 15px 0;
+            border: 1px solid #cbd5e0;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        
+        .copy-btn {
+            background: #48bb78;
+            margin-top: 10px;
+        }
+        
+        .copy-btn:hover {
+            background: #38a169;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .loading.show {
+            display: block;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .download-section {
+            border-top: 2px solid #e2e8f0;
+            margin-top: 30px;
+            padding-top: 30px;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .stat-card {
+            background: #f7fafc;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #718096;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>🔐 DataGate 統合テスト</h1>
+            
+            <!-- アップロードセクション -->
+            <section>
+                <h2>📤 ファイルアップロード</h2>
+                
+                <div class="upload-area" id="uploadArea">
+                    <div>
+                        <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#cbd5e0" stroke-width="2" style="margin: 0 auto;">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                    </div>
+                    <p style="margin-top: 15px; color: #718096;">
+                        ファイルをドラッグ＆ドロップ<br>
+                        または クリックして選択
+                    </p>
+                    <div class="file-info" id="fileInfo">
+                        <strong>選択ファイル:</strong> <span id="fileName"></span><br>
+                        <strong>サイズ:</strong> <span id="fileSize"></span>
+                    </div>
+                </div>
+                
+                <input type="file" id="fileInput">
+                
+                <input type="email" 
+                       id="emailInput" 
+                       placeholder="受信者のメールアドレス" 
+                       value="test@example.com">
+                
+                <button id="uploadBtn">
+                    ファイルをアップロード
+                </button>
+                
+                <div class="loading" id="uploadLoading">
+                    <div class="spinner"></div>
+                    <p style="margin-top: 15px;">アップロード中...</p>
+                </div>
+                
+                <div class="result" id="uploadResult"></div>
+            </section>
+            
+            <!-- ダウンロードセクション -->
+            <section class="download-section">
+                <h2>📥 ファイルダウンロード</h2>
+                
+                <input type="text" 
+                       id="downloadId" 
+                       placeholder="ファイルID（64文字）">
+                
+                <input type="text" 
+                       id="otpInput" 
+                       placeholder="OTP（6桁）" 
+                       maxlength="6">
+                
+                <button id="checkBtn" style="margin-bottom: 10px;">
+                    ファイル情報を確認
+                </button>
+                
+                <button id="downloadBtn">
+                    ダウンロード実行
+                </button>
+                
+                <div class="loading" id="downloadLoading">
+                    <div class="spinner"></div>
+                    <p style="margin-top: 15px;">処理中...</p>
+                </div>
+                
+                <div class="result" id="downloadResult"></div>
+            </section>
+            
+            <!-- 統計情報 -->
+            <section style="margin-top: 30px;">
+                <h2>📊 テスト統計</h2>
+                <div class="stats">
+                    <div class="stat-card">
+                        <div class="stat-value" id="uploadCount">0</div>
+                        <div class="stat-label">アップロード数</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="downloadCount">0</div>
+                        <div class="stat-label">ダウンロード数</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="successRate">0%</div>
+                        <div class="stat-label">成功率</div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        // 統計情報
+        let stats = {
+            uploads: 0,
+            downloads: 0,
+            success: 0,
+            total: 0
+        };
+        
+        // DOM要素
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        const emailInput = document.getElementById('emailInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const uploadLoading = document.getElementById('uploadLoading');
+        const uploadResult = document.getElementById('uploadResult');
+        
+        const downloadId = document.getElementById('downloadId');
+        const otpInput = document.getElementById('otpInput');
+        const checkBtn = document.getElementById('checkBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const downloadLoading = document.getElementById('downloadLoading');
+        const downloadResult = document.getElementById('downloadResult');
+        
+        // ファイル選択
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files[0]) {
+                const file = e.target.files[0];
+                fileName.textContent = file.name;
+                fileSize.textContent = formatFileSize(file.size);
+                fileInfo.classList.add('show');
+            }
+        });
+        
+        // ドラッグ＆ドロップ
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            if (e.dataTransfer.files[0]) {
+                fileInput.files = e.dataTransfer.files;
+                const file = e.dataTransfer.files[0];
+                fileName.textContent = file.name;
+                fileSize.textContent = formatFileSize(file.size);
+                fileInfo.classList.add('show');
+            }
+        });
+        
+        // アップロード処理
+        uploadBtn.addEventListener('click', async () => {
+            if (!fileInput.files[0]) {
+                alert('ファイルを選択してください');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            formData.append('recipientEmail', emailInput.value);
+            
+            uploadBtn.disabled = true;
+            uploadLoading.classList.add('show');
+            uploadResult.style.display = 'none';
+            
+            stats.total++;
+            
+            try {
+                // 実際のAPIエンドポイント（Vercelにデプロイ後に変更）
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    stats.uploads++;
+                    stats.success++;
+                    updateStats();
+                    
+                    const downloadUrl = window.location.origin + data.downloadLink;
+                    
+                    uploadResult.className = 'result success';
+                    uploadResult.innerHTML = `
+                        <h3>✅ アップロード成功！</h3>
+                        
+                        <p><strong>ファイル名:</strong> ${data.fileName}</p>
+                        <p><strong>ファイルID:</strong></p>
+                        <div class="link-box">${data.fileId}</div>
+                        
+                        <div class="otp-display">
+                            <p><strong>認証コード（OTP）</strong></p>
+                            <div class="otp-code">${data.otp}</div>
+                            <p><small>このコードはダウンロード時に必要です</small></p>
+                        </div>
+                        
+                        <p><strong>ダウンロードリンク:</strong></p>
+                        <div class="link-box">${downloadUrl}</div>
+                        
+                        <button class="copy-btn" onclick="copyToClipboard('${data.fileId}', '${data.otp}')">
+                            📋 ID と OTP をコピー
+                        </button>
+                    `;
+                    
+                    // 自動的にダウンロードフィールドに入力
+                    downloadId.value = data.fileId;
+                    otpInput.value = data.otp;
+                    
+                } else {
+                    throw new Error(data.error || 'アップロードに失敗しました');
+                }
+                
+            } catch (error) {
+                uploadResult.className = 'result error';
+                uploadResult.innerHTML = `
+                    <h3>❌ エラー</h3>
+                    <p>${error.message}</p>
+                `;
+                updateStats();
+                
+            } finally {
+                uploadBtn.disabled = false;
+                uploadLoading.classList.remove('show');
+            }
+        });
+        
+        // ファイル情報確認
+        checkBtn.addEventListener('click', async () => {
+            const fileId = downloadId.value.trim();
+            
+            if (!fileId) {
+                alert('ファイルIDを入力してください');
+                return;
+            }
+            
+            checkBtn.disabled = true;
+            downloadLoading.classList.add('show');
+            downloadResult.style.display = 'none';
+            
+            try {
+                const response = await fetch(`/api/download?id=${fileId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    downloadResult.className = 'result success';
+                    downloadResult.innerHTML = `
+                        <h3>📁 ファイル情報</h3>
+                        <p><strong>ファイル名:</strong> ${data.fileName}</p>
+                        <p><strong>サイズ:</strong> ${formatFileSize(data.fileSize)}</p>
+                        <p><strong>残りダウンロード回数:</strong> ${data.remainingDownloads}</p>
+                        <p><strong>アップロード時刻:</strong> ${new Date(data.uploadTime).toLocaleString('ja-JP')}</p>
+                    `;
+                } else {
+                    throw new Error(data.error || 'ファイルが見つかりません');
+                }
+                
+            } catch (error) {
+                downloadResult.className = 'result error';
+                downloadResult.innerHTML = `
+                    <h3>❌ エラー</h3>
+                    <p>${error.message}</p>
+                `;
+                
+            } finally {
+                checkBtn.disabled = false;
+                downloadLoading.classList.remove('show');
+            }
+        });
+        
+        // ダウンロード処理
+        downloadBtn.addEventListener('click', async () => {
+            const fileId = downloadId.value.trim();
+            const otp = otpInput.value.trim();
+            
+            if (!fileId || !otp) {
+                alert('ファイルIDとOTPを入力してください');
+                return;
+            }
+            
+            downloadBtn.disabled = true;
+            downloadLoading.classList.add('show');
+            downloadResult.style.display = 'none';
+            
+            stats.total++;
+            
+            try {
+                const response = await fetch(`/api/download?id=${fileId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ otp })
+                });
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    
+                    // ファイル名の取得
+                    const contentDisposition = response.headers.get('Content-Disposition');
+                    const fileNameMatch = contentDisposition?.match(/filename="(.+)"/);
+                    a.download = fileNameMatch ? fileNameMatch[1] : 'download';
+                    
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    
+                    stats.downloads++;
+                    stats.success++;
+                    updateStats();
+                    
+                    downloadResult.className = 'result success';
+                    downloadResult.innerHTML = `
+                        <h3>✅ ダウンロード成功！</h3>
+                        <p>ファイルのダウンロードが開始されました。</p>
+                    `;
+                    
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.error || 'ダウンロードに失敗しました');
+                }
+                
+            } catch (error) {
+                downloadResult.className = 'result error';
+                downloadResult.innerHTML = `
+                    <h3>❌ エラー</h3>
+                    <p>${error.message}</p>
+                `;
+                updateStats();
+                
+            } finally {
+                downloadBtn.disabled = false;
+                downloadLoading.classList.remove('show');
+            }
+        });
+        
+        // ユーティリティ関数
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+        
+        function copyToClipboard(fileId, otp) {
+            const text = `ファイルID: ${fileId}\nOTP: ${otp}`;
+            navigator.clipboard.writeText(text).then(() => {
+                alert('コピーしました！');
+            });
+        }
+        
+        function updateStats() {
+            document.getElementById('uploadCount').textContent = stats.uploads;
+            document.getElementById('downloadCount').textContent = stats.downloads;
+            const rate = stats.total > 0 ? Math.round((stats.success / stats.total) * 100) : 0;
+            document.getElementById('successRate').textContent = rate + '%';
+        }
+    </script>
+</body>
+</html>

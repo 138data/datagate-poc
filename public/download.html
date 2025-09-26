@@ -6,7 +6,7 @@
     <title>DataGate - ファイルダウンロード</title>
     <style>
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             display: flex;
             justify-content: center;
@@ -45,6 +45,7 @@
             border-radius: 8px;
             font-size: 16px;
             transition: border-color 0.3s;
+            box-sizing: border-box;
         }
         input:focus {
             outline: none;
@@ -77,6 +78,7 @@
             border-radius: 8px;
             margin-bottom: 20px;
             text-align: center;
+            display: none;
         }
         .error {
             background: #fee;
@@ -131,84 +133,96 @@
     </div>
     
     <script>
-        const fileId = window.location.pathname.split('/').pop();
+        // URLパラメータからファイルID取得
+        const urlParams = new URLSearchParams(window.location.search);
+        const fileId = urlParams.get("id");
+        
+        if (!fileId) {
+            document.getElementById("message").className = "message error";
+            document.getElementById("message").textContent = "ファイルIDが指定されていません";
+            document.getElementById("message").style.display = "block";
+            document.getElementById("downloadForm").style.display = "none";
+        }
         
         async function downloadFile() {
-            const otp = document.getElementById('otp').value;
-            const messageDiv = document.getElementById('message');
-            const loadingDiv = document.getElementById('loading');
+            const otp = document.getElementById("otp").value;
+            const messageDiv = document.getElementById("message");
+            const loadingDiv = document.getElementById("loading");
             
             if (otp.length !== 6 || !/^\d+$/.test(otp)) {
-                showMessage('6桁の数字を入力してください', 'error');
+                showMessage("6桁の数字を入力してください", "error");
                 return;
             }
             
-            loadingDiv.style.display = 'block';
-            document.querySelector('button').disabled = true;
+            loadingDiv.style.display = "block";
+            document.querySelector("button").disabled = true;
             
             try {
                 const response = await fetch(`/api/download?id=${fileId}`, {
-                    method: 'POST',
+                    method: "POST",
                     headers: {
-                        'Content-Type': 'application/json',
+                        "Content-Type": "application/json",
                     },
                     body: JSON.stringify({ otp })
                 });
                 
                 if (!response.ok) {
                     const error = await response.json();
-                    throw new Error(error.error || 'ダウンロードに失敗しました');
+                    throw new Error(error.error || "ダウンロードに失敗しました");
                 }
                 
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.style.display = 'none';
+                const a = document.createElement("a");
+                a.style.display = "none";
                 a.href = url;
-                a.download = 'download';
+                a.download = "download";
                 document.body.appendChild(a);
                 a.click();
                 window.URL.revokeObjectURL(url);
                 
-                showMessage('ダウンロードが開始されました', 'success');
+                showMessage("ダウンロードが開始されました", "success");
                 
                 setTimeout(() => {
-                    window.location.href = '/';
+                    window.location.href = "/";
                 }, 3000);
                 
             } catch (error) {
-                showMessage(error.message, 'error');
-                document.querySelector('button').disabled = false;
+                showMessage(error.message, "error");
+                document.querySelector("button").disabled = false;
             } finally {
-                loadingDiv.style.display = 'none';
+                loadingDiv.style.display = "none";
             }
         }
         
         function showMessage(text, type) {
-            const messageDiv = document.getElementById('message');
+            const messageDiv = document.getElementById("message");
             messageDiv.className = `message ${type}`;
             messageDiv.textContent = text;
-            messageDiv.style.display = 'block';
+            messageDiv.style.display = "block";
         }
         
         // ファイルの存在確認
-        window.addEventListener('load', async () => {
+        window.addEventListener("load", async () => {
+            if (!fileId) return;
+            
             try {
                 const response = await fetch(`/api/download?id=${fileId}`);
                 if (!response.ok) {
-                    showMessage('ファイルが見つかりません', 'error');
-                    document.getElementById('downloadForm').style.display = 'none';
+                    showMessage("ファイルが見つかりません", "error");
+                    document.getElementById("downloadForm").style.display = "none";
                 } else {
-                    showMessage('OTPを入力してダウンロードしてください', 'info');
+                    const data = await response.json();
+                    showMessage(`ファイル: ${data.fileName} (残り${data.remainingDownloads}回ダウンロード可能)`, "info");
                 }
             } catch (error) {
-                showMessage('エラーが発生しました', 'error');
+                showMessage("エラーが発生しました", "error");
             }
         });
         
         // Enterキーでダウンロード
-        document.getElementById('otp').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
+        document.getElementById("otp").addEventListener("keypress", (e) => {
+            if (e.key === "Enter") {
                 downloadFile();
             }
         });
