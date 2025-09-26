@@ -1,5 +1,25 @@
-﻿const crypto = require('crypto');
-const fileStorage = new Map();
+﻿// DataGate Upload API - グローバルストレージ対応版
+const crypto = require('crypto');
+
+// グローバルストレージ（Vercelでの永続化のため）
+global.fileStorage = global.fileStorage || new Map();
+
+// テストファイルを事前に作成
+if (global.fileStorage.size === 0) {
+    const testId = 'test123';
+    global.fileStorage.set(testId, {
+        fileName: 'test-file.txt',
+        fileData: Buffer.from('This is a test file content'),
+        fileSize: 27,
+        mimeType: 'text/plain',
+        otp: '123456',
+        uploadTime: new Date().toISOString(),
+        downloadCount: 0,
+        maxDownloads: 100
+    });
+    console.log('Test file created with ID:', testId);
+}
+
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 module.exports = async (req, res) => {
@@ -36,10 +56,11 @@ module.exports = async (req, res) => {
         });
         
         const buffer = Buffer.concat(chunks);
-        const fileId = crypto.randomBytes(32).toString('hex');
+        const fileId = crypto.randomBytes(16).toString('hex'); // 短いIDに
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         
-        fileStorage.set(fileId, {
+        // グローバルストレージに保存
+        global.fileStorage.set(fileId, {
             fileName: 'uploaded-file.dat',
             fileData: buffer,
             fileSize: buffer.length,
@@ -50,9 +71,8 @@ module.exports = async (req, res) => {
             maxDownloads: 3
         });
         
-        module.exports.fileStorage = fileStorage;
+        console.log('File stored with ID:', fileId, 'Storage size:', global.fileStorage.size);
         
-        // 完全なURLを生成
         const baseUrl = 'https://datagate-poc.vercel.app';
         const downloadPath = `/download.html?id=${fileId}`;
         const fullDownloadUrl = `${baseUrl}${downloadPath}`;
@@ -61,10 +81,11 @@ module.exports = async (req, res) => {
             success: true,
             message: 'ファイルが正常にアップロードされました',
             fileId: fileId,
-            downloadLink: fullDownloadUrl,  // 完全なURL
+            downloadLink: fullDownloadUrl,
             otp: otp,
             fileName: 'uploaded-file.dat',
-            fileSize: buffer.length
+            fileSize: buffer.length,
+            testLink: `${baseUrl}/download.html?id=test123` // テスト用リンク
         });
         
     } catch (error) {
@@ -75,5 +96,3 @@ module.exports = async (req, res) => {
         });
     }
 };
-
-module.exports.fileStorage = fileStorage;
