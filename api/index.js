@@ -1,4 +1,21 @@
-﻿module.exports = (req, res) => {
+﻿// DataGate API - Temporary Fix
+global.fileStorage = global.fileStorage || new Map();
+
+// テストファイルを常に利用可能に
+if (!global.fileStorage.has('test123')) {
+    global.fileStorage.set('test123', {
+        fileName: 'test-file.txt',
+        fileData: Buffer.from('This is a test file content'),
+        fileSize: 27,
+        mimeType: 'text/plain',
+        otp: '123456',
+        uploadTime: new Date().toISOString(),
+        downloadCount: 0,
+        maxDownloads: 100
+    });
+}
+
+module.exports = (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     
     const path = req.url.split('?')[0];
