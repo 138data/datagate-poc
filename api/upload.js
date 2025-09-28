@@ -1,22 +1,17 @@
-﻿// DataGate Upload API - Vercel KV Storage蟇ｾ蠢懃沿
-// Version: 2.0.0 (KV Storage)
-// Last Updated: 2025-09-26
-
+﻿// DataGate Upload API - Upstash Redis対応版
 const crypto = require('crypto');
 
-// Vercel KV Storage (迺ｰ蠅・､画焚縺ｧ譛牙柑縺ｪ蝣ｴ蜷医・縺ｿ)
-let kv;
+let redis;
 try {
-    kv = require('@upstash/redis').kv;
+    const { Redis } = require('@upstash/redis');
+    redis = new Redis({
+        url: 'https://joint-whippet-14198.upstash.io',
+        token: 'ATd2AAIncDJmMmE5NWE5OWE4YTE0NDg3OTAwMDQwNmJlZTBlMDkzZXAyMTQxOTg'
+    });
+    console.log('[Upload] Upstash Redis connected');
 } catch (e) {
-    console.log('[Upload] KV Storage not available, using memory storage');
+    console.log('[Upload] Redis not available:', e.message);
 }
-
-// 繝輔か繝ｼ繝ｫ繝舌ャ繧ｯ逕ｨ繝｡繝｢繝ｪ繧ｹ繝医Ξ繝ｼ繧ｸ
-const memoryStorage = new Map();
-
-// 繧ｹ繝医Ξ繝ｼ繧ｸ險ｭ螳・const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-const FILE_EXPIRY_DAYS = 7; // 7譌･髢・
 module.exports = async (req, res) => {
     // CORS險ｭ螳・    res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -67,18 +62,18 @@ module.exports = async (req, res) => {
             expiryTime: new Date(Date.now() + FILE_EXPIRY_DAYS * 24 * 60 * 60 * 1000).toISOString()
         };
         
-        // 繧ｹ繝医Ξ繝ｼ繧ｸ縺ｫ菫晏ｭ・        if (kv) {
-            // KV Storage縺悟茜逕ｨ蜿ｯ閭ｽ縺ｪ蝣ｴ蜷・            console.log('[Upload] Saving to KV Storage...');
+        // 繧ｹ繝医Ξ繝ｼ繧ｸ縺ｫ菫晏ｭ・        if (redis) {
+            // redis Storage縺悟茜逕ｨ蜿ｯ閭ｽ縺ｪ蝣ｴ蜷・            console.log('[Upload] Saving to redis Storage...');
             
-            // 繝｡繧ｿ繝・・繧ｿ繧剃ｿ晏ｭ・            await kv.set(`file:${fileId}:meta`, JSON.stringify(fileInfo), {
+            // 繝｡繧ｿ繝・・繧ｿ繧剃ｿ晏ｭ・            await redis.set(`file:${fileId}:meta`, JSON.stringify(fileInfo), {
                 ex: FILE_EXPIRY_DAYS * 24 * 60 * 60 // TTL in seconds
             });
             
-            // 繝輔ぃ繧､繝ｫ繝・・繧ｿ繧剃ｿ晏ｭ假ｼ・ase64繧ｨ繝ｳ繧ｳ繝ｼ繝会ｼ・            await kv.set(`file:${fileId}:data`, buffer.toString('base64'), {
+            // 繝輔ぃ繧､繝ｫ繝・・繧ｿ繧剃ｿ晏ｭ假ｼ・ase64繧ｨ繝ｳ繧ｳ繝ｼ繝会ｼ・            await redis.set(`file:${fileId}:data`, buffer.toString('base64'), {
                 ex: FILE_EXPIRY_DAYS * 24 * 60 * 60
             });
             
-            console.log(`[Upload] File saved to KV: ${fileId}`);
+            console.log(`[Upload] File saved to redis: ${fileId}`);
             
         } else {
             // 繝｡繝｢繝ｪ繧ｹ繝医Ξ繝ｼ繧ｸ縺ｫ繝輔か繝ｼ繝ｫ繝舌ャ繧ｯ
@@ -103,7 +98,7 @@ module.exports = async (req, res) => {
             otp: otp,
             fileName: fileInfo.fileName,
             fileSize: fileInfo.fileSize,
-            storageType: kv ? 'KV Storage (Persistent)' : 'Memory (Temporary)',
+            storageType: redis ? 'redis Storage (Persistent)' : 'Memory (Temporary)',
             expiryDate: fileInfo.expiryTime
         });
         
@@ -133,14 +128,14 @@ module.exports = async (req, res) => {
         expiryTime: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
     };
     
-    if (kv) {
-        await kv.set(`file:${fileId}:meta`, JSON.stringify(testFile), {
+    if (redis) {
+        await redis.set(`file:${fileId}:meta`, JSON.stringify(testFile), {
             ex: 30 * 24 * 60 * 60
         });
-        await kv.set(`file:${fileId}:data`, Buffer.from('This is a test file content').toString('base64'), {
+        await redis.set(`file:${fileId}:data`, Buffer.from('This is a test file content').toString('base64'), {
             ex: 30 * 24 * 60 * 60
         });
-        console.log('[Test] Created test file in KV Storage');
+        console.log('[Test] Created test file in redis Storage');
     } else {
         testFile.fileData = Buffer.from('This is a test file content');
         memoryStorage.set(fileId, testFile);
@@ -155,7 +150,8 @@ module.exports = async (req, res) => {
         message: 'Test file created',
         fileId: fileId,
         otp: otp,
-        storageType: kv ? 'KV Storage' : 'Memory'
+        storageType: redis ? 'redis Storage' : 'Memory'
     });
 };
+
 

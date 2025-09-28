@@ -1,18 +1,15 @@
-﻿// DataGate Download API - Vercel KV Storage蟇ｾ蠢懃沿
-// Version: 2.0.0 (KV Storage)
-// Last Updated: 2025-09-26
-
-// Vercel KV Storage
-let kv;
+﻿// DataGate Download API - Upstash Redis対応版
+let redis;
 try {
-    kv = require('@upstash/redis').kv;
+    const { Redis } = require('@upstash/redis');
+    redis = new Redis({
+        url: 'https://joint-whippet-14198.upstash.io',
+        token: 'ATd2AAIncDJmMmE5NWE5OWE4YTE0NDg3OTAwMDQwNmJlZTBlMDkzZXAyMTQxOTg'
+    });
+    console.log('[Download] Upstash Redis connected');
 } catch (e) {
-    console.log('[Download] KV Storage not available, using memory storage');
+    console.log('[Download] Redis not available:', e.message);
 }
-
-// 繝輔か繝ｼ繝ｫ繝舌ャ繧ｯ逕ｨ繝｡繝｢繝ｪ繧ｹ繝医Ξ繝ｼ繧ｸ
-const memoryStorage = new Map();
-
 module.exports = async (req, res) => {
     // CORS險ｭ螳・    res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -37,18 +34,18 @@ module.exports = async (req, res) => {
     let fileData = null;
     
     try {
-        if (kv) {
-            // KV Storage縺九ｉ蜿門ｾ・            console.log('[Download] Checking KV Storage...');
+        if (redis) {
+            // redis Storage縺九ｉ蜿門ｾ・            console.log('[Download] Checking redis Storage...');
             const metaKey = `file:${id}:meta`;
             const dataKey = `file:${id}:data`;
             
-            const metaJson = await kv.get(metaKey);
+            const metaJson = await redis.get(metaKey);
             if (metaJson) {
                 fileInfo = JSON.parse(metaJson);
-                const base64Data = await kv.get(dataKey);
+                const base64Data = await redis.get(dataKey);
                 if (base64Data) {
                     fileData = Buffer.from(base64Data, 'base64');
-                    console.log(`[Download] Found in KV Storage: ${id}`);
+                    console.log(`[Download] Found in redis Storage: ${id}`);
                 }
             }
         } else {
@@ -79,9 +76,9 @@ module.exports = async (req, res) => {
             };
             fileData = Buffer.from('This is a test file content');
             
-            // KV Storage縺ｫ菫晏ｭ假ｼ亥茜逕ｨ蜿ｯ閭ｽ縺ｪ蝣ｴ蜷茨ｼ・            if (kv) {
-                await kv.set(`file:test123:meta`, JSON.stringify(fileInfo), { ex: 86400 });
-                await kv.set(`file:test123:data`, fileData.toString('base64'), { ex: 86400 });
+            // redis Storage縺ｫ菫晏ｭ假ｼ亥茜逕ｨ蜿ｯ閭ｽ縺ｪ蝣ｴ蜷茨ｼ・            if (redis) {
+                await redis.set(`file:test123:meta`, JSON.stringify(fileInfo), { ex: 86400 });
+                await redis.set(`file:test123:data`, fileData.toString('base64'), { ex: 86400 });
             }
         }
         
@@ -107,7 +104,7 @@ module.exports = async (req, res) => {
             uploadTime: fileInfo.uploadTime,
             remainingDownloads: fileInfo.maxDownloads - fileInfo.downloadCount,
             requiresOTP: true,
-            storageType: kv ? 'KV Storage' : 'Memory'
+            storageType: redis ? 'redis Storage' : 'Memory'
         });
     }
     
@@ -159,22 +156,22 @@ module.exports = async (req, res) => {
         fileInfo.downloadCount++;
         console.log(`[Download] Download ${fileInfo.downloadCount}/${fileInfo.maxDownloads}`);
         
-        // KV Storage縺ｮ蝣ｴ蜷医・譖ｴ譁ｰ
-        if (kv && id !== 'test123') {
+        // redis Storage縺ｮ蝣ｴ蜷医・譖ｴ譁ｰ
+        if (redis && id !== 'test123') {
             try {
                 const metaKey = `file:${id}:meta`;
-                await kv.set(metaKey, JSON.stringify(fileInfo), {
+                await redis.set(metaKey, JSON.stringify(fileInfo), {
                     ex: Math.max(1, Math.floor((new Date(fileInfo.expiryTime) - new Date()) / 1000))
                 });
                 
                 // 繝繧ｦ繝ｳ繝ｭ繝ｼ繝牙宛髯舌↓驕斐＠縺溘ｉ蜑企勁
                 if (fileInfo.downloadCount >= fileInfo.maxDownloads) {
                     console.log(`[Download] Removing file ${id} (max downloads reached)`);
-                    await kv.del(`file:${id}:meta`);
-                    await kv.del(`file:${id}:data`);
+                    await redis.del(`file:${id}:meta`);
+                    await redis.del(`file:${id}:data`);
                 }
             } catch (error) {
-                console.error('[Download] KV update error:', error);
+                console.error('[Download] redis update error:', error);
             }
         }
         
@@ -201,14 +198,14 @@ module.exports = async (req, res) => {
 
 // 繧ｹ繝医Ξ繝ｼ繧ｸ諠・ｱ蜿門ｾ暦ｼ医ョ繝舌ャ繧ｰ逕ｨ・・module.exports.getStorageInfo = async () => {
     const info = {
-        kvAvailable: !!kv,
+        kvAvailable: !!redis,
         memoryCount: memoryStorage.size,
         globalCount: global.fileStorage ? global.fileStorage.size : 0
     };
     
-    if (kv) {
+    if (redis) {
         try {
-            // KV Storage縺ｮ繧ｭ繝ｼ繧貞叙蠕暦ｼ医ヱ繧ｿ繝ｼ繝ｳ繝槭ャ繝・ｼ・            const keys = await kv.keys('file:*:meta');
+            // redis Storage縺ｮ繧ｭ繝ｼ繧貞叙蠕暦ｼ医ヱ繧ｿ繝ｼ繝ｳ繝槭ャ繝・ｼ・            const keys = await redis.keys('file:*:meta');
             info.kvCount = keys.length;
             info.kvKeys = keys.slice(0, 5); // 譛蛻昴・5莉ｶ
         } catch (e) {
@@ -218,4 +215,5 @@ module.exports = async (req, res) => {
     
     return info;
 };
+
 
