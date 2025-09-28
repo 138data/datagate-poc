@@ -1,21 +1,20 @@
-// DataGate Download API - Vercel KV Storage対応版
+﻿// DataGate Download API - Vercel KV Storage蟇ｾ蠢懃沿
 // Version: 2.0.0 (KV Storage)
 // Last Updated: 2025-09-26
 
 // Vercel KV Storage
 let kv;
 try {
-    kv = require('@vercel/kv').kv;
+    kv = require('@upstash/redis').kv;
 } catch (e) {
     console.log('[Download] KV Storage not available, using memory storage');
 }
 
-// フォールバック用メモリストレージ
+// 繝輔か繝ｼ繝ｫ繝舌ャ繧ｯ逕ｨ繝｡繝｢繝ｪ繧ｹ繝医Ξ繝ｼ繧ｸ
 const memoryStorage = new Map();
 
 module.exports = async (req, res) => {
-    // CORS設定
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    // CORS險ｭ螳・    res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     
@@ -34,14 +33,12 @@ module.exports = async (req, res) => {
     
     console.log(`[Download] Looking for file: ${id}`);
     
-    // ファイル情報取得
-    let fileInfo = null;
+    // 繝輔ぃ繧､繝ｫ諠・ｱ蜿門ｾ・    let fileInfo = null;
     let fileData = null;
     
     try {
         if (kv) {
-            // KV Storageから取得
-            console.log('[Download] Checking KV Storage...');
+            // KV Storage縺九ｉ蜿門ｾ・            console.log('[Download] Checking KV Storage...');
             const metaKey = `file:${id}:meta`;
             const dataKey = `file:${id}:data`;
             
@@ -55,10 +52,9 @@ module.exports = async (req, res) => {
                 }
             }
         } else {
-            // メモリストレージから取得
-            console.log('[Download] Checking memory storage...');
+            // 繝｡繝｢繝ｪ繧ｹ繝医Ξ繝ｼ繧ｸ縺九ｉ蜿門ｾ・            console.log('[Download] Checking memory storage...');
             
-            // グローバル変数をチェック
+            // 繧ｰ繝ｭ繝ｼ繝舌Ν螟画焚繧偵メ繧ｧ繝・け
             if (global.fileStorage && global.fileStorage.has(id)) {
                 fileInfo = global.fileStorage.get(id);
                 fileData = fileInfo.fileData;
@@ -70,8 +66,7 @@ module.exports = async (req, res) => {
             }
         }
         
-        // テストファイルの特別処理
-        if (!fileInfo && id === 'test123') {
+        // 繝・せ繝医ヵ繧｡繧､繝ｫ縺ｮ迚ｹ蛻･蜃ｦ逅・        if (!fileInfo && id === 'test123') {
             console.log('[Download] Creating test file...');
             fileInfo = {
                 fileName: 'test-file.txt',
@@ -84,8 +79,7 @@ module.exports = async (req, res) => {
             };
             fileData = Buffer.from('This is a test file content');
             
-            // KV Storageに保存（利用可能な場合）
-            if (kv) {
+            // KV Storage縺ｫ菫晏ｭ假ｼ亥茜逕ｨ蜿ｯ閭ｽ縺ｪ蝣ｴ蜷茨ｼ・            if (kv) {
                 await kv.set(`file:test123:meta`, JSON.stringify(fileInfo), { ex: 86400 });
                 await kv.set(`file:test123:data`, fileData.toString('base64'), { ex: 86400 });
             }
@@ -104,8 +98,7 @@ module.exports = async (req, res) => {
         });
     }
     
-    // GETリクエスト：ファイル情報確認
-    if (req.method === 'GET') {
+    // GET繝ｪ繧ｯ繧ｨ繧ｹ繝茨ｼ壹ヵ繧｡繧､繝ｫ諠・ｱ遒ｺ隱・    if (req.method === 'GET') {
         return res.status(200).json({
             success: true,
             exists: true,
@@ -118,8 +111,7 @@ module.exports = async (req, res) => {
         });
     }
     
-    // POSTリクエスト：OTP認証とダウンロード
-    if (req.method === 'POST') {
+    // POST繝ｪ繧ｯ繧ｨ繧ｹ繝茨ｼ唹TP隱崎ｨｼ縺ｨ繝繧ｦ繝ｳ繝ｭ繝ｼ繝・    if (req.method === 'POST') {
         let body = '';
         await new Promise((resolve) => {
             req.on('data', chunk => {
@@ -155,7 +147,7 @@ module.exports = async (req, res) => {
             });
         }
         
-        // ダウンロード回数チェック
+        // 繝繧ｦ繝ｳ繝ｭ繝ｼ繝牙屓謨ｰ繝√ぉ繝・け
         if (fileInfo.downloadCount >= fileInfo.maxDownloads) {
             return res.status(403).json({
                 success: false,
@@ -163,11 +155,11 @@ module.exports = async (req, res) => {
             });
         }
         
-        // ダウンロード回数を増加
+        // 繝繧ｦ繝ｳ繝ｭ繝ｼ繝牙屓謨ｰ繧貞｢怜刈
         fileInfo.downloadCount++;
         console.log(`[Download] Download ${fileInfo.downloadCount}/${fileInfo.maxDownloads}`);
         
-        // KV Storageの場合は更新
+        // KV Storage縺ｮ蝣ｴ蜷医・譖ｴ譁ｰ
         if (kv && id !== 'test123') {
             try {
                 const metaKey = `file:${id}:meta`;
@@ -175,7 +167,7 @@ module.exports = async (req, res) => {
                     ex: Math.max(1, Math.floor((new Date(fileInfo.expiryTime) - new Date()) / 1000))
                 });
                 
-                // ダウンロード制限に達したら削除
+                // 繝繧ｦ繝ｳ繝ｭ繝ｼ繝牙宛髯舌↓驕斐＠縺溘ｉ蜑企勁
                 if (fileInfo.downloadCount >= fileInfo.maxDownloads) {
                     console.log(`[Download] Removing file ${id} (max downloads reached)`);
                     await kv.del(`file:${id}:meta`);
@@ -186,15 +178,14 @@ module.exports = async (req, res) => {
             }
         }
         
-        // ファイルが存在しない場合
-        if (!fileData) {
+        // 繝輔ぃ繧､繝ｫ縺悟ｭ伜惠縺励↑縺・ｴ蜷・        if (!fileData) {
             return res.status(500).json({
                 success: false,
                 error: 'File data not found'
             });
         }
         
-        // ファイル送信
+        // 繝輔ぃ繧､繝ｫ騾∽ｿ｡
         res.setHeader('Content-Type', fileInfo.mimeType || 'application/octet-stream');
         res.setHeader('Content-Disposition', `attachment; filename="${fileInfo.fileName}"`);
         res.setHeader('Content-Length', fileData.length);
@@ -208,8 +199,7 @@ module.exports = async (req, res) => {
     });
 };
 
-// ストレージ情報取得（デバッグ用）
-module.exports.getStorageInfo = async () => {
+// 繧ｹ繝医Ξ繝ｼ繧ｸ諠・ｱ蜿門ｾ暦ｼ医ョ繝舌ャ繧ｰ逕ｨ・・module.exports.getStorageInfo = async () => {
     const info = {
         kvAvailable: !!kv,
         memoryCount: memoryStorage.size,
@@ -218,10 +208,9 @@ module.exports.getStorageInfo = async () => {
     
     if (kv) {
         try {
-            // KV Storageのキーを取得（パターンマッチ）
-            const keys = await kv.keys('file:*:meta');
+            // KV Storage縺ｮ繧ｭ繝ｼ繧貞叙蠕暦ｼ医ヱ繧ｿ繝ｼ繝ｳ繝槭ャ繝・ｼ・            const keys = await kv.keys('file:*:meta');
             info.kvCount = keys.length;
-            info.kvKeys = keys.slice(0, 5); // 最初の5件
+            info.kvKeys = keys.slice(0, 5); // 譛蛻昴・5莉ｶ
         } catch (e) {
             info.kvError = e.message;
         }
@@ -229,3 +218,4 @@ module.exports.getStorageInfo = async () => {
     
     return info;
 };
+
