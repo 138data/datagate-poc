@@ -1,28 +1,26 @@
-﻿// DataGate Upload API - グローバルストレージ対応版
+// DataGate Upload API - Vercel KV Storage対応版
+// Version: 2.0.0 (KV Storage)
+// Last Updated: 2025-09-26
+
 const crypto = require('crypto');
 
-// グローバルストレージ（Vercelでの永続化のため）
-global.fileStorage = global.fileStorage || new Map();
-
-// テストファイルを事前に作成
-if (global.fileStorage.size === 0) {
-    const testId = 'test123';
-    global.fileStorage.set(testId, {
-        fileName: 'test-file.txt',
-        fileData: Buffer.from('This is a test file content'),
-        fileSize: 27,
-        mimeType: 'text/plain',
-        otp: '123456',
-        uploadTime: new Date().toISOString(),
-        downloadCount: 0,
-        maxDownloads: 100
-    });
-    console.log('Test file created with ID:', testId);
+// Vercel KV Storage (環境変数で有効な場合のみ)
+let kv;
+try {
+    kv = require('@vercel/kv').kv;
+} catch (e) {
+    console.log('[Upload] KV Storage not available, using memory storage');
 }
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+// フォールバック用メモリストレージ
+const memoryStorage = new Map();
+
+// ストレージ設定
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const FILE_EXPIRY_DAYS = 7; // 7日間
 
 module.exports = async (req, res) => {
+    // CORS設定
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -39,6 +37,7 @@ module.exports = async (req, res) => {
     }
     
     try {
+        // ボディデータ収集
         const chunks = [];
         let totalSize = 0;
         
@@ -46,7 +45,7 @@ module.exports = async (req, res) => {
             req.on('data', chunk => {
                 totalSize += chunk.length;
                 if (totalSize > MAX_FILE_SIZE) {
-                    reject(new Error('File size exceeds 10MB limit'));
+                    reject(new Error('ファイルサイズが10MBを超えています'));
                     return;
                 }
                 chunks.push(chunk);
@@ -56,23 +55,52 @@ module.exports = async (req, res) => {
         });
         
         const buffer = Buffer.concat(chunks);
-        const fileId = crypto.randomBytes(16).toString('hex'); // 短いIDに
+        
+        // ファイルIDとOTP生成
+        const fileId = crypto.randomBytes(16).toString('hex'); // 32文字
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         
-        // グローバルストレージに保存
-        global.fileStorage.set(fileId, {
+        // ファイル情報オブジェクト
+        const fileInfo = {
             fileName: 'uploaded-file.dat',
-            fileData: buffer,
             fileSize: buffer.length,
             mimeType: 'application/octet-stream',
             otp: otp,
             uploadTime: new Date().toISOString(),
             downloadCount: 0,
-            maxDownloads: 3
-        });
+            maxDownloads: 3,
+            expiryTime: new Date(Date.now() + FILE_EXPIRY_DAYS * 24 * 60 * 60 * 1000).toISOString()
+        };
         
-        console.log('File stored with ID:', fileId, 'Storage size:', global.fileStorage.size);
+        // ストレージに保存
+        if (kv) {
+            // KV Storageが利用可能な場合
+            console.log('[Upload] Saving to KV Storage...');
+            
+            // メタデータを保存
+            await kv.set(`file:${fileId}:meta`, JSON.stringify(fileInfo), {
+                ex: FILE_EXPIRY_DAYS * 24 * 60 * 60 // TTL in seconds
+            });
+            
+            // ファイルデータを保存（Base64エンコード）
+            await kv.set(`file:${fileId}:data`, buffer.toString('base64'), {
+                ex: FILE_EXPIRY_DAYS * 24 * 60 * 60
+            });
+            
+            console.log(`[Upload] File saved to KV: ${fileId}`);
+            
+        } else {
+            // メモリストレージにフォールバック
+            console.log('[Upload] Using memory storage (temporary)');
+            fileInfo.fileData = buffer;
+            memoryStorage.set(fileId, fileInfo);
+            
+            // グローバル変数にも保存（互換性のため）
+            global.fileStorage = global.fileStorage || new Map();
+            global.fileStorage.set(fileId, fileInfo);
+        }
         
+        // レスポンス
         const baseUrl = 'https://datagate-poc.vercel.app';
         const downloadPath = `/download.html?id=${fileId}`;
         const fullDownloadUrl = `${baseUrl}${downloadPath}`;
@@ -83,9 +111,10 @@ module.exports = async (req, res) => {
             fileId: fileId,
             downloadLink: fullDownloadUrl,
             otp: otp,
-            fileName: 'uploaded-file.dat',
-            fileSize: buffer.length,
-            testLink: `${baseUrl}/download.html?id=test123` // テスト用リンク
+            fileName: fileInfo.fileName,
+            fileSize: fileInfo.fileSize,
+            storageType: kv ? 'KV Storage (Persistent)' : 'Memory (Temporary)',
+            expiryDate: fileInfo.expiryTime
         });
         
     } catch (error) {
@@ -95,4 +124,49 @@ module.exports = async (req, res) => {
             error: error.message || 'Upload failed'
         });
     }
+};
+
+// メモリストレージをエクスポート（互換性のため）
+module.exports.fileStorage = memoryStorage;
+
+// テスト用エンドポイント（/api/test-upload）
+module.exports.testUpload = async (req, res) => {
+    const fileId = 'test123';
+    const otp = '123456';
+    
+    const testFile = {
+        fileName: 'test-file.txt',
+        fileSize: 27,
+        mimeType: 'text/plain',
+        otp: otp,
+        uploadTime: new Date().toISOString(),
+        downloadCount: 0,
+        maxDownloads: 100,
+        expiryTime: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+    };
+    
+    if (kv) {
+        await kv.set(`file:${fileId}:meta`, JSON.stringify(testFile), {
+            ex: 30 * 24 * 60 * 60
+        });
+        await kv.set(`file:${fileId}:data`, Buffer.from('This is a test file content').toString('base64'), {
+            ex: 30 * 24 * 60 * 60
+        });
+        console.log('[Test] Created test file in KV Storage');
+    } else {
+        testFile.fileData = Buffer.from('This is a test file content');
+        memoryStorage.set(fileId, testFile);
+        if (global.fileStorage) {
+            global.fileStorage.set(fileId, testFile);
+        }
+        console.log('[Test] Created test file in memory storage');
+    }
+    
+    res.status(200).json({
+        success: true,
+        message: 'Test file created',
+        fileId: fileId,
+        otp: otp,
+        storageType: kv ? 'KV Storage' : 'Memory'
+    });
 };

@@ -1,0 +1,207 @@
+# -*- coding: utf-8 -*-
+"""
+patch_source_block.py
+参照表示の一貫性（引用ブロックの関数化）を既存utf8_system_3writers.pyへ自動適用
+- build_source_block()/format_date_jst() を追加
+- 参照ブロックの直書きを関数呼び出しに置換
+- title/url/date の必須チェック＆JST整形
+- 迷子の return True を除去
+実行:
+  python patch_source_block.py
+"""
+
+import re
+import sys
+import time
+from pathlib import Path
+
+TARGET = Path("utf8_system_3writers.py")
+
+def backup(p: Path) -> Path:
+    ts = time.strftime("%Y%m%d_%H%M%S")
+    bak = p.with_suffix(p.suffix + f".bak_{ts}")
+    bak.write_text(p.read_text(encoding="utf-8"), encoding="utf-8")
+    return bak
+
+def ensure_imports(code: str) -> str:
+    lines = code.splitlines()
+    has_html = any(re.search(r'^\s*import\s+html\s*$', ln) for ln in lines)
+    has_dt   = any(re.search(r'from\s+datetime\s+import\s+datetime,\s*timezone,\s*timedelta', ln) for ln in lines)
+
+    insert_at = 0
+    for i, ln in enumerate(lines[:120]):  # 先頭〜120行くらいでimport塊を探す
+        if re.match(r'^\s*import\s+|\s*from\s+\w+', ln):
+            insert_at = i + 1
+
+    new = lines[:]
+    if not has_html:
+        new.insert(insert_at, "import html")
+        insert_at += 1
+    if not has_dt:
+        new.insert(insert_at, "from datetime import datetime, timezone, timedelta")
+    return "\n".join(new)
+
+UTIL_ANCHORS = [
+    r"#\s*={3,}.*ユーティリティ",  # 例: "# ========== ユーティリティ =========="
+    r"#\s*Utilities", r"#\s*helpers?", r"#\s*common"
+]
+
+def ensure_functions(code: str) -> str:
+    if "def format_date_jst(" in code and "def build_source_block(" in code:
+        return code  # 既にあり
+
+    # 追加先（ユーティリティ節の直後/見つからない場合はファイル末尾）
+    insert_pos = len(code)
+    for pat in UTIL_ANCHORS:
+        m = re.search(pat, code, flags=re.I)
+        if m:
+            # ユーティリティ見出しの次の改行後へ
+            insert_pos = m.end()
+            break
+
+    snippet = r'''
+
+def format_date_jst(dt_str: str) -> str:
+    """
+    UTC/ISO8601の日時文字列をAsia/Tokyoに変換し YYYY-MM-DD で返す
+    変換できない文字列はそのまま返す
+    """
+    try:
+        # ISO8601のZを+00:00へ置換してfromisoformatで読めるように
+        dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
+        jst = timezone(timedelta(hours=9))
+        return dt.astimezone(jst).strftime("%Y-%m-%d")
+    except Exception:
+        return dt_str
+
+
+def build_source_block(title: str, url: str, date_str: str, source_name: str = "Yahoo News IT") -> str:
+    """
+    参考ニュースの一貫ブロックを生成する。
+    必須: title, url, date_str（空なら例外）
+    日付はAsia/TokyoでYYYY-MM-DD整形
+    """
+    if not title or not url or not date_str:
+        raise ValueError("build_source_block: title/url/date_str は必須です")
+
+    date_jst = format_date_jst(date_str)
+    return f''' + '"""' + r'''<div class="source-info" style="margin-top: 30px; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #007cba;">
+<h4>参考ニュース</h4>
+<p><strong>タイトル:</strong> {html.escape(title)}</p>
+<p><strong>出典:</strong> <a href="{html.escape(url)}" target="_blank" rel="noopener">{html.escape(source_name)}</a></p>
+<p><strong>公開日:</strong> {date_jst}</p>
+</div>''' + '"""' + r'''
+'''
+
+    # insert_pos の直後（改行整える）
+    return code[:insert_pos] + "\n" + snippet + "\n" + code[insert_pos:]
+
+
+def replace_inline_source_block(code: str) -> str:
+    """
+    直書きの <div class="source-info"...> ... </div> を build_source_block(...) に置換。
+    news_article 辞書から title/link/published/source_name を使用。
+    """
+    # 最も安全に、source_block = f'''...source-info...''' 〜 を検出して置換
+    pattern = re.compile(
+        r"source_block\s*=\s*f?'''[\s\S]*?<div\s+class=\"source-info\"[\s\S]*?</div>'''",
+        re.IGNORECASE
+    )
+    def repl(_):
+        return (
+            "source_block = build_source_block(\n"
+            "    title=news_article.get(\"title\", \"\"),\n"
+            "    url=news_article.get(\"link\", \"\"),\n"
+            "    date_str=news_article.get(\"published\", \"\"),\n"
+            "    source_name=news_article.get(\"source_name\", \"Yahoo News IT\")\n"
+            ")\n"
+        )
+    new_code = pattern.sub(repl, code)
+
+    # もし直書きが別名変数に入っている場合にも広めに対応
+    pattern2 = re.compile(
+        r"(?P<var>[A-Za-z_]\w*)\s*=\s*f?'''[\s\S]*?<div\s+class=\"source-info\"[\s\S]*?</div>'''",
+        re.IGNORECASE
+    )
+    def repl2(m):
+        var = m.group("var")
+        return (
+            f"{var} = build_source_block(\n"
+            "    title=news_article.get(\"title\", \"\"),\n"
+            "    url=news_article.get(\"link\", \"\"),\n"
+            "    date_str=news_article.get(\"published\", \"\"),\n"
+            "    source_name=news_article.get(\"source_name\", \"Yahoo News IT\")\n"
+            ")\n"
+        )
+    new_code = pattern2.sub(repl2, new_code)
+    return new_code
+
+
+def harden_callsites(code: str) -> str:
+    """
+    build_source_block 呼び出しの直前に、title/url/date の必須チェックを挿入（既にあればスキップ）
+    """
+    call_pat = re.compile(r"build_source_block\(", re.M)
+    if not call_pat.search(code):
+        return code
+
+    guard_pat = re.compile(r"#\s*source-block-required-check\b")
+    if guard_pat.search(code):
+        return code  # 既に挿入済み
+
+    guard = (
+        "# source-block-required-check\n"
+        "title_ = news_article.get(\"title\", \"\")\n"
+        "url_   = news_article.get(\"link\", \"\")\n"
+        "date_  = news_article.get(\"published\", \"\")\n"
+        "if not (title_ and url_ and date_):\n"
+        "    raise ValueError(\"参考ニュースの出力に必要な title/link/published が不足しています\")\n"
+    )
+    # 最初の呼び出し前に差し込む
+    idx = code.find("build_source_block(")
+    return code[:idx] + guard + code[idx:]
+
+
+def remove_top_level_return_true(code: str) -> str:
+    """
+    行頭に出ている孤立した 'return True' を除去
+    （関数外のreturnはSyntaxErrorのため）
+    """
+    lines = code.splitlines()
+    new_lines = []
+    for i, ln in enumerate(lines):
+        if ln.strip() == "return True":
+            # 前後が空行またはセクション境界なら削除
+            prev = lines[i-1].strip() if i > 0 else ""
+            nxt  = lines[i+1].strip() if i+1 < len(lines) else ""
+            if (prev == "" or prev.startswith("#")) and (nxt == "" or nxt.startswith("#")):
+                continue
+        new_lines.append(ln)
+    return "\n".join(new_lines)
+
+
+def main():
+    if not TARGET.exists():
+        print(f"[ERROR] {TARGET} が見つかりません。カレントディレクトリを確認してください。")
+        sys.exit(1)
+
+    code = TARGET.read_text(encoding="utf-8")
+    bak = backup(TARGET)
+    print(f"[INFO] バックアップ作成: {bak.name}")
+
+    orig = code
+
+    code = ensure_imports(code)
+    code = ensure_functions(code)
+    code = replace_inline_source_block(code)
+    code = harden_callsites(code)
+    code = remove_top_level_return_true(code)
+
+    if code == orig:
+        print("[INFO] 変更は不要でした（既に適用済みの可能性）")
+    else:
+        TARGET.write_text(code, encoding="utf-8")
+        print(f"[INFO] パッチ適用完了: {TARGET.name}")
+
+if __name__ == "__main__":
+    main()
