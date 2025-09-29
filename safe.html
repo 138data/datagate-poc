@@ -1,0 +1,101 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DataGate Safe Uploader</title>
+<style>
+  body{font-family:system-ui,Segoe UI,Arial,sans-serif;max-width:900px;margin:40px auto;padding:0 16px;}
+  .card{border:1px solid #e5e7eb;border-radius:12px;padding:16px;}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:10px}
+  .ok{background:#ecfdf5;border:1px solid #10b981;padding:12px;border-radius:8px;margin-top:12px}
+  .ng{background:#fef2f2;border:1px solid #ef4444;padding:12px;border-radius:8px;margin-top:12px}
+  .muted{color:#6b7280}
+  button{padding:8px 12px;border-radius:10px;border:1px solid #d1d5db;background:white;cursor:pointer}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  input[type="email"]{padding:8px 10px;border:1px solid #d1d5db;border-radius:10px;min-width:280px}
+</style>
+
+<h1>🛟 DataGate Safe Uploader</h1>
+<p class="muted">独立テスト用UI。既存UIと無関係に動きます。</p>
+
+<div class="card">
+  <div class="row">
+    <input id="fileInput" type="file">
+    <span>選択中: <strong id="fileName">未選択</strong></span>
+  </div>
+
+  <div class="row">
+    <input id="emailInput" type="email" placeholder="送信先メールアドレス">
+    <button id="uploadBtn" type="button">⬆ ファイルをアップロード</button>
+    <span id="loading" class="muted" style="display:none">⏳ アップロード中…</span>
+  </div>
+
+  <div id="result" style="display:none"></div>
+</div>
+
+<script>
+(function(){
+  var fileInput  = document.getElementById("fileInput");
+  var fileNameEl = document.getElementById("fileName");
+  var emailInput = document.getElementById("emailInput");
+  var uploadBtn  = document.getElementById("uploadBtn");
+  var loadingEl  = document.getElementById("loading");
+  var resultEl   = document.getElementById("result");
+
+  function safeLinkFrom(data){
+    var fid = (data && (data.fileId || data.id)) || "";
+    if (data && data.downloadLink) return String(data.downloadLink);
+    if (fid) return location.origin + "/download.html?id=" + fid;
+    return "";
+  }
+
+  fileInput.addEventListener("change", function(e){
+    var f = e.target && e.target.files && e.target.files[0];
+    fileNameEl.textContent = f ? f.name : "未選択";
+  });
+
+  uploadBtn.addEventListener("click", function(){
+    var f = fileInput && fileInput.files && fileInput.files[0];
+    if (!f){ alert("ファイルを選択してください"); return; }
+    var email = (emailInput.value || "").trim();
+    if (!email || email.indexOf("@") === -1){ alert("有効なメールアドレスを入力してください"); return; }
+
+    uploadBtn.disabled = true;
+    loadingEl.style.display = "inline";
+    resultEl.style.display = "none";
+    resultEl.className = ""; resultEl.innerHTML = "";
+
+    var fd = new FormData();
+    fd.append("file", f);
+    fd.append("recipientEmail", email);
+
+    fetch("/api/upload", { method:"POST", body: fd })
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if (data && data.success){
+          var link = safeLinkFrom(data);
+          resultEl.className = "ok";
+          resultEl.innerHTML =
+            "<div><strong>✅ アップロード成功！</strong></div>"
+            + "<div>" + (data.message || "ファイルがアップロードされました") + "</div>"
+            + "<div style='margin-top:6px'><strong>ダウンロードリンク:</strong></div>"
+            + "<div class='row' style='margin-top:4px'>"
+            +   "<a href='" + link + "' target='_blank'>📥 ダウンロードページを開く</a>"
+            +   "<button type='button' onclick=\"navigator.clipboard.writeText('" + link + "').then(()=>alert('コピーしました'))\">📋 コピー</button>"
+            + "</div>";
+          resultEl.style.display = "block";
+        }else{
+          throw new Error((data && data.error) || "アップロードに失敗しました");
+        }
+      })
+      .catch(function(err){
+        resultEl.className = "ng";
+        resultEl.innerHTML = "<div><strong>❌ エラー</strong></div><div>" + (err && err.message ? err.message : String(err)) + "</div>";
+        resultEl.style.display = "block";
+      })
+      .finally(function(){
+        uploadBtn.disabled = false;
+        loadingEl.style.display = "none";
+      });
+  });
+})();
+</script>
