@@ -1,4 +1,5 @@
-﻿// グローバルストレージにアクセス
+﻿// DataGate Download API - 修正版
+// グローバルストレージにアクセス
 global.fileStorage = global.fileStorage || new Map();
 
 // テストファイルを常に利用可能に
@@ -13,6 +14,7 @@ if (!global.fileStorage.has('test123')) {
         downloadCount: 0,
         maxDownloads: 100
     });
+    console.log('[Download] Test file initialized');
 }
 
 module.exports = async (req, res) => {
@@ -33,14 +35,18 @@ module.exports = async (req, res) => {
         });
     }
     
-    console.log('Looking for file ID:', id, 'Storage size:', global.fileStorage.size);
+    console.log('[Download] Looking for file ID:', id);
+    console.log('[Download] Storage size:', global.fileStorage.size);
+    console.log('[Download] Available IDs:', Array.from(global.fileStorage.keys()).slice(0, 5));
+    
     const fileInfo = global.fileStorage.get(id);
     
     if (!fileInfo) {
         return res.status(404).json({
             success: false,
-            error: 'File not found',
-            availableTest: 'test123'
+            error: 'ファイルが見つかりません',
+            availableTest: true,
+            hint: 'テストファイルを使用する場合は ID: test123, OTP: 123456'
         });
     }
     
@@ -81,27 +87,33 @@ module.exports = async (req, res) => {
         if (!otp) {
             return res.status(400).json({
                 success: false,
-                error: 'OTP is required'
+                error: 'OTPが必要です'
             });
         }
         
+        // OTP検証
         if (otp !== fileInfo.otp) {
-            console.log(`OTP mismatch: provided=${otp}, expected=${fileInfo.otp}`);
+            console.log(`[Download] OTP mismatch: provided=${otp}, expected=${fileInfo.otp}`);
             return res.status(401).json({
                 success: false,
-                error: 'Invalid OTP'
+                error: 'OTPが正しくありません',
+                hint: `入力されたOTP: ${otp}`
             });
         }
         
+        // ダウンロード回数チェック
         if (fileInfo.downloadCount >= fileInfo.maxDownloads) {
             return res.status(403).json({
                 success: false,
-                error: 'Download limit exceeded'
+                error: 'ダウンロード回数の上限に達しました'
             });
         }
         
+        // ダウンロード回数を増加
         fileInfo.downloadCount++;
+        console.log(`[Download] Success - Count: ${fileInfo.downloadCount}/${fileInfo.maxDownloads}`);
         
+        // ファイル送信
         res.setHeader('Content-Type', fileInfo.mimeType || 'application/octet-stream');
         res.setHeader('Content-Disposition', `attachment; filename="${fileInfo.fileName}"`);
         res.setHeader('Content-Length', fileInfo.fileSize);
