@@ -1,16 +1,25 @@
 const crypto = require("crypto");
-const nodemailer = require("nodemailer");
 
-if (!global.dataGateStorage) {
-    global.dataGateStorage = new Map();
+// 統一されたストレージ名
+if (!global.sharedStorage) {
+    global.sharedStorage = new Map();
+    // テストファイル
+    global.sharedStorage.set("test123", {
+        fileName: "test.txt",
+        fileData: Buffer.from("Test content"),
+        otp: "123456",
+        downloadCount: 0,
+        maxDownloads: 100
+    });
 }
 
 module.exports = async (req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     
-    if (req.method !== "POST") {
-        return res.status(405).json({ error: "Method not allowed" });
-    }
+    if (req.method === "OPTIONS") return res.status(200).end();
+    if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
     
     try {
         const chunks = [];
@@ -23,13 +32,15 @@ module.exports = async (req, res) => {
         const fileId = crypto.randomBytes(8).toString("hex");
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         
-        global.dataGateStorage.set(fileId, {
+        global.sharedStorage.set(fileId, {
             fileName: "uploaded-file",
             fileData: buffer,
             otp: otp,
             downloadCount: 0,
             maxDownloads: 3
         });
+        
+        console.log("Stored:", fileId, "Total:", global.sharedStorage.size);
         
         return res.status(200).json({
             success: true,
