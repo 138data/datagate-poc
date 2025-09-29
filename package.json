@@ -1,5 +1,8 @@
 {
   "name": "datagate-poc",
   "version": "4.0.0",
-  "description": "DataGate PPAP Alternative"
+  "description": "DataGate PPAP Alternative",
+  "dependencies": {
+    "nodemailer": "^7.0.6"
+  }
 }
