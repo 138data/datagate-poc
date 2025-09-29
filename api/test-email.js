@@ -1,11 +1,20 @@
-// メール送信テスト用API
-const nodemailer = require('nodemailer');
-
-module.exports = async (req, res) => {
+﻿module.exports = async (req, res) => {
+    // CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    
+    // Handle OPTIONS
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+    
+    const recipientEmail = req.query.email || '138data@gmail.com';
     
     try {
-        // Gmail設定
+        // nodemailerを動的にロード
+        const nodemailer = require('nodemailer');
+        
         const transporter = nodemailer.createTransport({
             service: 'gmail',
             auth: {
@@ -14,29 +23,29 @@ module.exports = async (req, res) => {
             }
         });
         
-        // テストメール送信
-        const info = await transporter.sendMail({
+        const mailOptions = {
             from: '138data@gmail.com',
-            to: req.query.email || '138data@gmail.com',
-            subject: 'DataGate テストメール',
-            text: 'これはテストメールです。OTP: 123456',
-            html: '<h1>DataGate Test</h1><p>OTP: <strong>123456</strong></p>'
-        });
+            to: recipientEmail,
+            subject: 'DataGate Test Mail',
+            text: 'Test OTP: 123456',
+            html: '<h2>DataGate Test</h2><p>OTP: <b>123456</b></p>'
+        };
         
-        res.json({
+        const info = await transporter.sendMail(mailOptions);
+        
+        return res.status(200).json({
             success: true,
+            message: 'Email sent successfully',
             messageId: info.messageId,
-            accepted: info.accepted,
-            response: info.response
+            to: recipientEmail
         });
         
     } catch (error) {
         console.error('Email error:', error);
-        res.status(500).json({
+        return res.status(200).json({
             success: false,
             error: error.message,
-            code: error.code,
-            command: error.command
+            to: recipientEmail
         });
     }
 };
