@@ -1,73 +1,103 @@
-const fs = require("fs");
+﻿const { Redis } = require('@upstash/redis');
 
-const STORAGE_FILE = "/tmp/datagate-storage.json";
-
-function loadStorage() {
-    try {
-        if (fs.existsSync(STORAGE_FILE)) {
-            const data = fs.readFileSync(STORAGE_FILE, "utf8");
-            return new Map(JSON.parse(data));
-        }
-    } catch (e) {
-        console.error("Storage load error:", e);
-    }
-    return new Map();
-}
-
-function saveStorage(storage) {
-    try {
-        const data = Array.from(storage.entries());
-        fs.writeFileSync(STORAGE_FILE, JSON.stringify(data));
-    } catch (e) {
-        console.error("Storage save error:", e);
-    }
-}
+const redis = new Redis({
+    url: process.env.UPSTASH_REDIS_REST_URL,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN,
+});
 
 module.exports = async (req, res) => {
-    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    
+    if (req.method === 'OPTIONS') return res.status(200).end();
     
     const { id } = req.query;
-    if (!id) return res.status(400).json({ error: "ID required" });
-    
-    const storage = loadStorage();
-    const file = storage.get(id);
-    
-    if (!file) {
-        return res.status(404).json({ 
-            error: "File not found",
-            hint: "File may have expired or wrong ID"
-        });
+    if (!id) {
+        return res.status(400).json({ success: false, error: 'File ID required' });
     }
     
-    if (req.method === "GET") {
-        return res.status(200).json({
-            success: true,
-            fileName: file.fileName,
-            remainingDownloads: file.maxDownloads - file.downloadCount
-        });
-    }
-    
-    if (req.method === "POST") {
-        let body = "";
-        await new Promise(r => {
-            req.on("data", c => body += c);
-            req.on("end", r);
-        });
-        
-        const { otp } = JSON.parse(body);
-        if (otp !== file.otp) {
-            return res.status(401).json({ error: "Invalid OTP" });
+    try {
+        const fileInfoJson = await redis.get(`file:${id}`);
+        if (!fileInfoJson) {
+            return res.status(404).json({ 
+                success: false, 
+                error: 'File not found or expired',
+                hint: 'ファイルが見つからないか、有効期限が切れています'
+            });
         }
         
-        file.downloadCount++;
-        if (file.downloadCount >= file.maxDownloads) {
-            storage.delete(id);
-        }
-        saveStorage(storage);
+        const fileInfo = JSON.parse(fileInfoJson);
         
-        const fileData = Buffer.from(file.fileData, "base64");
-        res.setHeader("Content-Type", "application/octet-stream");
-        res.setHeader("Content-Disposition", "attachment; filename=file");
-        return res.status(200).send(fileData);
+        if (req.method === 'GET') {
+            return res.status(200).json({
+                success: true,
+                exists: true,
+                fileName: fileInfo.fileName,
+                fileSize: fileInfo.fileSize,
+                uploadTime: fileInfo.uploadTime,
+                remainingDownloads: fileInfo.maxDownloads - fileInfo.downloadCount,
+                requiresOTP: true
+            });
+        }
+        
+        if (req.method === 'POST') {
+            let body = '';
+            await new Promise((resolve) => {
+                req.on('data', chunk => { body += chunk.toString(); });
+                req.on('end', resolve);
+            });
+            
+            const { otp } = JSON.parse(body);
+            
+            if (!otp) {
+                return res.status(400).json({ 
+                    success: false, 
+                    error: 'OTP is required' 
+                });
+            }
+            
+            if (otp !== fileInfo.otp) {
+                return res.status(401).json({ 
+                    success: false, 
+                    error: 'Invalid OTP',
+                    hint: '正しいOTPを入力してください'
+                });
+            }
+            
+            if (fileInfo.downloadCount >= fileInfo.maxDownloads) {
+                return res.status(403).json({ 
+                    success: false, 
+                    error: 'Download limit exceeded' 
+                });
+            }
+            
+            fileInfo.downloadCount++;
+            
+            if (fileInfo.downloadCount >= fileInfo.maxDownloads) {
+                await redis.del(`file:${id}`);
+            } else {
+                const ttl = await redis.ttl(`file:${id}`);
+                await redis.setex(`file:${id}`, ttl, JSON.stringify(fileInfo));
+            }
+            
+            const fileBuffer = Buffer.from(fileInfo.fileData, 'base64');
+            const encodedFileName = encodeURIComponent(fileInfo.fileName);
+            
+            res.setHeader('Content-Type', fileInfo.mimeType || 'application/octet-stream');
+            res.setHeader('Content-Disposition', `attachment; filename="${fileInfo.fileName}"; filename*=UTF-8''${encodedFileName}`);
+            res.setHeader('Content-Length', fileBuffer.length);
+            
+            console.log(`[Download] Sending: ${fileInfo.fileName} (${fileInfo.downloadCount}/${fileInfo.maxDownloads})`);
+            return res.status(200).send(fileBuffer);
+        }
+        
+    } catch (error) {
+        console.error('[Download Error]', error);
+        return res.status(500).json({ 
+            success: false, 
+            error: 'Download failed',
+            hint: 'ダウンロードに失敗しました'
+        });
     }
 };

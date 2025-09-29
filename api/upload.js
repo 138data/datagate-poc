@@ -1,70 +1,104 @@
-const crypto = require("crypto");
-const fs = require("fs");
-const path = require("path");
+﻿const crypto = require('crypto');
+const { Redis } = require('@upstash/redis');
 
-// 一時ストレージファイル
-const STORAGE_FILE = "/tmp/datagate-storage.json";
+const redis = new Redis({
+    url: process.env.UPSTASH_REDIS_REST_URL,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN,
+});
 
-function loadStorage() {
-    try {
-        if (fs.existsSync(STORAGE_FILE)) {
-            const data = fs.readFileSync(STORAGE_FILE, "utf8");
-            return new Map(JSON.parse(data));
-        }
-    } catch (e) {
-        console.error("Storage load error:", e);
-    }
-    return new Map();
-}
-
-function saveStorage(storage) {
-    try {
-        const data = Array.from(storage.entries());
-        fs.writeFileSync(STORAGE_FILE, JSON.stringify(data));
-    } catch (e) {
-        console.error("Storage save error:", e);
-    }
-}
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const FILE_TTL = 7 * 24 * 60 * 60;
 
 module.exports = async (req, res) => {
-    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     
-    if (req.method !== "POST") {
-        return res.status(405).json({ error: "Method not allowed" });
+    if (req.method === 'OPTIONS') return res.status(200).end();
+    if (req.method !== 'POST') {
+        return res.status(405).json({ success: false, error: 'Method not allowed' });
     }
     
     try {
         const chunks = [];
-        await new Promise((resolve) => {
-            req.on("data", chunk => chunks.push(chunk));
-            req.on("end", resolve);
+        let totalSize = 0;
+        
+        await new Promise((resolve, reject) => {
+            req.on('data', chunk => {
+                totalSize += chunk.length;
+                if (totalSize > MAX_FILE_SIZE) {
+                    reject(new Error('File size exceeds 10MB'));
+                }
+                chunks.push(chunk);
+            });
+            req.on('end', resolve);
+            req.on('error', reject);
         });
         
         const buffer = Buffer.concat(chunks);
-        const fileId = crypto.randomBytes(8).toString("hex");
+        const bodyString = buffer.toString();
+        const boundary = req.headers['content-type']?.split('boundary=')[1];
+        
+        let fileName = 'uploaded-file.dat';
+        let fileData = buffer;
+        let recipientEmail = 'test@example.com';
+        
+        if (boundary) {
+            const parts = bodyString.split(`--${boundary}`);
+            for (const part of parts) {
+                if (part.includes('filename=')) {
+                    const match = part.match(/filename="([^"]+)"/);
+                    if (match) fileName = match[1];
+                    
+                    const headerEnd = part.indexOf('\r\n\r\n');
+                    if (headerEnd > -1) {
+                        const partStart = bodyString.indexOf(part);
+                        const fileStart = partStart + headerEnd + 4;
+                        const nextBoundary = bodyString.indexOf(`\r\n--${boundary}`, fileStart);
+                        const fileEnd = nextBoundary > -1 ? nextBoundary : buffer.length;
+                        fileData = buffer.slice(fileStart, fileEnd);
+                    }
+                }
+                if (part.includes('name="recipientEmail"')) {
+                    const match = part.match(/\r\n\r\n(.+)\r\n/);
+                    if (match) recipientEmail = match[1].trim();
+                }
+            }
+        }
+        
+        const fileId = crypto.randomBytes(16).toString('hex');
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         
-        // ストレージに保存
-        const storage = loadStorage();
-        storage.set(fileId, {
-            fileName: "uploaded-file",
-            fileData: buffer.toString("base64"),
+        const fileInfo = {
+            fileName: fileName,
+            fileData: fileData.toString('base64'),
+            fileSize: fileData.length,
+            mimeType: 'application/octet-stream',
             otp: otp,
+            recipientEmail: recipientEmail,
+            uploadTime: new Date().toISOString(),
             downloadCount: 0,
-            maxDownloads: 3,
-            timestamp: Date.now()
-        });
-        saveStorage(storage);
+            maxDownloads: 3
+        };
         
-        console.log("Saved file:", fileId);
+        await redis.setex(`file:${fileId}`, FILE_TTL, JSON.stringify(fileInfo));
+        console.log(`[Upload] File saved: ${fileId} - ${fileName}`);
         
         return res.status(200).json({
             success: true,
+            message: 'ファイルが正常にアップロードされました',
             fileId: fileId,
-            downloadLink: "/download.html?id=" + fileId,
-            otp: otp
+            downloadLink: `https://datagate-poc.vercel.app/download.html?id=${fileId}`,
+            otp: otp,
+            fileName: fileName,
+            fileSize: fileData.length
         });
+        
     } catch (error) {
-        return res.status(500).json({ error: error.message });
+        console.error('[Upload Error]', error);
+        return res.status(500).json({
+            success: false,
+            error: error.message || 'Upload failed'
+        });
     }
 };
