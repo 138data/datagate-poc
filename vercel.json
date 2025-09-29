@@ -1,21 +1,6 @@
 {
-  "functions": {
-    "api/*.js": {
-      "maxDuration": 10
-    }
-  },
-  "routes": [
-    {
-      "src": "/",
-      "dest": "/index.html"
-    },
-    {
-      "src": "/download",
-      "dest": "/download.html"
-    },
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
-    }
-  ]
+  "buildCommand": "",
+  "outputDirectory": ".",
+  "installCommand": "",
+  "framework": null
 }
