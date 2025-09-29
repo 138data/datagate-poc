@@ -34,7 +34,7 @@
             border-radius: 10px;
         }
         .file-input-wrapper:hover { background: #f0f0f0; }
-        #fileInput { display: none; }
+        #fileInput { /* display:none; -> overlay化により無効 */ }
         #fileName { margin-top: 10px; color: #667eea; font-weight: bold; }
         input[type="email"] {
             width: 100%;
@@ -126,13 +126,24 @@
         .copy-btn:hover {
             background: #3182ce;
         }
-    </style>
+            
+        /* === File input overlay: click reliability & a11y === */
+        .file-input-wrapper { position: relative; overflow: hidden; }
+        #fileInput {
+            position: absolute;
+            inset: 0;           /* top:0; right:0; bottom:0; left:0; と同等 */
+            width: 100%;
+            height: 100%;
+            opacity: 0;         /* 見えないがクリックは拾う */
+            cursor: pointer;
+        }
+</style>
 </head>
 <body>
     <div class="container">
         <h1>🔐 DataGate</h1>
         
-        <div class="file-input-wrapper" id="fileWrapper">
+        <div class="file-input-wrapper" id="fileWrapper" tabindex="0" role="button" aria-label="ファイルを選択">
             📁 ファイルを選択
             <div id="fileName"></div>
             <input type="file" id="fileInput" />
@@ -160,7 +171,14 @@
         // ファイル選択
         fileWrapper.addEventListener("click", () => fileInput.click());
         
-        fileInput.addEventListener("change", (e) => {
+                
+        // キーボード操作で開く（Enter/Space）
+        fileWrapper.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                fileInput.click();
+            }
+        });fileInput.addEventListener("change", (e) => {
             if (e.target.files[0]) {
                 fileName.textContent = e.target.files[0].name;
             }
@@ -246,4 +264,5 @@
     </script>
 </body>
 </html>
+
 
