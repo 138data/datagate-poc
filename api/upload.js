@@ -1,13 +1,4 @@
 ﻿const crypto = require('crypto');
-const { Redis } = require('@upstash/redis');
-
-const redis = new Redis({
-    url: process.env.UPSTASH_REDIS_REST_URL,
-    token: process.env.UPSTASH_REDIS_REST_TOKEN,
-});
-
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
-const FILE_TTL = 7 * 24 * 60 * 60;
 
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -20,8 +11,13 @@ module.exports = async (req, res) => {
     }
     
     try {
+        // Upstash Redis REST API 直接使用（SDKを使わない）
+        const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL;
+        const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+        
         const chunks = [];
         let totalSize = 0;
+        const MAX_FILE_SIZE = 10 * 1024 * 1024;
         
         await new Promise((resolve, reject) => {
             req.on('data', chunk => {
@@ -81,7 +77,21 @@ module.exports = async (req, res) => {
             maxDownloads: 3
         };
         
-        await redis.setex(`file:${fileId}`, FILE_TTL, JSON.stringify(fileInfo));
+        // Upstash REST API を直接呼び出し
+        const key = `file:${fileId}`;
+        const value = JSON.stringify(fileInfo);
+        const ttl = 7 * 24 * 60 * 60; // 7 days
+        
+        const setResponse = await fetch(`${REDIS_URL}/set/${key}/${value}/ex/${ttl}`, {
+            headers: {
+                'Authorization': `Bearer ${REDIS_TOKEN}`
+            }
+        });
+        
+        if (!setResponse.ok) {
+            throw new Error('Failed to save to Redis');
+        }
+        
         console.log(`[Upload] File saved: ${fileId} - ${fileName}`);
         
         return res.status(200).json({

@@ -1,11 +1,4 @@
-﻿const { Redis } = require('@upstash/redis');
-
-const redis = new Redis({
-    url: process.env.UPSTASH_REDIS_REST_URL,
-    token: process.env.UPSTASH_REDIS_REST_TOKEN,
-});
-
-module.exports = async (req, res) => {
+﻿module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -18,16 +11,34 @@ module.exports = async (req, res) => {
     }
     
     try {
-        const fileInfoJson = await redis.get(`file:${id}`);
-        if (!fileInfoJson) {
+        // Upstash REST API 直接使用
+        const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL;
+        const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+        
+        // Redisからデータ取得
+        const key = `file:${id}`;
+        const getResponse = await fetch(`${REDIS_URL}/get/${key}`, {
+            headers: {
+                'Authorization': `Bearer ${REDIS_TOKEN}`
+            }
+        });
+        
+        if (!getResponse.ok) {
             return res.status(404).json({ 
                 success: false, 
-                error: 'File not found or expired',
-                hint: 'ファイルが見つからないか、有効期限が切れています'
+                error: 'File not found or expired'
             });
         }
         
-        const fileInfo = JSON.parse(fileInfoJson);
+        const data = await getResponse.json();
+        if (!data.result) {
+            return res.status(404).json({ 
+                success: false, 
+                error: 'File not found or expired'
+            });
+        }
+        
+        const fileInfo = JSON.parse(data.result);
         
         if (req.method === 'GET') {
             return res.status(200).json({
@@ -60,8 +71,7 @@ module.exports = async (req, res) => {
             if (otp !== fileInfo.otp) {
                 return res.status(401).json({ 
                     success: false, 
-                    error: 'Invalid OTP',
-                    hint: '正しいOTPを入力してください'
+                    error: 'Invalid OTP'
                 });
             }
             
@@ -74,21 +84,23 @@ module.exports = async (req, res) => {
             
             fileInfo.downloadCount++;
             
+            // 更新または削除
             if (fileInfo.downloadCount >= fileInfo.maxDownloads) {
-                await redis.del(`file:${id}`);
+                await fetch(`${REDIS_URL}/del/${key}`, {
+                    headers: { 'Authorization': `Bearer ${REDIS_TOKEN}` }
+                });
             } else {
-                const ttl = await redis.ttl(`file:${id}`);
-                await redis.setex(`file:${id}`, ttl, JSON.stringify(fileInfo));
+                await fetch(`${REDIS_URL}/set/${key}/${JSON.stringify(fileInfo)}`, {
+                    headers: { 'Authorization': `Bearer ${REDIS_TOKEN}` }
+                });
             }
             
             const fileBuffer = Buffer.from(fileInfo.fileData, 'base64');
-            const encodedFileName = encodeURIComponent(fileInfo.fileName);
             
             res.setHeader('Content-Type', fileInfo.mimeType || 'application/octet-stream');
-            res.setHeader('Content-Disposition', `attachment; filename="${fileInfo.fileName}"; filename*=UTF-8''${encodedFileName}`);
+            res.setHeader('Content-Disposition', `attachment; filename="${fileInfo.fileName}"`);
             res.setHeader('Content-Length', fileBuffer.length);
             
-            console.log(`[Download] Sending: ${fileInfo.fileName} (${fileInfo.downloadCount}/${fileInfo.maxDownloads})`);
             return res.status(200).send(fileBuffer);
         }
         
@@ -96,8 +108,7 @@ module.exports = async (req, res) => {
         console.error('[Download Error]', error);
         return res.status(500).json({ 
             success: false, 
-            error: 'Download failed',
-            hint: 'ダウンロードに失敗しました'
+            error: 'Download failed'
         });
     }
 };
