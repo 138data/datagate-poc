@@ -1,33 +1,41 @@
-// 統一されたストレージ名
-if (!global.sharedStorage) {
-    global.sharedStorage = new Map();
-    // テストファイル
-    global.sharedStorage.set("test123", {
-        fileName: "test.txt",
-        fileData: Buffer.from("Test content"),
-        otp: "123456",
-        downloadCount: 0,
-        maxDownloads: 100
-    });
+const fs = require("fs");
+
+const STORAGE_FILE = "/tmp/datagate-storage.json";
+
+function loadStorage() {
+    try {
+        if (fs.existsSync(STORAGE_FILE)) {
+            const data = fs.readFileSync(STORAGE_FILE, "utf8");
+            return new Map(JSON.parse(data));
+        }
+    } catch (e) {
+        console.error("Storage load error:", e);
+    }
+    return new Map();
+}
+
+function saveStorage(storage) {
+    try {
+        const data = Array.from(storage.entries());
+        fs.writeFileSync(STORAGE_FILE, JSON.stringify(data));
+    } catch (e) {
+        console.error("Storage save error:", e);
+    }
 }
 
 module.exports = async (req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-    
-    if (req.method === "OPTIONS") return res.status(200).end();
     
     const { id } = req.query;
     if (!id) return res.status(400).json({ error: "ID required" });
     
-    console.log("Looking for:", id, "Available:", Array.from(global.sharedStorage.keys()));
+    const storage = loadStorage();
+    const file = storage.get(id);
     
-    const file = global.sharedStorage.get(id);
     if (!file) {
         return res.status(404).json({ 
             error: "File not found",
-            availableIds: Array.from(global.sharedStorage.keys())
+            hint: "File may have expired or wrong ID"
         });
     }
     
@@ -47,11 +55,19 @@ module.exports = async (req, res) => {
         });
         
         const { otp } = JSON.parse(body);
-        if (otp !== file.otp) return res.status(401).json({ error: "Invalid OTP" });
+        if (otp !== file.otp) {
+            return res.status(401).json({ error: "Invalid OTP" });
+        }
         
         file.downloadCount++;
+        if (file.downloadCount >= file.maxDownloads) {
+            storage.delete(id);
+        }
+        saveStorage(storage);
+        
+        const fileData = Buffer.from(file.fileData, "base64");
         res.setHeader("Content-Type", "application/octet-stream");
-        res.setHeader("Content-Disposition", "attachment; filename=download");
-        return res.status(200).send(file.fileData);
+        res.setHeader("Content-Disposition", "attachment; filename=file");
+        return res.status(200).send(fileData);
     }
 };

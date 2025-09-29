@@ -1,25 +1,37 @@
 const crypto = require("crypto");
+const fs = require("fs");
+const path = require("path");
 
-// 統一されたストレージ名
-if (!global.sharedStorage) {
-    global.sharedStorage = new Map();
-    // テストファイル
-    global.sharedStorage.set("test123", {
-        fileName: "test.txt",
-        fileData: Buffer.from("Test content"),
-        otp: "123456",
-        downloadCount: 0,
-        maxDownloads: 100
-    });
+// 一時ストレージファイル
+const STORAGE_FILE = "/tmp/datagate-storage.json";
+
+function loadStorage() {
+    try {
+        if (fs.existsSync(STORAGE_FILE)) {
+            const data = fs.readFileSync(STORAGE_FILE, "utf8");
+            return new Map(JSON.parse(data));
+        }
+    } catch (e) {
+        console.error("Storage load error:", e);
+    }
+    return new Map();
+}
+
+function saveStorage(storage) {
+    try {
+        const data = Array.from(storage.entries());
+        fs.writeFileSync(STORAGE_FILE, JSON.stringify(data));
+    } catch (e) {
+        console.error("Storage save error:", e);
+    }
 }
 
 module.exports = async (req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     
-    if (req.method === "OPTIONS") return res.status(200).end();
-    if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+    if (req.method !== "POST") {
+        return res.status(405).json({ error: "Method not allowed" });
+    }
     
     try {
         const chunks = [];
@@ -32,15 +44,19 @@ module.exports = async (req, res) => {
         const fileId = crypto.randomBytes(8).toString("hex");
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         
-        global.sharedStorage.set(fileId, {
+        // ストレージに保存
+        const storage = loadStorage();
+        storage.set(fileId, {
             fileName: "uploaded-file",
-            fileData: buffer,
+            fileData: buffer.toString("base64"),
             otp: otp,
             downloadCount: 0,
-            maxDownloads: 3
+            maxDownloads: 3,
+            timestamp: Date.now()
         });
+        saveStorage(storage);
         
-        console.log("Stored:", fileId, "Total:", global.sharedStorage.size);
+        console.log("Saved file:", fileId);
         
         return res.status(200).json({
             success: true,
