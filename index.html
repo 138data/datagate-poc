@@ -251,8 +251,118 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 </script>
+<!-- ===== DataGate Safe Picker (isolated) ===== -->
+<div id="dg-safe-picker" style="margin-top:24px; padding:16px; border:1px solid #e5e7eb; border-radius:12px;">
+  <h3 style="margin:0 0 8px;">🛟 セーフ・ファイルアップロード（暫定UI）</h3>
+
+  <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+    <button id="dg-pickBtn" type="button">📁 ファイルを選択</button>
+    <span>選択中: <strong id="dg-fileName">未選択</strong></span>
+    <input id="dg-fileInput" type="file" style="position:absolute; left:-9999px;" />
+  </div>
+
+  <div style="margin-top:12px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+    <input id="dg-emailInput" type="email" placeholder="送信先メールアドレス" style="min-width:260px; padding:6px 10px;" />
+    <button id="dg-uploadBtn" type="button">⬆ ファイルをアップロード</button>
+    <span id="dg-loading" style="display:none;">⏳ アップロード中…</span>
+  </div>
+
+  <div id="dg-result" style="display:none; margin-top:12px; padding:12px; border-radius:8px;"></div>
+</div>
+
+<script>
+(function(){
+  // 要素
+  var pickBtn    = document.getElementById("dg-pickBtn");
+  var fileInput  = document.getElementById("dg-fileInput");
+  var fileNameEl = document.getElementById("dg-fileName");
+  var emailInput = document.getElementById("dg-emailInput");
+  var uploadBtn  = document.getElementById("dg-uploadBtn");
+  var loadingEl  = document.getElementById("dg-loading");
+  var resultEl   = document.getElementById("dg-result");
+
+  // 安全リンク生成
+  function safeLinkFrom(data){
+    var fid = (data && (data.fileId || data.id)) || "";
+    if (data && data.downloadLink) return String(data.downloadLink);
+    if (fid) return (location.origin + "/download.html?id=" + fid);
+    return "";
+  }
+
+  // ファイル選択（labelではなくbutton→input.clickだが、ユーザ操作起点なのでOK）
+  if (pickBtn) pickBtn.addEventListener("click", function(e){
+    e && e.preventDefault && e.preventDefault();
+    fileInput && fileInput.click && fileInput.click();
+  });
+
+  // ファイル名表示
+  if (fileInput) fileInput.addEventListener("change", function(e){
+    var f = e && e.target && e.target.files && e.target.files[0];
+    fileNameEl.textContent = f ? f.name : "未選択";
+  });
+
+  // アップロード
+  if (uploadBtn) uploadBtn.addEventListener("click", function(e){
+    e && e.preventDefault && e.preventDefault();
+
+    var f = fileInput && fileInput.files && fileInput.files[0];
+    if (!f) { alert("ファイルを選択してください"); return; }
+
+    var email = (emailInput && emailInput.value || "").trim();
+    if (!email || email.indexOf("@") === -1) { alert("有効なメールアドレスを入力してください"); return; }
+
+    uploadBtn.disabled = true;
+    loadingEl.style.display = "inline";
+    resultEl.style.display = "none";
+    resultEl.className = "";
+    resultEl.innerHTML = "";
+
+    var fd = new FormData();
+    fd.append("file", f);
+    fd.append("recipientEmail", email);
+
+    fetch("/api/upload", { method:"POST", body: fd })
+      .then(function(resp){ return resp.json(); })
+      .then(function(data){
+        if (data && data.success){
+          var link = safeLinkFrom(data);
+          resultEl.className = "success";
+          resultEl.style.border = "1px solid #10b981";
+          resultEl.style.background = "#ecfdf5";
+          resultEl.innerHTML =
+            "<div style='font-weight:600; margin-bottom:6px;'>✅ アップロード成功！</div>"
+            + "<div>" + (data.message || "ファイルがアップロードされました") + "</div>"
+            + "<div style='margin-top:8px;'><strong>ダウンロードリンク:</strong></div>"
+            + "<div style='display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:4px;'>"
+            +   "<a href='" + link + "' target='_blank'>📥 ダウンロードページを開く</a>"
+            +   "<button type='button' onclick=\"navigator.clipboard.writeText('" + link + "').then(()=>alert('リンクをコピーしました！'))\">📋 コピー</button>"
+            + "</div>";
+          resultEl.style.display = "block";
+        } else {
+          var msg = (data && data.error) || "アップロードに失敗しました";
+          throw new Error(msg);
+        }
+      })
+      .catch(function(err){
+        resultEl.className = "error";
+        resultEl.style.border = "1px solid #ef4444";
+        resultEl.style.background = "#fef2f2";
+        resultEl.innerHTML =
+          "<div style='font-weight:600; margin-bottom:6px;'>❌ エラー</div>"
+          + "<div>" + (err && err.message ? err.message : String(err)) + "</div>";
+        resultEl.style.display = "block";
+      })
+      .finally(function(){
+        uploadBtn.disabled = false;
+        loadingEl.style.display = "none";
+      });
+  });
+})();
+</script>
+<!-- ===== /DataGate Safe Picker ===== -->
 </body>
 </html>
+
 
 
 
