@@ -1,38 +1,9 @@
-{
-    "name": "datagate-poc",
-    "version": "2.1.0",
-    "description": "DataGate - PPAP髮｢閼ｱ繧ｻ繧ｭ繝･繧｢繝輔ぃ繧､繝ｫ霆｢騾√す繧ｹ繝・Β Phase 2",
-    "main": "api/index.js",
-    "scripts": {
-        "dev": "vercel dev",
-        "deploy": "vercel --prod",
-        "test": "node test-api.js",
-        "setup-kv": "vercel env pull && npm install"
-    },
-    "dependencies": {
-        "@sendgrid/mail": "^8.1.6",
-        "@upstash/redis": "^1.35.4",
-        "@vercel/kv": "^2.0.0",
-        "multer": "^1.4.5-lts.1",
-        "nodemailer": "^7.0.6"
-    },
-    "devDependencies": {
-        "vercel": "^32.0.0"
-    },
-    "engines": {
-        "node": ">=18.x"
-    },
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/138data/datagate-poc"
-    },
-    "keywords": [
-        "ppap",
-        "secure-file-transfer",
-        "otp",
-        "vercel",
-        "kv-storage"
-    ],
-    "author": "138data",
-    "license": "MIT"
+﻿{
+  "name": "datagate-poc",
+  "version": "4.0.0",
+  "dependencies": {
+    "@sendgrid/mail": "^8.1.6",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.9.8"
+  }
 }
