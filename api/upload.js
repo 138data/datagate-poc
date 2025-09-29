@@ -1,26 +1,11 @@
-﻿// DataGate Upload API - グローバルストレージ対応版
-const crypto = require('crypto');
+﻿const crypto = require('crypto');
+const { Redis } = require('@upstash/redis');
 
-// グローバルストレージ（Vercelでの永続化のため）
-global.fileStorage = global.fileStorage || new Map();
-
-// テストファイルを事前に作成
-if (global.fileStorage.size === 0) {
-    const testId = 'test123';
-    global.fileStorage.set(testId, {
-        fileName: 'test-file.txt',
-        fileData: Buffer.from('This is a test file content'),
-        fileSize: 27,
-        mimeType: 'text/plain',
-        otp: '123456',
-        uploadTime: new Date().toISOString(),
-        downloadCount: 0,
-        maxDownloads: 100
-    });
-    console.log('Test file created with ID:', testId);
-}
-
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+// Upstash Redis接続
+const redis = new Redis({
+    url: 'https://joint-whippet-14198.upstash.io',
+    token: 'ATd2AAIncDJmMmE5NWE5OWE4YTE0NDg3OTAwMDQwNmJlZTBlMDkzZXAyMTQxOTg'
+});
 
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -34,19 +19,20 @@ module.exports = async (req, res) => {
     if (req.method !== 'POST') {
         return res.status(405).json({
             success: false,
-            error: 'Method not allowed. Use POST.'
+            error: 'Method not allowed'
         });
     }
     
     try {
         const chunks = [];
         let totalSize = 0;
+        const MAX_FILE_SIZE = 10 * 1024 * 1024;
         
         await new Promise((resolve, reject) => {
             req.on('data', chunk => {
                 totalSize += chunk.length;
                 if (totalSize > MAX_FILE_SIZE) {
-                    reject(new Error('File size exceeds 10MB limit'));
+                    reject(new Error('File too large'));
                     return;
                 }
                 chunks.push(chunk);
@@ -56,43 +42,44 @@ module.exports = async (req, res) => {
         });
         
         const buffer = Buffer.concat(chunks);
-        const fileId = crypto.randomBytes(16).toString('hex'); // 短いIDに
+        const fileId = crypto.randomBytes(16).toString('hex');
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         
-        // グローバルストレージに保存
-        global.fileStorage.set(fileId, {
+        // Redisに保存（重要！）
+        const fileInfo = {
             fileName: 'uploaded-file.dat',
-            fileData: buffer,
             fileSize: buffer.length,
-            mimeType: 'application/octet-stream',
             otp: otp,
             uploadTime: new Date().toISOString(),
             downloadCount: 0,
             maxDownloads: 3
+        };
+        
+        // メタデータとファイルデータを別々に保存
+        await redis.set(`file:${fileId}:meta`, JSON.stringify(fileInfo), {
+            ex: 7 * 24 * 60 * 60 // 7日間
         });
         
-        console.log('File stored with ID:', fileId, 'Storage size:', global.fileStorage.size);
+        await redis.set(`file:${fileId}:data`, buffer.toString('base64'), {
+            ex: 7 * 24 * 60 * 60
+        });
         
-        const baseUrl = 'https://datagate-poc.vercel.app';
-        const downloadPath = `/download.html?id=${fileId}`;
-        const fullDownloadUrl = `${baseUrl}${downloadPath}`;
+        console.log(`Uploaded to Redis: ${fileId}`);
         
         return res.status(200).json({
             success: true,
-            message: 'ファイルが正常にアップロードされました',
             fileId: fileId,
-            downloadLink: fullDownloadUrl,
+            downloadLink: `https://datagate-poc.vercel.app/download.html?id=${fileId}`,
             otp: otp,
-            fileName: 'uploaded-file.dat',
-            fileSize: buffer.length,
-            testLink: `${baseUrl}/download.html?id=test123` // テスト用リンク
+            fileName: fileInfo.fileName,
+            fileSize: fileInfo.fileSize
         });
         
     } catch (error) {
-        console.error('[Upload Error]', error);
-        res.status(500).json({
+        console.error('Upload error:', error);
+        return res.status(500).json({
             success: false,
-            error: error.message || 'Upload failed'
+            error: error.message
         });
     }
 };
