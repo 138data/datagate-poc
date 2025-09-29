@@ -1,128 +1,25 @@
-﻿// DataGate Download API - 修正版
-// グローバルストレージにアクセス
-global.fileStorage = global.fileStorage || new Map();
-
-// テストファイルを常に利用可能に
-if (!global.fileStorage.has('test123')) {
-    global.fileStorage.set('test123', {
-        fileName: 'test-file.txt',
-        fileData: Buffer.from('This is a test file content'),
-        fileSize: 27,
-        mimeType: 'text/plain',
-        otp: '123456',
-        uploadTime: new Date().toISOString(),
-        downloadCount: 0,
-        maxDownloads: 100
-    });
-    console.log('[Download] Test file initialized');
-}
-
-module.exports = async (req, res) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+﻿module.exports = (req, res) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
     
-    if (req.method === 'OPTIONS') {
-        return res.status(200).end();
-    }
+    const testData = {
+        test123: {
+            fileName: "test.txt",
+            otp: "123456"
+        }
+    };
     
     const { id } = req.query;
     
-    if (!id) {
-        return res.status(400).json({
-            success: false,
-            error: 'File ID is required'
-        });
-    }
-    
-    console.log('[Download] Looking for file ID:', id);
-    console.log('[Download] Storage size:', global.fileStorage.size);
-    console.log('[Download] Available IDs:', Array.from(global.fileStorage.keys()).slice(0, 5));
-    
-    const fileInfo = global.fileStorage.get(id);
-    
-    if (!fileInfo) {
-        return res.status(404).json({
-            success: false,
-            error: 'ファイルが見つかりません',
-            availableTest: true,
-            hint: 'テストファイルを使用する場合は ID: test123, OTP: 123456'
-        });
-    }
-    
-    // GETリクエスト：ファイル情報確認
-    if (req.method === 'GET') {
-        return res.status(200).json({
-            success: true,
-            exists: true,
-            fileName: fileInfo.fileName,
-            fileSize: fileInfo.fileSize,
-            uploadTime: fileInfo.uploadTime,
-            remainingDownloads: fileInfo.maxDownloads - fileInfo.downloadCount,
-            requiresOTP: true
-        });
-    }
-    
-    // POSTリクエスト：OTP認証とダウンロード
-    if (req.method === 'POST') {
-        let body = '';
-        await new Promise((resolve) => {
-            req.on('data', chunk => {
-                body += chunk.toString();
-            });
-            req.on('end', resolve);
-        });
-        
-        let otp;
-        try {
-            const data = JSON.parse(body);
-            otp = data.otp;
-        } catch (e) {
-            return res.status(400).json({
-                success: false,
-                error: 'Invalid request body'
+    if (req.method === "GET") {
+        if (testData[id]) {
+            return res.status(200).json({
+                success: true,
+                exists: true,
+                fileName: testData[id].fileName
             });
         }
-        
-        if (!otp) {
-            return res.status(400).json({
-                success: false,
-                error: 'OTPが必要です'
-            });
-        }
-        
-        // OTP検証
-        if (otp !== fileInfo.otp) {
-            console.log(`[Download] OTP mismatch: provided=${otp}, expected=${fileInfo.otp}`);
-            return res.status(401).json({
-                success: false,
-                error: 'OTPが正しくありません',
-                hint: `入力されたOTP: ${otp}`
-            });
-        }
-        
-        // ダウンロード回数チェック
-        if (fileInfo.downloadCount >= fileInfo.maxDownloads) {
-            return res.status(403).json({
-                success: false,
-                error: 'ダウンロード回数の上限に達しました'
-            });
-        }
-        
-        // ダウンロード回数を増加
-        fileInfo.downloadCount++;
-        console.log(`[Download] Success - Count: ${fileInfo.downloadCount}/${fileInfo.maxDownloads}`);
-        
-        // ファイル送信
-        res.setHeader('Content-Type', fileInfo.mimeType || 'application/octet-stream');
-        res.setHeader('Content-Disposition', `attachment; filename="${fileInfo.fileName}"`);
-        res.setHeader('Content-Length', fileInfo.fileSize);
-        
-        return res.status(200).send(fileInfo.fileData);
+        return res.status(404).json({ error: "Not found" });
     }
     
-    return res.status(405).json({
-        success: false,
-        error: 'Method not allowed'
-    });
+    res.status(200).json({ message: "Download API Working" });
 };
