@@ -1,25 +1,10 @@
 ﻿{
   "functions": {
-    "api/health.js": {
-      "maxDuration": 10
-    },
-    "api/download.js": {
-      "maxDuration": 10
-    },
-    "api/upload.js": {
-      "maxDuration": 10
-    },
-    "api/test-email.js": {
-      "maxDuration": 10
-    },
-    "api/send-email.js": {
+    "api/*.js": {
       "maxDuration": 10
     }
   },
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "/api/$1"
-    }
-  ]
+  "env": {
+    "DEPLOY_TIME": "2025-01-20-force-redeploy"
+  }
 }
