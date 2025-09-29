@@ -199,7 +199,7 @@
                 const data = await response.json();
                 console.log("Response:", data); // デバッグ用
                 
-                if (data.success) {
+                if\ \(data\.success\)\ \{
                     // 成功表示（クリッカブルリンク付き）
                     result.className = "success";
                     result.innerHTML = `
@@ -213,13 +213,13 @@
                         </div>
                         
                         <p><strong>ダウンロードリンク:</strong></p>
-                        <a href="${data.downloadLink}" target="_blank" class="download-link">
+                        <a href="${safeLink}" target="_blank" class="download-link">
                             📥 ダウンロードページを開く
                         </a>
                         
                         <div class="link-box">
-                            ${data.downloadLink}
-                            <button class="copy-btn" onclick="navigator.clipboard.writeText('${data.downloadLink}').then(() => alert('リンクをコピーしました！'))">
+                            ${safeLink}
+                            <button class="copy-btn" onclick="navigator.clipboard.writeText('${safeLink}').then(() => alert('リンクをコピーしました！'))">
                                 📋 リンクをコピー
                             </button>
                         </div>
@@ -246,3 +246,4 @@
     </script>
 </body>
 </html>
+
