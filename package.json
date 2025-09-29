@@ -1,6 +1,4 @@
-﻿{
+{
   "name": "datagate-poc",
-  "version": "1.0.0",
-  "description": "DataGate POC",
-  "dependencies": {}
+  "version": "1.0.0"
 }
