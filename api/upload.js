@@ -1,20 +1,10 @@
 ﻿// DataGate Upload API - メール送信対応版
 const crypto = require('crypto');
 
-// メール送信モジュールをインポート（エラー処理付き）
-let sendOTPEmail;
-try {
-    const emailModule = require('./send-email');
-    sendOTPEmail = emailModule.sendOTPEmail;
-} catch (e) {
-    console.log('Email module not loaded:', e.message);
-    sendOTPEmail = null;
-}
-
 // グローバルストレージ
 global.fileStorage = global.fileStorage || new Map();
 
-// テストファイルを常に利用可能に
+// テストファイル
 if (!global.fileStorage.has('test123')) {
     global.fileStorage.set('test123', {
         fileName: 'test-file.txt',
@@ -24,10 +14,8 @@ if (!global.fileStorage.has('test123')) {
         otp: '123456',
         uploadTime: new Date().toISOString(),
         downloadCount: 0,
-        maxDownloads: 100,
-        recipientEmail: 'test@example.com'
+        maxDownloads: 100
     });
-    console.log('Test file created with ID: test123');
 }
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -41,10 +29,97 @@ module.exports = async (req, res) => {
         return res.status(200).end();
     }
     
+    // メールテストモード（GET: /api/upload?test=email）
+    if (req.method === 'GET' && req.query.test === 'email') {
+        const testEmail = req.query.email || '138data@gmail.com';
+        
+        console.log('[EmailTest] Starting email test to:', testEmail);
+        
+        try {
+            const nodemailer = require('nodemailer');
+            
+            const transporter = nodemailer.createTransport({
+                service: 'gmail',
+                auth: {
+                    user: '138data@gmail.com',
+                    pass: 'xaov vyif bulp rxnl'
+                }
+            });
+            
+            const info = await transporter.sendMail({
+                from: '138data@gmail.com',
+                to: testEmail,
+                subject: 'DataGate メールテスト - ' + new Date().toLocaleString('ja-JP'),
+                text: 'DataGateのテストメールです。\n\nテストOTP: 123456\n\nこのメールが届いていればメール送信機能は正常です。',
+                html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+                            <h1 style="color: white; margin: 0;">🔐 DataGate</h1>
+                            <p style="color: white; margin: 10px 0 0 0;">メール送信テスト</p>
+                        </div>
+                        
+                        <div style="padding: 30px; background: #f9f9f9;">
+                            <h2 style="color: #333;">メールテスト成功！</h2>
+                            
+                            <p style="color: #666; line-height: 1.6;">
+                                このメールが届いていれば、DataGateのメール送信機能は正常に動作しています。
+                            </p>
+                            
+                            <div style="background: #fff3cd; padding: 20px; border-radius: 10px; text-align: center; margin: 20px 0; border: 2px solid #ffc107;">
+                                <p style="margin: 0; color: #856404; font-size: 14px;">テスト用OTP</p>
+                                <h1 style="color: #e74c3c; font-size: 48px; letter-spacing: 10px; margin: 10px 0;">123456</h1>
+                            </div>
+                            
+                            <div style="background: white; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                                <p style="margin: 5px 0;"><strong>送信時刻:</strong> ${new Date().toLocaleString('ja-JP')}</p>
+                                <p style="margin: 5px 0;"><strong>送信先:</strong> ${testEmail}</p>
+                                <p style="margin: 5px 0;"><strong>送信元:</strong> 138data@gmail.com</p>
+                            </div>
+                            
+                            <div style="background: #d1ecf1; padding: 15px; border-radius: 8px; border: 1px solid #bee5eb;">
+                                <p style="color: #0c5460; margin: 0;">
+                                    ✅ Gmail SMTP設定: 正常<br>
+                                    ✅ nodemailer: 動作中<br>
+                                    ✅ Vercel Functions: 正常
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div style="background: #333; padding: 20px; text-align: center; color: #999; font-size: 12px; border-radius: 0 0 10px 10px;">
+                            <p style="margin: 0;">© 2025 DataGate - Phase 4 Email Implementation</p>
+                        </div>
+                    </div>
+                `
+            });
+            
+            console.log('[EmailTest] Success:', info.messageId);
+            
+            return res.status(200).json({
+                success: true,
+                message: 'メール送信成功',
+                messageId: info.messageId,
+                accepted: info.accepted,
+                to: testEmail,
+                timestamp: new Date().toISOString()
+            });
+            
+        } catch (error) {
+            console.error('[EmailTest] Error:', error);
+            return res.status(200).json({
+                success: false,
+                error: error.message,
+                code: error.code,
+                to: testEmail,
+                hint: 'Gmailの設定を確認してください'
+            });
+        }
+    }
+    
+    // 通常のアップロード処理（POST）
     if (req.method !== 'POST') {
         return res.status(405).json({
             success: false,
-            error: 'Method not allowed. Use POST.'
+            error: 'Method not allowed. Use POST for upload, GET with ?test=email for email test.'
         });
     }
     
@@ -66,105 +141,31 @@ module.exports = async (req, res) => {
         });
         
         const buffer = Buffer.concat(chunks);
-        const bodyString = buffer.toString();
-        
-        // デフォルト値
-        let fileName = 'uploaded-file.dat';
-        let recipientEmail = '';
-        let fileData = buffer;
-        
-        // マルチパートデータの解析
-        const boundary = req.headers['content-type']?.split('boundary=')[1];
-        
-        if (boundary) {
-            const parts = bodyString.split(`--${boundary}`);
-            
-            for (const part of parts) {
-                // メールアドレスの取得
-                if (part.includes('name="recipientEmail"')) {
-                    const emailMatch = part.match(/\r\n\r\n(.+)\r\n/);
-                    if (emailMatch) {
-                        recipientEmail = emailMatch[1].trim();
-                    }
-                }
-                
-                // ファイル名の取得
-                if (part.includes('filename="')) {
-                    const filenameMatch = part.match(/filename="([^"]+)"/);
-                    if (filenameMatch) {
-                        fileName = filenameMatch[1];
-                    }
-                }
-            }
-        }
-        
-        // ファイルIDとOTP生成
         const fileId = crypto.randomBytes(16).toString('hex');
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         
-        // ファイル情報を保存
-        const fileInfo = {
-            fileName: fileName,
-            fileData: fileData,
-            fileSize: fileData.length,
+        global.fileStorage.set(fileId, {
+            fileName: 'uploaded-file.dat',
+            fileData: buffer,
+            fileSize: buffer.length,
             mimeType: 'application/octet-stream',
             otp: otp,
-            recipientEmail: recipientEmail || 'noreply@datagate.com',
             uploadTime: new Date().toISOString(),
             downloadCount: 0,
-            maxDownloads: 3,
-            expiryTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-        };
+            maxDownloads: 3
+        });
         
-        global.fileStorage.set(fileId, fileInfo);
-        
-        console.log(`[Upload] File saved: ${fileId} - ${fileName}`);
-        console.log(`[Upload] OTP: ${otp} for ${recipientEmail}`);
-        
-        // ダウンロードリンク生成
         const baseUrl = 'https://datagate-poc.vercel.app';
         const downloadLink = `${baseUrl}/download.html?id=${fileId}`;
         
-        // メール送信処理
-        let emailSent = false;
-        let emailError = null;
-        
-        if (sendOTPEmail && recipientEmail && recipientEmail.includes('@')) {
-            try {
-                console.log(`[Email] Attempting to send to ${recipientEmail}...`);
-                const emailResult = await sendOTPEmail(recipientEmail, otp, fileName, downloadLink);
-                
-                if (emailResult.success) {
-                    emailSent = true;
-                    console.log(`[Email] Successfully sent to ${recipientEmail}`);
-                } else {
-                    emailError = emailResult.error;
-                    console.error(`[Email] Failed: ${emailError}`);
-                }
-            } catch (err) {
-                emailError = err.message;
-                console.error('[Email] Exception:', err);
-            }
-        } else {
-            console.log('[Email] Skipped - No valid email or module not loaded');
-        }
-        
-        // レスポンス返却
         return res.status(200).json({
             success: true,
-            message: emailSent ? 
-                'ファイルがアップロードされ、認証コードをメール送信しました' : 
-                'ファイルが正常にアップロードされました（メール未送信）',
+            message: 'ファイルが正常にアップロードされました',
             fileId: fileId,
             downloadLink: downloadLink,
-            otp: otp, // 開発環境用表示
-            fileName: fileName,
-            fileSize: fileInfo.fileSize,
-            expiryDate: fileInfo.expiryTime,
-            emailSent: emailSent,
-            emailError: emailError,
-            recipientEmail: recipientEmail,
-            testLink: `${baseUrl}/download.html?id=test123` // テスト用
+            otp: otp,
+            fileName: 'uploaded-file.dat',
+            fileSize: buffer.length
         });
         
     } catch (error) {
