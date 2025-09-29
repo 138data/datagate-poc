@@ -1,0 +1,145 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>DataGate API Test</title>
+    <style>
+        body { 
+            font-family: sans-serif; 
+            max-width: 800px; 
+            margin: 50px auto; 
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #5a67d8;
+        }
+        pre {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>🔐 DataGate API Test Page</h1>
+    
+    <div class="test-section">
+        <h2>1. Health Check</h2>
+        <button onclick="testHealth()">Test Health</button>
+        <pre id="health-result"></pre>
+    </div>
+    
+    <div class="test-section">
+        <h2>2. Create Test File</h2>
+        <button onclick="createTestFile()">Create Test File</button>
+        <pre id="test-result"></pre>
+    </div>
+    
+    <div class="test-section">
+        <h2>3. Check & Download</h2>
+        <input type="text" id="fileId" placeholder="File ID" style="width: 300px; padding: 5px;">
+        <input type="text" id="otp" placeholder="OTP" style="width: 100px; padding: 5px;">
+        <br><br>
+        <button onclick="checkFile()">Check File</button>
+        <button onclick="downloadFile()">Download File</button>
+        <pre id="download-result"></pre>
+    </div>
+    
+    <script>
+        const API_BASE = 'https://datagate-poc.vercel.app';
+        
+        async function testHealth() {
+            try {
+                const res = await fetch(`${API_BASE}/api/health`);
+                const data = await res.json();
+                document.getElementById('health-result').textContent = JSON.stringify(data, null, 2);
+                document.getElementById('health-result').className = 'success';
+            } catch (e) {
+                document.getElementById('health-result').textContent = 'Error: ' + e.message;
+                document.getElementById('health-result').className = 'error';
+            }
+        }
+        
+        async function createTestFile() {
+            try {
+                const res = await fetch(`${API_BASE}/api/test-upload`, { method: 'POST' });
+                const data = await res.json();
+                document.getElementById('test-result').textContent = JSON.stringify(data, null, 2);
+                document.getElementById('test-result').className = 'success';
+                
+                // Auto-fill file ID and OTP
+                document.getElementById('fileId').value = data.fileId;
+                document.getElementById('otp').value = data.otp;
+            } catch (e) {
+                document.getElementById('test-result').textContent = 'Error: ' + e.message;
+                document.getElementById('test-result').className = 'error';
+            }
+        }
+        
+        async function checkFile() {
+            const fileId = document.getElementById('fileId').value;
+            try {
+                const res = await fetch(`${API_BASE}/api/download?id=${fileId}`);
+                const data = await res.json();
+                document.getElementById('download-result').textContent = JSON.stringify(data, null, 2);
+                document.getElementById('download-result').className = res.ok ? 'success' : 'error';
+            } catch (e) {
+                document.getElementById('download-result').textContent = 'Error: ' + e.message;
+                document.getElementById('download-result').className = 'error';
+            }
+        }
+        
+        async function downloadFile() {
+            const fileId = document.getElementById('fileId').value;
+            const otp = document.getElementById('otp').value;
+            try {
+                const res = await fetch(`${API_BASE}/api/download?id=${fileId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ otp })
+                });
+                
+                if (res.ok) {
+                    const blob = await res.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'downloaded-file';
+                    a.click();
+                    document.getElementById('download-result').textContent = 'Download started!';
+                    document.getElementById('download-result').className = 'success';
+                } else {
+                    const data = await res.json();
+                    document.getElementById('download-result').textContent = JSON.stringify(data, null, 2);
+                    document.getElementById('download-result').className = 'error';
+                }
+            } catch (e) {
+                document.getElementById('download-result').textContent = 'Error: ' + e.message;
+                document.getElementById('download-result').className = 'error';
+            }
+        }
+        
+        // Auto-run health check
+        testHealth();
+    </script>
+</body>
+</html>
