@@ -3,8 +3,5 @@
     "api/*.js": {
       "maxDuration": 10
     }
-  },
-  "env": {
-    "DEPLOY_TIME": "2025-01-20-force-redeploy"
   }
 }
