@@ -1,14 +1,46 @@
-﻿node_modules/
+﻿# Dependencies
+node_modules/
+.npm
+
+# Environment variables
 .env
-.vercel
-*.log
-.DS_Store
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.production
+
+# Vercel
+.vercel/
 .vercel
-.env*.local
+
+# Storage (uploaded files)
+storage/*.txt
+storage/*.pdf
+storage/*.json
+storage/file_*
+
+# Keep storage folder structure
+!storage/.gitkeep
+
+# Test files
+test*.txt
+dl_test.txt
+download_test.txt
+quick.txt
+*.bak
+*.bak2
+*.backup
+
+# Temporary files
+*.tmp
+temp/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Development files
+check-storage.js
+api/test-mail.js

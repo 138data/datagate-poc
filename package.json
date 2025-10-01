@@ -2,10 +2,11 @@
   "name": "datagate-poc",
   "version": "4.0.0",
   "description": "DataGate PPAP Alternative",
-  "dependencies": {
-    "nodemailer": "^7.0.6"
-  },
   "devDependencies": {
     "dotenv": "^17.2.3"
+  },
+  "dependencies": {
+    "formidable": "^3.5.1",
+    "nodemailer": "^6.9.7"
   }
 }
