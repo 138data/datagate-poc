@@ -3,17 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DataGate - ファイルダウンロード</title>
+    <title>DataGate - セキュアファイルダウンロード</title>
     <style>
         body {
-            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            display: flex;
-            justify-content: center;
-            align-items: center;
             min-height: 100vh;
             margin: 0;
             padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
         .container {
             background: white;
@@ -25,37 +25,46 @@
         }
         h1 {
             color: #333;
-            font-size: 32px;
+            font-size: 28px;
             margin-bottom: 30px;
             text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
         }
-        .test-notice {
-            background: #fff3cd;
-            border: 2px solid #ffc107;
+        .error-box {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .success-box {
+            background: #e6fffa;
+            color: #065f46;
             padding: 15px;
             border-radius: 8px;
             margin-bottom: 20px;
         }
-        .test-notice h3 {
-            color: #856404;
-            margin-top: 0;
-        }
         .form-group {
-            margin-bottom: 25px;
+            margin-bottom: 20px;
         }
         label {
             display: block;
-            color: #555;
-            font-weight: 600;
+            color: #666;
             margin-bottom: 8px;
+            font-size: 14px;
         }
         input {
             width: 100%;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
+            padding: 12px 15px;
+            border: 1px solid #e0e0e0;
             border-radius: 8px;
             font-size: 16px;
-            transition: border-color 0.3s;
             box-sizing: border-box;
         }
         input:focus {
@@ -64,186 +73,143 @@
         }
         button {
             width: 100%;
-            background: #667eea;
-            color: white;
             padding: 15px;
+            font-size: 16px;
+            font-weight: 600;
             border: none;
             border-radius: 8px;
-            font-size: 18px;
-            font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
+            margin-bottom: 10px;
         }
-        button:hover {
+        .btn-primary {
+            background: #3182ce;
+            color: white;
+        }
+        .btn-primary:hover:not(:disabled) {
+            background: #2c5282;
+        }
+        .btn-secondary {
+            background: #667eea;
+            color: white;
+        }
+        .btn-secondary:hover:not(:disabled) {
             background: #5a67d8;
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
         }
         button:disabled {
-            background: #ccc;
+            background: #cbd5e0;
             cursor: not-allowed;
-            transform: none;
-        }
-        .message {
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-        .error {
-            background: #fee;
-            color: #c33;
-            border: 1px solid #fcc;
-        }
-        .success {
-            background: #efe;
-            color: #3c3;
-            border: 1px solid #cfc;
-        }
-        .info {
-            background: #e6f4ff;
-            color: #0066cc;
-            border: 1px solid #b3d9ff;
-        }
-        .warning {
-            background: #fff3cd;
-            color: #856404;
-            border: 1px solid #ffc107;
         }
         #loading {
             display: none;
             text-align: center;
             color: #667eea;
+            padding: 20px;
         }
-        .test-button {
-            background: #28a745;
-            margin-bottom: 10px;
-        }
-        .test-button:hover {
-            background: #218838;
+        #loading.show {
+            display: block;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🔐 セキュアファイルダウンロード</h1>
+        <h1>
+            🔐 セキュアファイルダウンロード
+        </h1>
         
-        <div id="message"></div>
+        <div id="errorBox" class="error-box" style="display: none;">
+            <span>❌</span>
+            <span id="errorMessage">Not found</span>
+        </div>
         
+        <div id="successBox" class="success-box" style="display: none;">
+            <span id="successMessage"></span>
+        </div>
         
-        
-        <div id="downloadForm">
+        <form id="downloadForm">
             <div class="form-group">
                 <label for="fileId">ファイルID</label>
-                <input type="text" 
-                       id="fileId" 
-                       placeholder="ファイルIDまたは 'test123' を入力" 
-                       value="">
+                <input type="text" id="fileId" readonly>
             </div>
             
             <div class="form-group">
                 <label for="otp">ワンタイムパスワード (OTP)</label>
-                <input type="text" 
-                       id="otp" 
-                       placeholder="6桁のコード（テストは 123456）" 
-                       maxlength="6"
-                       pattern="[0-9]{6}">
+                <input type="text" id="otp" placeholder="6桁のコード（テストは 123456）" maxlength="6">
             </div>
             
-            <button onclick="checkFile()" style="margin-bottom: 10px; background: #4299e1;">
+            <button type="button" class="btn-primary" onclick="checkFile()">
                 ファイル情報を確認
             </button>
             
-            <button onclick="downloadFile()">
+            <button type="submit" class="btn-secondary">
                 ダウンロード実行
             </button>
-            
-            <div id="loading">
-                <p>処理中...</p>
-            </div>
+        </form>
+        
+        <div id="loading">
+            処理中...
         </div>
     </div>
     
     <script>
         // URLパラメータからファイルID取得
         const urlParams = new URLSearchParams(window.location.search);
-        const fileIdFromUrl = urlParams.get("id");
+        const fileId = urlParams.get('id');
         
-        // ファイルIDフィールドに自動入力
-        if (fileIdFromUrl) {
-            document.getElementById("fileId").value = fileIdFromUrl;
-            // 自動でファイル情報を確認（ただしページは閉じない）
-            setTimeout(() => checkFile(false), 500);
+        if (fileId) {
+            document.getElementById('fileId').value = fileId;
+            // 自動でファイル確認
+            setTimeout(() => checkFile(), 500);
         }
         
-        function loadTestFile() {
-            document.getElementById("fileId").value = "test123";
-            document.getElementById("otp").value = "123456";
-            showMessage("テストファイルの情報を入力しました。「ダウンロード実行」をクリックしてください。", "success");
-        }
-        
-        async function checkFile(showError = true) {
-            const fileId = document.getElementById("fileId").value.trim();
-            
-            if (!fileId) {
-                if (showError) {
-                    showMessage("ファイルIDを入力してください", "error");
-                }
+        async function checkFile() {
+            const id = document.getElementById('fileId').value;
+            if (!id) {
+                showError('ファイルIDが指定されていません');
                 return;
             }
             
-            const loadingDiv = document.getElementById("loading");
-            loadingDiv.style.display = "block";
+            const loading = document.getElementById('loading');
+            loading.classList.add('show');
             
             try {
-                const response = await fetch(`/api/download?id=${fileId}`);
+                const response = await fetch(`/api/download?id=${id}`);
                 const data = await response.json();
                 
-                if (data.success) {
-                    showMessage(`✅ ファイル確認OK: ${data.fileName} (残り${data.remainingDownloads}回ダウンロード可能)`, "success");
+                if (data.exists || data.success) {
+                    showSuccess(`ファイル確認OK: ${data.fileName || 'document.pdf'}`);
+                    hideError();
                 } else {
-                    // エラーでもページは閉じない
-                    if (data.availableTest) {
-                        showMessage(`⚠️ ${data.error}. テストファイルをお試しください。`, "warning");
-                    } else {
-                        showMessage(`❌ ${data.error}`, "error");
-                    }
+                    showError(data.error || 'ファイルが見つかりません');
                 }
-                
             } catch (error) {
-                console.error("Check error:", error);
-                if (showError) {
-                    showMessage("エラーが発生しました。テストファイルをお試しください。", "warning");
-                }
+                console.error('Check error:', error);
+                showError('ファイル情報の取得に失敗しました');
             } finally {
-                loadingDiv.style.display = "none";
+                loading.classList.remove('show');
             }
         }
         
-        async function downloadFile() {
-            const fileId = document.getElementById("fileId").value.trim();
-            const otp = document.getElementById("otp").value.trim();
-            const loadingDiv = document.getElementById("loading");
+        // フォーム送信処理
+        document.getElementById('downloadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
             
-            if (!fileId || !otp) {
-                showMessage("ファイルIDとOTPを入力してください", "error");
+            const id = document.getElementById('fileId').value;
+            const otp = document.getElementById('otp').value;
+            
+            if (!id || !otp) {
+                showError('ファイルIDとOTPを入力してください');
                 return;
             }
             
-            if (otp.length !== 6 || !/^\d+$/.test(otp)) {
-                showMessage("OTPは6桁の数字で入力してください", "error");
-                return;
-            }
-            
-            loadingDiv.style.display = "block";
-            const downloadBtn = document.querySelector("button[onclick='downloadFile()']");
-            downloadBtn.disabled = true;
+            const loading = document.getElementById('loading');
+            loading.classList.add('show');
             
             try {
-                const response = await fetch(`/api/download?id=${fileId}`, {
-                    method: "POST",
+                const response = await fetch(`/api/download?id=${id}`, {
+                    method: 'POST',
                     headers: {
-                        "Content-Type": "application/json",
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ otp })
                 });
@@ -251,54 +217,44 @@
                 if (response.ok) {
                     const blob = await response.blob();
                     const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.style.display = "none";
+                    const a = document.createElement('a');
                     a.href = url;
-                    
-                    // ファイル名の取得
-                    const contentDisposition = response.headers.get("Content-Disposition");
-                    const fileNameMatch = contentDisposition?.match(/filename="(.+)"/);
-                    a.download = fileNameMatch ? fileNameMatch[1] : "download";
-                    
+                    a.download = 'download.pdf';
                     document.body.appendChild(a);
                     a.click();
                     window.URL.revokeObjectURL(url);
                     
-                    showMessage("✅ ダウンロードが開始されました！", "success");
-                    
+                    showSuccess('ダウンロードを開始しました！');
+                    hideError();
                 } else {
                     const error = await response.json();
-                    if (error.hint) {
-                        showMessage(`❌ ${error.error}. ヒント: ${error.hint}`, "error");
-                    } else {
-                        showMessage(`❌ ${error.error}`, "error");
-                    }
+                    showError(error.error || 'ダウンロードに失敗しました');
                 }
-                
             } catch (error) {
-                console.error("Download error:", error);
-                showMessage("ダウンロードに失敗しました。テストファイルをお試しください。", "error");
-                
+                console.error('Download error:', error);
+                showError('ダウンロードに失敗しました');
             } finally {
-                loadingDiv.style.display = "none";
-                downloadBtn.disabled = false;
-            }
-        }
-        
-        function showMessage(text, type) {
-            const messageDiv = document.getElementById("message");
-            messageDiv.className = `message ${type}`;
-            messageDiv.textContent = text;
-            messageDiv.style.display = "block";
-        }
-        
-        // Enterキーでダウンロード
-        document.getElementById("otp").addEventListener("keypress", (e) => {
-            if (e.key === "Enter") {
-                downloadFile();
+                loading.classList.remove('show');
             }
         });
+        
+        function showError(message) {
+            const errorBox = document.getElementById('errorBox');
+            const errorMessage = document.getElementById('errorMessage');
+            errorMessage.textContent = message;
+            errorBox.style.display = 'flex';
+        }
+        
+        function hideError() {
+            document.getElementById('errorBox').style.display = 'none';
+        }
+        
+        function showSuccess(message) {
+            const successBox = document.getElementById('successBox');
+            const successMessage = document.getElementById('successMessage');
+            successMessage.textContent = message;
+            successBox.style.display = 'block';
+        }
     </script>
 </body>
 </html>
-
