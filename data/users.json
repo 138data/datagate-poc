@@ -1,0 +1,11 @@
+[
+  {
+    "id": "1",
+    "username": "admin",
+    "email": "admin@138datagate.local",
+    "password": "$2b$10$X49N39xerhUWn5m89pELSufMfonaZBENFvOo3n13zk/wGCnj2Z0wS",
+    "role": "admin",
+    "status": "active",
+    "createdAt": "2025-10-09T04:24:54.560Z"
+  }
+]

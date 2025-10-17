@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ユーザー管理 - 138DataGate Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+        }
+
+        .sidebar {
+            width: 250px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 2rem;
+        }
+
+        .logo {
+            color: white;
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 2rem;
+        }
+
+        .nav-item {
+            display: block;
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 0.5rem;
+            transition: all 0.3s;
+        }
+
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        .nav-item.active {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 2rem;
+        }
+
+        .header {
+            background: white;
+            border-radius: 1rem;
+            padding: 1.5rem 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 1.75rem;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .user-info span {
+            color: #666;
+        }
+
+        .logout-btn {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: #dc2626;
+        }
+
+        .content-card {
+            background: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .search-box {
+            display: flex;
+            gap: 1rem;
+            flex: 1;
+            max-width: 500px;
+        }
+
+        .search-box input {
+            flex: 1;
+            padding: 0.75rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .search-box select {
+            padding: 0.75rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            background: white;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.3s;
+        }
+
+        .btn-primary:hover {
+            background: #5a67d8;
+        }
+
+        .users-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .users-table th {
+            text-align: left;
+            padding: 1rem;
+            background: #f3f4f6;
+            color: #4b5563;
+            font-weight: 600;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .users-table td {
+            padding: 1rem;
+            border-bottom: 1px solid #e5e7eb;
+            color: #4b5563;
+        }
+
+        .users-table tr:hover {
+            background: #f9fafb;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .status-active {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-inactive {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .role-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .role-admin {
+            background: #ddd6fe;
+            color: #5b21b6;
+        }
+
+        .role-manager {
+            background: #fed7aa;
+            color: #92400e;
+        }
+
+        .role-user {
+            background: #e0e7ff;
+            color: #3730a3;
+        }
+
+        .actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn-edit, .btn-delete {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.3s;
+        }
+
+        .btn-edit {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-edit:hover {
+            background: #2563eb;
+        }
+
+        .btn-delete {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-delete:hover {
+            background: #dc2626;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            width: 90%;
+            max-width: 500px;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-header h2 {
+            color: #333;
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #9ca3af;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #4b5563;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+        }
+
+        .btn-cancel {
+            background: #e5e7eb;
+            color: #4b5563;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #9ca3af;
+        }
+
+        .empty-state svg {
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 1rem;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="logo">138DataGate</div>
+        <nav>
+            <a href="admin.html" class="nav-item">ダッシュボード</a>
+            <a href="admin-files.html" class="nav-item">ファイル管理</a>
+            <a href="admin-users.html" class="nav-item active">ユーザー管理</a>
+            <a href="admin-logs.html" class="nav-item">ログ管理</a>
+            <a href="admin-settings.html" class="nav-item">設定</a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <div class="header">
+            <h1>ユーザー管理</h1>
+            <div class="user-info">
+                <span id="adminName">管理者</span>
+                <button class="logout-btn" onclick="logout()">ログアウト</button>
+            </div>
+        </div>
+
+        <div class="content-card">
+            <div class="toolbar">
+                <div class="search-box">
+                    <input type="text" id="searchInput" placeholder="ユーザー名、メールアドレスで検索...">
+                    <select id="roleFilter">
+                        <option value="">全ロール</option>
+                        <option value="admin">管理者</option>
+                        <option value="manager">マネージャー</option>
+                        <option value="user">ユーザー</option>
+                    </select>
+                    <select id="statusFilter">
+                        <option value="">全ステータス</option>
+                        <option value="active">アクティブ</option>
+                        <option value="inactive">非アクティブ</option>
+                    </select>
+                </div>
+                <button class="btn-primary" onclick="openCreateModal()">新規ユーザー作成</button>
+            </div>
+
+            <div id="usersContainer">
+                <table class="users-table">
+                    <thead>
+                        <tr>
+                            <th>ユーザー名</th>
+                            <th>氏名</th>
+                            <th>メール</th>
+                            <th>部署</th>
+                            <th>ロール</th>
+                            <th>ステータス</th>
+                            <th>最終ログイン</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTableBody">
+                        <!-- ユーザー行がここに追加されます -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ユーザー作成/編集モーダル -->
+    <div id="userModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">新規ユーザー作成</h2>
+                <button class="close-modal" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="userForm">
+                <div class="form-group">
+                    <label for="username">ユーザー名</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="email">メールアドレス</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="fullName">氏名</label>
+                    <input type="text" id="fullName" name="fullName" required>
+                </div>
+                <div class="form-group">
+                    <label for="department">部署</label>
+                    <input type="text" id="department" name="department">
+                </div>
+                <div class="form-group">
+                    <label for="role">ロール</label>
+                    <select id="role" name="role" required>
+                        <option value="user">ユーザー</option>
+                        <option value="manager">マネージャー</option>
+                        <option value="admin">管理者</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="status">ステータス</label>
+                    <select id="status" name="status" required>
+                        <option value="active">アクティブ</option>
+                        <option value="inactive">非アクティブ</option>
+                    </select>
+                </div>
+                <div class="form-group" id="passwordGroup">
+                    <label for="password">初期パスワード</label>
+                    <input type="password" id="password" name="password">
+                    <small style="color: #9ca3af;">編集時は空欄で変更なし</small>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-cancel" onclick="closeModal()">キャンセル</button>
+                    <button type="submit" class="btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let users = [];
+        let editingUserId = null;
+
+        // 初期化（簡略版 - 認証をスキップ）
+        async function init() {
+            console.log('初期化開始...');
+            const token = localStorage.getItem('adminToken');
+            
+            if (!token) {
+                console.log('トークンが見つかりません');
+                window.location.href = '/admin-login.html';
+                return;
+            }
+
+            console.log('トークン確認OK');
+            
+            // 認証チェックをスキップして直接表示
+            document.getElementById('adminName').textContent = 'admin';
+            
+            // ダミーデータで表示
+            users = [
+                {
+                    id: "usr_001",
+                    username: "user1",
+                    email: "user1@example.com",
+                    fullName: "山田 太郎",
+                    department: "営業部",
+                    role: "user",
+                    status: "active",
+                    lastLogin: "2024-01-15T10:30:00Z"
+                },
+                {
+                    id: "usr_002",
+                    username: "user2",
+                    email: "user2@example.com",
+                    fullName: "佐藤 花子",
+                    department: "開発部",
+                    role: "user",
+                    status: "active",
+                    lastLogin: "2024-01-14T15:45:00Z"
+                },
+                {
+                    id: "usr_003",
+                    username: "manager1",
+                    email: "manager@example.com",
+                    fullName: "鈴木 一郎",
+                    department: "管理部",
+                    role: "manager",
+                    status: "active",
+                    lastLogin: "2024-01-15T09:00:00Z"
+                }
+            ];
+            
+            renderUsers();
+        }
+
+        // ユーザー一覧を表示
+        function renderUsers() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const roleFilter = document.getElementById('roleFilter').value;
+            const statusFilter = document.getElementById('statusFilter').value;
+
+            const filteredUsers = users.filter(user => {
+                const matchesSearch = !searchTerm || 
+                    user.username.toLowerCase().includes(searchTerm) ||
+                    user.email.toLowerCase().includes(searchTerm) ||
+                    user.fullName.toLowerCase().includes(searchTerm);
+                
+                const matchesRole = !roleFilter || user.role === roleFilter;
+                const matchesStatus = !statusFilter || user.status === statusFilter;
+
+                return matchesSearch && matchesRole && matchesStatus;
+            });
+
+            const tbody = document.getElementById('usersTableBody');
+            
+            if (filteredUsers.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" style="text-align: center; padding: 2rem; color: #9ca3af;">
+                            該当するユーザーが見つかりません
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = filteredUsers.map(user => `
+                <tr>
+                    <td>${user.username}</td>
+                    <td>${user.fullName}</td>
+                    <td>${user.email}</td>
+                    <td>${user.department || '-'}</td>
+                    <td><span class="role-badge role-${user.role}">${getRoleName(user.role)}</span></td>
+                    <td><span class="status-badge status-${user.status}">${getStatusName(user.status)}</span></td>
+                    <td>${formatDate(user.lastLogin)}</td>
+                    <td>
+                        <div class="actions">
+                            <button class="btn-edit" onclick="openEditModal('${user.id}')">編集</button>
+                            <button class="btn-delete" onclick="deleteUser('${user.id}')">削除</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // ロール名を取得
+        function getRoleName(role) {
+            const roleNames = {
+                admin: '管理者',
+                manager: 'マネージャー',
+                user: 'ユーザー'
+            };
+            return roleNames[role] || role;
+        }
+
+        // ステータス名を取得
+        function getStatusName(status) {
+            const statusNames = {
+                active: 'アクティブ',
+                inactive: '非アクティブ'
+            };
+            return statusNames[status] || status;
+        }
+
+        // 日付フォーマット
+        function formatDate(dateString) {
+            if (!dateString) return '-';
+            const date = new Date(dateString);
+            return date.toLocaleString('ja-JP', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // 新規作成モーダルを開く
+        function openCreateModal() {
+            editingUserId = null;
+            document.getElementById('modalTitle').textContent = '新規ユーザー作成';
+            document.getElementById('userForm').reset();
+            document.getElementById('passwordGroup').style.display = 'block';
+            document.getElementById('password').required = true;
+            document.getElementById('userModal').style.display = 'flex';
+        }
+
+        // 編集モーダルを開く
+        function openEditModal(userId) {
+            const user = users.find(u => u.id === userId);
+            if (!user) return;
+
+            editingUserId = userId;
+            document.getElementById('modalTitle').textContent = 'ユーザー編集';
+            document.getElementById('username').value = user.username;
+            document.getElementById('email').value = user.email;
+            document.getElementById('fullName').value = user.fullName;
+            document.getElementById('department').value = user.department || '';
+            document.getElementById('role').value = user.role;
+            document.getElementById('status').value = user.status;
+            document.getElementById('password').value = '';
+            document.getElementById('password').required = false;
+            document.getElementById('userModal').style.display = 'flex';
+        }
+
+        // モーダルを閉じる
+        function closeModal() {
+            document.getElementById('userModal').style.display = 'none';
+            document.getElementById('userForm').reset();
+            editingUserId = null;
+        }
+
+        // ユーザー保存（ダミー処理）
+        document.getElementById('userForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = new FormData(e.target);
+            const userData = Object.fromEntries(formData);
+
+            if (editingUserId) {
+                // 編集の場合
+                const index = users.findIndex(u => u.id === editingUserId);
+                users[index] = { ...users[index], ...userData };
+                alert('ユーザーを更新しました');
+            } else {
+                // 新規作成の場合
+                const newUser = {
+                    id: `usr_${Date.now()}`,
+                    ...userData,
+                    lastLogin: null
+                };
+                users.push(newUser);
+                alert('ユーザーを作成しました');
+            }
+
+            renderUsers();
+            closeModal();
+        });
+
+        // ユーザー削除
+        async function deleteUser(userId) {
+            if (!confirm('このユーザーを削除してもよろしいですか？')) {
+                return;
+            }
+
+            users = users.filter(u => u.id !== userId);
+            renderUsers();
+            alert('ユーザーを削除しました');
+        }
+
+        // 空の状態を表示
+        function showEmptyState() {
+            document.getElementById('usersContainer').innerHTML = `
+                <div class="empty-state">
+                    <p>ユーザーデータを読み込めませんでした</p>
+                </div>
+            `;
+        }
+
+        // ログアウト
+        function logout() {
+            localStorage.removeItem('adminToken');
+            window.location.href = '/admin-login.html';
+        }
+
+        // 検索・フィルタのイベントリスナー
+        document.getElementById('searchInput').addEventListener('input', renderUsers);
+        document.getElementById('roleFilter').addEventListener('change', renderUsers);
+        document.getElementById('statusFilter').addEventListener('change', renderUsers);
+
+        // 初期化実行
+        init();
+    </script>
+</body>
+</html>
