@@ -18,29 +18,29 @@ const kvClient = {
     async get(key) {
         const url = `${(process.env.KV_REST_API_URL || '').trim()}/get/${key}`;
         const token = (process.env.KV_REST_API_TOKEN || '').trim();
-        
+
         const response = await fetch(url, {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
         });
-        
+
         if (!response.ok) {
             if (response.status === 404) return null;
             throw new Error(`KV GET failed: ${response.statusText}`);
         }
-        
+
         const data = await response.json();
         return data.result;
     },
-    
+
     async set(key, value, opts = {}) {
         const url = `${(process.env.KV_REST_API_URL || '').trim()}/set/${key}`;
         const token = (process.env.KV_REST_API_TOKEN || '').trim();
-        
+
         const body = { value };
         if (opts.ex) body.ex = opts.ex;
-        
+
         const response = await fetch(url, {
             method: 'POST',
             headers: {
@@ -49,16 +49,31 @@ const kvClient = {
             },
             body: JSON.stringify(body)
         });
-        
+
         if (!response.ok) {
             throw new Error(`KV SET failed: ${response.statusText}`);
         }
-        
+
         return await response.json();
     }
 };
 
+// formidableをPromise化
+function parseForm(req, form) {
+    return new Promise((resolve, reject) => {
+        form.parse(req, (err, fields, files) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve({ fields, files });
+            }
+        });
+    });
+}
+
 module.exports = async (req, res) => {
+    console.log('Upload endpoint called, method:', req.method);
+
     if (req.method !== 'POST') {
         return res.status(405).json({
             success: false,
@@ -73,150 +88,146 @@ module.exports = async (req, res) => {
     });
 
     try {
-        form.parse(req, async (err, fields, files) => {
-            if (err) {
-                console.error('Formidable parse error:', err);
-                return res.status(500).json({
-                    success: false,
-                    error: 'ファイルのパースに失敗しました',
-                    details: err.message
-                });
-            }
+        console.log('Starting formidable parse...');
+        const { fields, files } = await parseForm(req, form);
+        
+        console.log('Parsed fields:', fields);
+        console.log('Parsed files:', Object.keys(files));
 
-            console.log('Parsed fields:', fields);
-            console.log('Parsed files:', files);
+        const file = files.file;
+        if (!file) {
+            return res.status(400).json({
+                success: false,
+                error: 'ファイルがアップロードされていません'
+            });
+        }
 
-            const file = files.file;
-            if (!file) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'ファイルがアップロードされていません'
-                });
-            }
+        // sender と recipient を files から取得（PowerShellがファイルとして送信するため）
+        let sender, recipient;
 
-            // sender と recipient を files から取得（PowerShellがファイルとして送信するため）
-            let sender, recipient;
-            
-            if (files.sender) {
-                // sender がファイルとして送られてきた場合、内容を読み込む
-                const senderContent = await fs.readFile(files.sender.filepath, 'utf-8');
-                sender = senderContent.trim();
-            } else if (fields.sender) {
-                sender = fields.sender;
-            }
-            
-            if (files.recipient) {
-                // recipient がファイルとして送られてきた場合、内容を読み込む
-                const recipientContent = await fs.readFile(files.recipient.filepath, 'utf-8');
-                recipient = recipientContent.trim();
-            } else if (fields.recipient) {
-                recipient = fields.recipient;
-            }
+        if (files.sender) {
+            const senderContent = await fs.readFile(files.sender.filepath, 'utf-8');
+            sender = senderContent.trim();
+        } else if (fields.sender) {
+            sender = Array.isArray(fields.sender) ? fields.sender[0] : fields.sender;
+        }
 
-            console.log('Extracted sender:', sender);
-            console.log('Extracted recipient:', recipient);
+        if (files.recipient) {
+            const recipientContent = await fs.readFile(files.recipient.filepath, 'utf-8');
+            recipient = recipientContent.trim();
+        } else if (fields.recipient) {
+            recipient = Array.isArray(fields.recipient) ? fields.recipient[0] : fields.recipient;
+        }
 
-            if (!sender || !recipient) {
-                return res.status(400).json({
-                    success: false,
-                    error: '送信者または受信者が指定されていません',
-                    debug: {
-                        sender: sender,
-                        recipient: recipient,
-                        fieldsKeys: Object.keys(fields),
-                        filesKeys: Object.keys(files)
-                    }
-                });
-            }
+        console.log('Extracted sender:', sender);
+        console.log('Extracted recipient:', recipient);
 
-            try {
-                // ファイルIDの生成
-                const fileId = uuidv4();
-
-                // ファイルを読み込み
-                const fileBuffer = await fs.readFile(file.filepath);
-                let processedBuffer = fileBuffer;
-                let compressed = false;
-                let compressionRatio = 0;
-                const originalSize = fileBuffer.length;
-
-                // 圧縮処理
-                const enableCompression = process.env.ENABLE_COMPRESSION === 'true';
-                if (enableCompression && isCompressible(fileBuffer, file.mimetype)) {
-                    const compressionResult = await compress(fileBuffer);
-                    processedBuffer = compressionResult.compressed;
-                    compressed = true;
-                    compressionRatio = parseFloat(compressionResult.compressionRatio);
+        if (!sender || !recipient) {
+            return res.status(400).json({
+                success: false,
+                error: '送信者または受信者が指定されていません',
+                debug: {
+                    sender: sender,
+                    recipient: recipient,
+                    fieldsKeys: Object.keys(fields),
+                    filesKeys: Object.keys(files)
                 }
+            });
+        }
 
-                // ファイルの暗号化
-                const encryptedFileData = encryptFile(processedBuffer);
+        console.log('Starting file processing...');
 
-                // 暗号化ファイルをKVに保存（Base64エンコード）
-                const encryptedFileBase64 = encryptedFileData.encryptedData.toString('base64');
-                await kvClient.set(`file:data:${fileId}`, encryptedFileBase64, { ex: 604800 });
+        // ファイルIDの生成
+        const fileId = uuidv4();
 
-                // メタデータの暗号化
-                const encryptedFileName = encryptString(file.originalFilename || 'untitled');
-                const encryptedSender = encryptString(sender);
-                const encryptedRecipient = encryptString(recipient);
+        // ファイルを読み込み
+        const fileBuffer = await fs.readFile(file.filepath);
+        let processedBuffer = fileBuffer;
+        let compressed = false;
+        let compressionRatio = 0;
+        const originalSize = fileBuffer.length;
 
-                // 有効期限の設定（7日後）
-                const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+        console.log('File read, size:', originalSize);
 
-                // メタデータをKVに保存
-                const metadata = {
-                    id: fileId,
-                    fileName: encryptedFileName.encryptedData,
-                    fileNameSalt: encryptedFileName.salt,
-                    fileNameIv: encryptedFileName.iv,
-                    fileNameAuthTag: encryptedFileName.authTag,
-                    sender: encryptedSender.encryptedData,
-                    senderSalt: encryptedSender.salt,
-                    senderIv: encryptedSender.iv,
-                    senderAuthTag: encryptedSender.authTag,
-                    recipient: encryptedRecipient.encryptedData,
-                    recipientSalt: encryptedRecipient.salt,
-                    recipientIv: encryptedRecipient.iv,
-                    recipientAuthTag: encryptedRecipient.authTag,
-                    size: originalSize,
-                    compressed,
-                    originalSize: compressed ? originalSize : undefined,
-                    compressedSize: compressed ? processedBuffer.length : undefined,
-                    compressionRatio: compressed ? compressionRatio : undefined,
-                    mimeType: file.mimetype,
-                    uploadedAt: new Date().toISOString(),
-                    expiresAt
-                };
+        // 圧縮処理
+        const enableCompression = process.env.ENABLE_COMPRESSION === 'true';
+        if (enableCompression && isCompressible(fileBuffer, file.mimetype)) {
+            console.log('Compressing file...');
+            const compressionResult = await compress(fileBuffer);
+            processedBuffer = compressionResult.compressed;
+            compressed = true;
+            compressionRatio = parseFloat(compressionResult.compressionRatio);
+            console.log('Compressed, ratio:', compressionRatio);
+        }
 
-                await kvClient.set(`file:${fileId}`, JSON.stringify(metadata), { ex: 604800 });
+        // ファイルの暗号化
+        console.log('Encrypting file...');
+        const encryptedFileData = encryptFile(processedBuffer);
 
-                // 一時ファイルの削除
-                await fs.unlink(file.filepath);
-                if (files.sender) await fs.unlink(files.sender.filepath);
-                if (files.recipient) await fs.unlink(files.recipient.filepath);
+        // 暗号化ファイルをKVに保存（Base64エンコード）
+        console.log('Saving encrypted file to KV...');
+        const encryptedFileBase64 = encryptedFileData.encryptedData.toString('base64');
+        await kvClient.set(`file:data:${fileId}`, encryptedFileBase64, { ex: 604800 });
 
-                return res.status(200).json({
-                    success: true,
-                    message: 'ファイルが正常にアップロードされました',
-                    file: {
-                        id: fileId,
-                        encryptedFileName: encryptedFileName.encryptedData,
-                        size: originalSize,
-                        compressed,
-                        compressionRatio: compressed ? compressionRatio : undefined,
-                        uploadedAt: metadata.uploadedAt,
-                        expiresAt
-                    }
-                });
+        // メタデータの暗号化
+        console.log('Encrypting metadata...');
+        const encryptedFileName = encryptString(file.originalFilename || 'untitled');
+        const encryptedSender = encryptString(sender);
+        const encryptedRecipient = encryptString(recipient);
 
-            } catch (error) {
-                console.error('Processing error:', error);
-                return res.status(500).json({
-                    success: false,
-                    error: 'ファイルの処理に失敗しました',
-                    details: error.message
-                });
+        // 有効期限の設定（7日後）
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+        // メタデータをKVに保存
+        console.log('Saving metadata to KV...');
+        const metadata = {
+            id: fileId,
+            fileName: encryptedFileName.encryptedData,
+            fileNameSalt: encryptedFileName.salt,
+            fileNameIv: encryptedFileName.iv,
+            fileNameAuthTag: encryptedFileName.authTag,
+            sender: encryptedSender.encryptedData,
+            senderSalt: encryptedSender.salt,
+            senderIv: encryptedSender.iv,
+            senderAuthTag: encryptedSender.authTag,
+            recipient: encryptedRecipient.encryptedData,
+            recipientSalt: encryptedRecipient.salt,
+            recipientIv: encryptedRecipient.iv,
+            recipientAuthTag: encryptedRecipient.authTag,
+            size: originalSize,
+            compressed,
+            originalSize: compressed ? originalSize : undefined,
+            compressedSize: compressed ? processedBuffer.length : undefined,
+            compressionRatio: compressed ? compressionRatio : undefined,
+            mimeType: file.mimetype,
+            uploadedAt: new Date().toISOString(),
+            expiresAt,
+            encryptionSalt: encryptedFileData.salt,
+            encryptionIv: encryptedFileData.iv,
+            encryptionAuthTag: encryptedFileData.authTag
+        };
+
+        await kvClient.set(`file:${fileId}`, JSON.stringify(metadata), { ex: 604800 });
+
+        // 一時ファイルの削除
+        console.log('Cleaning up temp files...');
+        await fs.unlink(file.filepath);
+        if (files.sender) await fs.unlink(files.sender.filepath);
+        if (files.recipient) await fs.unlink(files.recipient.filepath);
+
+        console.log('Upload completed successfully');
+
+        return res.status(200).json({
+            success: true,
+            message: 'ファイルが正常にアップロードされました',
+            file: {
+                id: fileId,
+                encryptedFileName: encryptedFileName.encryptedData,
+                size: originalSize,
+                compressed,
+                compressionRatio: compressed ? compressionRatio : undefined,
+                uploadedAt: metadata.uploadedAt,
+                expiresAt
             }
         });
 
@@ -225,7 +236,8 @@ module.exports = async (req, res) => {
         return res.status(500).json({
             success: false,
             error: 'ファイルのアップロードに失敗しました',
-            details: error.message
+            details: error.message,
+            stack: error.stack
         });
     }
 };
