@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ファイル管理 - 138DataGate</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logout-btn {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: #dc2626;
+        }
+
+        .nav-menu {
+            background: white;
+            padding: 15px 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            display: flex;
+            gap: 20px;
+        }
+
+        .nav-item {
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: #666;
+            text-decoration: none;
+        }
+
+        .nav-item:hover {
+            background: #f3f4f6;
+            color: #667eea;
+        }
+
+        .nav-item.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-card-title {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .stat-card-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .search-box {
+            display: flex;
+            gap: 10px;
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .search-input {
+            flex: 1;
+            padding: 10px 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .search-btn, .upload-btn, .delete-expired-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .search-btn {
+            background: #667eea;
+            color: white;
+        }
+
+        .search-btn:hover {
+            background: #5568d3;
+        }
+
+        .upload-btn {
+            background: #10b981;
+            color: white;
+        }
+
+        .upload-btn:hover {
+            background: #059669;
+        }
+
+        .delete-expired-btn {
+            background: #ef4444;
+            color: white;
+        }
+
+        .delete-expired-btn:hover {
+            background: #dc2626;
+        }
+
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: #f9fafb;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #374151;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        tr:hover {
+            background: #f9fafb;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #9ca3af;
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .badge-active {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .badge-expired {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .action-btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-right: 5px;
+            transition: all 0.3s;
+        }
+
+        .download-btn {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .download-btn:hover {
+            background: #2563eb;
+        }
+
+        .delete-btn {
+            background: #ef4444;
+            color: white;
+        }
+
+        .delete-btn:hover {
+            background: #dc2626;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #9ca3af;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #374151;
+        }
+
+        .form-input, .form-select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .file-input {
+            border: 2px dashed #e5e7eb;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+
+        .file-input:hover {
+            border-color: #667eea;
+            background: #f9fafb;
+        }
+
+        .file-input input {
+            display: none;
+        }
+
+        .selected-file {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f0f9ff;
+            border-radius: 8px;
+            color: #0369a1;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .cancel-btn, .submit-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .cancel-btn {
+            background: #e5e7eb;
+            color: #374151;
+        }
+
+        .submit-btn {
+            background: #667eea;
+            color: white;
+        }
+
+        .submit-btn:hover {
+            background: #5568d3;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            z-index: 2000;
+            display: none;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .notification.success {
+            background: #10b981;
+        }
+
+        .notification.error {
+            background: #ef4444;
+        }
+
+        .notification.active {
+            display: block;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="header-title">📁 ファイル管理</h1>
+            <div class="header-right">
+                <div class="user-info">
+                    <span id="username">admin</span>
+                </div>
+                <button class="logout-btn" onclick="logout()">ログアウト</button>
+            </div>
+        </div>
+
+        <div class="nav-menu">
+            <a href="admin.html" class="nav-item">ダッシュボード</a>
+            <a href="admin-users.html" class="nav-item">ユーザー管理</a>
+            <a href="admin-files.html" class="nav-item active">ファイル管理</a>
+            <a href="admin-logs.html" class="nav-item">ログ</a>
+            <a href="admin-settings.html" class="nav-item">設定</a>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-card-title">総ファイル数</div>
+                <div class="stat-card-value" id="totalFiles">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-title">総容量</div>
+                <div class="stat-card-value" id="totalSize">0 B</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-title">今日のアップロード</div>
+                <div class="stat-card-value" id="todayUploads">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-title">期限切れファイル</div>
+                <div class="stat-card-value" id="expiredFiles">0</div>
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="toolbar">
+                <div class="search-box">
+                    <input type="text" class="search-input" id="searchInput" placeholder="ファイル名で検索...">
+                    <button class="search-btn" onclick="searchFiles()">検索</button>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button class="upload-btn" onclick="openUploadModal()">📤 ファイルアップロード</button>
+                    <button class="delete-expired-btn" onclick="deleteExpired()">期限切れを削除</button>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table id="filesTable">
+                    <thead>
+                        <tr>
+                            <th>ファイル名</th>
+                            <th>タイプ</th>
+                            <th>サイズ</th>
+                            <th>アップロード日時</th>
+                            <th>有効期限</th>
+                            <th>アップロード者</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="filesTableBody">
+                        <tr>
+                            <td colspan="7" class="empty-state">
+                                <div class="empty-state-icon">📭</div>
+                                <div>ファイルがありません</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="uploadModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">ファイルアップロード</h2>
+                <button class="close-btn" onclick="closeUploadModal()">×</button>
+            </div>
+
+            <form id="uploadForm" onsubmit="handleUpload(event)">
+                <div class="form-group">
+                    <label class="form-label">ファイル選択</label>
+                    <div class="file-input" onclick="document.getElementById('fileInput').click()">
+                        <input type="file" id="fileInput" onchange="handleFileSelect(event)">
+                        <div>📎 クリックしてファイルを選択</div>
+                        <div style="font-size: 12px; color: #9ca3af; margin-top: 10px;">
+                            または、ファイルをドラッグ&ドロップ
+                        </div>
+                    </div>
+                    <div id="selectedFileName" class="selected-file" style="display: none;"></div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">有効期限</label>
+                    <select class="form-select" id="expiryDays">
+                        <option value="1">1日</option>
+                        <option value="3">3日</option>
+                        <option value="7" selected>7日</option>
+                        <option value="30">30日</option>
+                        <option value="0">無期限</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">説明（任意）</label>
+                    <input type="text" class="form-input" id="fileDescription" placeholder="ファイルの説明">
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="cancel-btn" onclick="closeUploadModal()">キャンセル</button>
+                    <button type="submit" class="submit-btn">アップロード</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="notification" class="notification"></div>
+<script>
+        const token = localStorage.getItem('adminToken');
+        if (!token) {
+            window.location.href = 'admin-login.html';
+        }
+
+        let filesData = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadFiles();
+        });
+
+        function loadFiles() {
+            filesData = [
+                {
+                    id: '1',
+                    name: 'プロジェクト提案書.pdf',
+                    type: 'application/pdf',
+                    size: 2458624,
+                    uploadedAt: '2024/10/08 14:30',
+                    expiryDate: '2024/10/15',
+                    uploader: 'admin',
+                    expired: false
+                },
+                {
+                    id: '2',
+                    name: '見積書_202410.xlsx',
+                    type: 'application/vnd.ms-excel',
+                    size: 51200,
+                    uploadedAt: '2024/10/07 10:15',
+                    expiryDate: '2024/10/14',
+                    uploader: 'user1',
+                    expired: false
+                }
+            ];
+
+            updateStats();
+            renderFiles();
+        }
+
+        function updateStats() {
+            const totalSize = filesData.reduce((sum, file) => sum + file.size, 0);
+            
+            // 今日の日付を取得
+            const today = new Date();
+            const todayStr = today.toLocaleDateString('ja-JP'); // 例: "2025/10/9"
+            
+            // 今日アップロードされたファイルをカウント
+            const todayFiles = filesData.filter(f => {
+                // uploadedAtから日付部分だけを抽出 (例: "2024/10/08 14:30" → "2024/10/08")
+                const uploadDateStr = f.uploadedAt ? f.uploadedAt.split(' ')[0] : '';
+                const fileDate = new Date(uploadDateStr.replace(/\//g, '-')); // "2024/10/08" → Date
+                
+                // 年月日が一致するかチェック
+                return fileDate.getFullYear() === today.getFullYear() &&
+                       fileDate.getMonth() === today.getMonth() &&
+                       fileDate.getDate() === today.getDate();
+            }).length;
+            
+            const expired = filesData.filter(f => f.expired).length;
+
+            document.getElementById('totalFiles').textContent = filesData.length;
+            document.getElementById('totalSize').textContent = formatBytes(totalSize);
+            document.getElementById('todayUploads').textContent = todayFiles;
+            document.getElementById('expiredFiles').textContent = expired;
+        }
+
+        function renderFiles() {
+            const tbody = document.getElementById('filesTableBody');
+            
+            if (filesData.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="empty-state">
+                            <div class="empty-state-icon">📭</div>
+                            <div>ファイルがありません</div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = filesData.map(file => `
+                <tr>
+                    <td>${file.name}</td>
+                    <td>${getFileTypeIcon(file.type)}</td>
+                    <td>${formatBytes(file.size)}</td>
+                    <td>${file.uploadedAt}</td>
+                    <td>
+                        <span class="badge ${file.expired ? 'badge-expired' : 'badge-active'}">
+                            ${file.expiryDate}
+                        </span>
+                    </td>
+                    <td>${file.uploader}</td>
+                    <td>
+                        <button class="action-btn download-btn" onclick="downloadFile('${file.id}')">
+                            ダウンロード
+                        </button>
+                        <button class="action-btn delete-btn" onclick="deleteFile('${file.id}')">
+                            削除
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function getFileTypeIcon(type) {
+            if (type.includes('pdf')) return '📄 PDF';
+            if (type.includes('image')) return '🖼️ 画像';
+            if (type.includes('excel') || type.includes('spreadsheet')) return '📊 Excel';
+            if (type.includes('word') || type.includes('document')) return '📝 Word';
+            if (type.includes('zip') || type.includes('rar')) return '📦 圧縮';
+            return '📎 ファイル';
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+
+        function openUploadModal() {
+            document.getElementById('uploadModal').classList.add('active');
+        }
+
+        function closeUploadModal() {
+            document.getElementById('uploadModal').classList.remove('active');
+            document.getElementById('uploadForm').reset();
+            document.getElementById('selectedFileName').style.display = 'none';
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                document.getElementById('selectedFileName').textContent = `選択: ${file.name} (${formatBytes(file.size)})`;
+                document.getElementById('selectedFileName').style.display = 'block';
+            }
+        }
+
+        function handleUpload(event) {
+            event.preventDefault();
+            
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showNotification('ファイルを選択してください', 'error');
+                return;
+            }
+
+            const newFile = {
+                id: Date.now().toString(),
+                name: file.name,
+                type: file.type,
+                size: file.size,
+                uploadedAt: new Date().toLocaleString('ja-JP'),
+                expiryDate: calculateExpiryDate(document.getElementById('expiryDays').value),
+                uploader: 'admin',
+                expired: false
+            };
+
+            filesData.unshift(newFile);
+            updateStats();
+            renderFiles();
+            closeUploadModal();
+            showNotification('ファイルをアップロードしました', 'success');
+        }
+
+        function calculateExpiryDate(days) {
+            if (days === '0') return '無期限';
+            const date = new Date();
+            date.setDate(date.getDate() + parseInt(days));
+            return date.toLocaleDateString('ja-JP');
+        }
+
+        function downloadFile(id) {
+            const file = filesData.find(f => f.id === id);
+            if (file) {
+                showNotification(`${file.name} をダウンロードしました`, 'success');
+            }
+        }
+
+        function deleteFile(id) {
+            if (confirm('このファイルを削除してもよろしいですか？')) {
+                filesData = filesData.filter(f => f.id !== id);
+                updateStats();
+                renderFiles();
+                showNotification('ファイルを削除しました', 'success');
+            }
+        }
+
+        function deleteExpired() {
+            const expiredCount = filesData.filter(f => f.expired).length;
+            if (expiredCount === 0) {
+                showNotification('期限切れのファイルはありません', 'error');
+                return;
+            }
+
+            if (confirm(`${expiredCount}件の期限切れファイルを削除してもよろしいですか？`)) {
+                filesData = filesData.filter(f => !f.expired);
+                updateStats();
+                renderFiles();
+                showNotification('期限切れファイルを削除しました', 'success');
+            }
+        }
+
+        function searchFiles() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            if (!query) {
+                renderFiles();
+                return;
+            }
+
+            const filtered = filesData.filter(f => 
+                f.name.toLowerCase().includes(query) ||
+                f.uploader.toLowerCase().includes(query)
+            );
+
+            const tbody = document.getElementById('filesTableBody');
+            if (filtered.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="empty-state">
+                            <div>検索結果がありません</div>
+                        </td>
+                    </tr>
+                `;
+            } else {
+                tbody.innerHTML = filtered.map(file => `
+                    <tr>
+                        <td>${file.name}</td>
+                        <td>${getFileTypeIcon(file.type)}</td>
+                        <td>${formatBytes(file.size)}</td>
+                        <td>${file.uploadedAt}</td>
+                        <td>
+                            <span class="badge ${file.expired ? 'badge-expired' : 'badge-active'}">
+                                ${file.expiryDate}
+                            </span>
+                        </td>
+                        <td>${file.uploader}</td>
+                        <td>
+                            <button class="action-btn download-btn" onclick="downloadFile('${file.id}')">
+                                ダウンロード
+                            </button>
+                            <button class="action-btn delete-btn" onclick="deleteFile('${file.id}')">
+                                削除
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        function showNotification(message, type) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type} active`;
+            
+            setTimeout(() => {
+                notification.classList.remove('active');
+            }, 3000);
+        }
+
+        function logout() {
+            if (confirm('ログアウトしますか？')) {
+                localStorage.removeItem('adminToken');
+                window.location.href = 'admin-login.html';
+            }
+        }
+    </script>
+</body>
+</html>
