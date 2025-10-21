@@ -271,12 +271,15 @@
             }
         });
         
-        // OTP入力の自動フォーマット
-        document.getElementById('otp').addEventListener('input', (e) => {
-            e.target.value = e.target.value.replace(/[^0-9]/g, '');
-        });
+	// OTP入力の自動フォーマット（改善版）
+	document.getElementById('otp').addEventListener('input', (e) => {
+    	// 小文字に変換してから、0-9とa-fのみを許可
+    	const value = e.target.value.toLowerCase();
+    	e.target.value = value.replace(/[^0-9a-f]/g, '');
+});
     </script>
 </body>
 </html>
+
 
 
