@@ -1,12 +1,21 @@
 {
   "name": "datagate-poc",
-  "version": "4.0.0",
-  "description": "DataGate PPAP Alternative",
-  "devDependencies": {
-    "dotenv": "^17.2.3"
+  "version": "1.0.0",
+  "description": "138DataGate - PPAP離脱ソフト",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
   "dependencies": {
-    "formidable": "^3.5.1",
-    "nodemailer": "^6.9.7"
+    "@vercel/kv": "^2.0.0",
+    "axios": "^1.7.9",
+    "bcryptjs": "^2.4.3",
+    "formidable": "^3.5.2",
+    "form-data": "^4.0.1",
+    "jsonwebtoken": "^9.0.2",
+    "nodemailer": "^6.9.16"
   }
 }
