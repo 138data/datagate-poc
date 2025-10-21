@@ -1,0 +1,40 @@
+{
+  "users": [
+    {
+      "id": "usr_001",
+      "username": "user1",
+      "email": "user1@example.com",
+      "fullName": "山田 太郎",
+      "department": "営業部",
+      "role": "user",
+      "status": "active",
+      "lastLogin": "2024-01-15T10:30:00Z",
+      "createdAt": "2024-01-01T00:00:00Z",
+      "createdBy": "admin"
+    },
+    {
+      "id": "usr_002",
+      "username": "user2",
+      "email": "user2@example.com",
+      "fullName": "佐藤 花子",
+      "department": "開発部",
+      "role": "user",
+      "status": "active",
+      "lastLogin": "2024-01-14T15:45:00Z",
+      "createdAt": "2024-01-02T00:00:00Z",
+      "createdBy": "admin"
+    },
+    {
+      "id": "usr_003",
+      "username": "manager1",
+      "email": "manager@example.com",
+      "fullName": "鈴木 一郎",
+      "department": "管理部",
+      "role": "manager",
+      "status": "active",
+      "lastLogin": "2024-01-15T09:00:00Z",
+      "createdAt": "2024-01-01T00:00:00Z",
+      "createdBy": "admin"
+    }
+  ]
+}

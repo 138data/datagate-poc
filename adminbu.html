@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理ダッシュボード - 138DataGate</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            color: #333;
+            font-size: 1.5rem;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .nav-menu {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        
+        .nav-menu ul {
+            list-style: none;
+            display: flex;
+            gap: 2rem;
+        }
+        
+        .nav-menu a {
+            color: #666;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+        
+        .nav-menu a:hover,
+        .nav-menu a.active {
+            color: #667eea;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+        
+        .dashboard-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+        }
+        
+        .dashboard-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+        }
+        
+        .dashboard-card h2 {
+            color: #333;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .dashboard-card .icon {
+            font-size: 1.5rem;
+        }
+        
+        .dashboard-card p {
+            color: #666;
+            margin-bottom: 1rem;
+        }
+        
+        .dashboard-card a {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+        
+        .dashboard-card a:hover {
+            background: #5a67d8;
+        }
+        
+        .btn {
+            padding: 0.5rem 1rem;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.3s;
+        }
+        
+        .btn:hover {
+            background: #5a67d8;
+        }
+        
+        .btn-danger {
+            background: #f56565;
+        }
+        
+        .btn-danger:hover {
+            background: #e53e3e;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏠 138DataGate 管理ダッシュボード</h1>
+        <div class="user-info">
+            <span>👤 <span id="userName">管理者</span></span>
+            <button class="btn btn-danger" onclick="logout()">ログアウト</button>
+        </div>
+    </div>
+
+    <nav class="nav-menu">
+        <ul>
+            <li><a href="/admin.html" class="active">ダッシュボード</a></li>
+            <li><a href="/admin-users.html">ユーザー管理</a></li>
+            <li><a href="/admin-files.html">ファイル管理</a></li>
+            <li><a href="/admin-logs.html">ログ</a></li>
+            <li><a href="/admin-settings.html">設定</a></li>
+        </ul>
+    </nav>
+
+    <div class="container">
+        <h2>管理メニュー</h2>
+        
+        <div class="dashboard-grid">
+            <div class="dashboard-card">
+                <h2><span class="icon">👥</span> ユーザー管理</h2>
+                <p>ユーザーアカウントの作成、編集、削除を行います。</p>
+                <a href="/admin-users.html">ユーザー管理へ</a>
+            </div>
+
+            <div class="dashboard-card">
+                <h2><span class="icon">📁</span> ファイル管理</h2>
+                <p>アップロードされたファイルの確認と管理を行います。</p>
+                <a href="/admin-files.html">ファイル管理へ</a>
+            </div>
+
+            <div class="dashboard-card">
+                <h2><span class="icon">📊</span> ログ管理</h2>
+                <p>システムログとアクセスログを確認します。</p>
+                <a href="/admin-logs.html">ログ管理へ</a>
+            </div>
+
+            <div class="dashboard-card">
+                <h2><span class="icon">⚙️</span> システム設定</h2>
+                <p>システム全般の設定を変更します。</p>
+                <a href="/admin-settings.html">設定へ</a>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // 初期化
+    async function init() {
+        console.log('Admin init started');
+        const token = localStorage.getItem('adminToken');
+        
+        if (!token) {
+            console.log('No token found, redirecting to login');
+            window.location.href = '/admin-login.html';
+            return;
+        }
+
+        console.log('Token found:', token.substring(0, 20) + '...');
+        
+        // 一旦認証チェックをスキップしてダッシュボードを表示
+        document.getElementById('adminName').textContent = 'admin';
+        
+        // 統計情報をロード
+        loadStatistics();
+    }
+
+    // ダミーの統計データを表示
+    function loadStatistics() {
+        document.getElementById('totalFiles').textContent = '12';
+        document.getElementById('activeUsers').textContent = '3';
+        document.getElementById('todayAccess').textContent = '45';
+        document.getElementById('storageUsed').textContent = '2.4 GB';
+    }
+
+    // ログアウト
+    function logout() {
+        localStorage.removeItem('adminToken');
+        window.location.href = '/admin-login.html';
+    }
+
+    // ページ読み込み時に初期化
+    document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

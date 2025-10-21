@@ -1,13 +1,11 @@
 // api/upload.js
-// 138DataGate - ファイルアップロードAPI（3段階認証対応版 + ログ記録）
-// セキュリティコードの事前送信を削除
+// 138DataGate - ファイルアップロードAPI（Formidable版）
 
 import formidable from 'formidable';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
-import { logActivity, LOG_TYPES, LOG_LEVELS } from './utils/logger.js';
 
 // 設定ファイルのパス
 const SETTINGS_FILE = path.join(process.cwd(), 'config', 'settings.json');
@@ -46,6 +44,11 @@ function generateUniqueId() {
     return crypto.randomBytes(16).toString('hex');
 }
 
+// セキュリティコードを生成（6桁の数字）
+function generateSecurityCode() {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
 // 削除キーを生成
 function generateDeleteKey() {
     return 'del_' + crypto.randomBytes(24).toString('hex');
@@ -80,7 +83,6 @@ function createSenderEmailHTML(fileInfo, deleteKey) {
         .button { display: inline-block; padding: 12px 30px; background: #667eea; color: white; text-decoration: none; border-radius: 5px; margin: 10px 5px; }
         .delete-button { background: #f44336; }
         .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-        .security-info { background: #e3f2fd; border-left: 4px solid #2196F3; padding: 15px; margin: 20px 0; }
     </style>
 </head>
 <body>
@@ -101,15 +103,6 @@ function createSenderEmailHTML(fileInfo, deleteKey) {
                 <strong>🔄 最大DL回数:</strong> ${fileInfo.maxDownloads}回<br>
                 <strong>🕐 送信日時:</strong> ${new Date().toLocaleString('ja-JP')}
             </div>
-
-            <div class="security-info">
-                <strong>🔐 セキュリティ機能について</strong><br>
-                受信者がファイルをダウンロードする際は、以下の手順で認証を行います：<br>
-                1. 受信者がメールアドレスを入力<br>
-                2. 入力したアドレスにワンタイムパスワード（OTP）を送信<br>
-                3. OTPを入力してダウンロード<br><br>
-                ※ 誤送信した場合でも、正しいメールアドレスを持つ人のみがダウンロード可能です
-            </div>
             
             <div style="text-align: center; margin: 30px 0; padding: 20px; background: #fff3e0; border-radius: 5px;">
                 <h3 style="color: #e65100;">⚠️ 重要：ファイル削除リンク</h3>
@@ -123,7 +116,7 @@ function createSenderEmailHTML(fileInfo, deleteKey) {
     `;
 }
 
-// ダウンロードリンクのHTMLメール（OTP不要版）
+// ダウンロードリンクのHTMLメール
 function createDownloadEmailHTML(downloadLink, senderName, subject, message) {
     return `
 <!DOCTYPE html>
@@ -136,18 +129,12 @@ function createDownloadEmailHTML(downloadLink, senderName, subject, message) {
         .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
         .content { padding: 30px; }
         .button { display: inline-block; padding: 15px 40px; background: #667eea; color: white; text-decoration: none; border-radius: 5px; font-size: 18px; }
-        .steps { background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; }
-        .step { margin: 10px 0; padding-left: 30px; position: relative; }
-        .step::before { content: ""; position: absolute; left: 0; top: 3px; width: 20px; height: 20px; background: #667eea; color: white; border-radius: 50%; text-align: center; line-height: 20px; font-size: 12px; }
-        .step:nth-child(1)::before { content: "1"; }
-        .step:nth-child(2)::before { content: "2"; }
-        .step:nth-child(3)::before { content: "3"; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>📩 ファイルが届きました</h1>
+            <h1>📩 [1/2] ファイルダウンロードリンク</h1>
         </div>
         <div class="content">
             <p><strong>件名:</strong> ${subject}</p>
@@ -155,21 +142,8 @@ function createDownloadEmailHTML(downloadLink, senderName, subject, message) {
             ${message ? `<p><strong>メッセージ:</strong><br>${message}</p>` : ''}
             
             <div style="text-align: center; margin: 30px 0;">
-                <p><strong>以下のリンクからファイルをダウンロードできます：</strong></p>
                 <a href="${downloadLink}" class="button">📥 ファイルをダウンロード</a>
             </div>
-            
-            <div class="steps">
-                <strong>🔐 ダウンロード手順：</strong>
-                <div class="step">リンクをクリックして、あなたのメールアドレスを入力</div>
-                <div class="step">メールで届く6桁の認証コードを確認</div>
-                <div class="step">認証コードを入力してダウンロード</div>
-            </div>
-            
-            <p style="color: #666; font-size: 14px;">
-                ※ セキュリティのため、メールアドレスの確認が必要です<br>
-                ※ 認証コードは入力したメールアドレスに送信されます
-            </p>
         </div>
     </div>
 </body>
@@ -177,12 +151,45 @@ function createDownloadEmailHTML(downloadLink, senderName, subject, message) {
     `;
 }
 
-// メール送信関数（セキュリティコード送信を削除）
-async function sendEmails(emailData, clientIp) {
+// セキュリティコードのHTMLメール
+function createSecurityCodeEmailHTML(securityCode, fileName) {
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 20px; }
+        .container { background: white; max-width: 600px; margin: 0 auto; border-radius: 10px; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { padding: 30px; }
+        .code-box { background: #f8f9fa; border: 2px solid #667eea; padding: 20px; margin: 30px 0; text-align: center; border-radius: 10px; }
+        .code { font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #667eea; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔐 [2/2] セキュリティコード</h1>
+        </div>
+        <div class="content">
+            <p>ファイル「<strong>${fileName}</strong>」のセキュリティコードです。</p>
+            <div class="code-box">
+                <div class="code">${securityCode}</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+    `;
+}
+
+// メール送信関数
+async function sendEmails(emailData) {
     const baseUrl = 'http://localhost:3000';
     
     try {
-        // 1. 送信者への確認メール（削除リンク付き）
+        // 1. 送信者への確認メール
         await transporter.sendMail({
             from: '"DataGate System" <138data@gmail.com>',
             to: emailData.senderEmail,
@@ -194,62 +201,28 @@ async function sendEmails(emailData, clientIp) {
         });
         console.log('送信者への確認メール送信成功');
 
-        // ログ記録：送信者メール成功
-        await logActivity({
-            type: LOG_TYPES.SYSTEM,
-            level: LOG_LEVELS.INFO,
-            user: emailData.senderEmail,
-            action: 'Sender email notification sent',
-            details: {
-                fileId: emailData.fileId,
-                recipient: emailData.recipientEmail,
-                subject: emailData.subject
-            },
-            ip: clientIp
-        });
-
-        // 2. 受信者へのダウンロードリンクメール（OTP送信は削除）
+        // 2. 受信者へのダウンロードリンクメール
         const downloadLink = `${baseUrl}/api/download?id=${emailData.fileId}`;
         await transporter.sendMail({
             from: '"DataGate System" <138data@gmail.com>',
             to: emailData.recipientEmail,
-            subject: `[ファイル受信] ${emailData.subject}`,
+            subject: `[1/2 Download Link] ${emailData.subject}`,
             html: createDownloadEmailHTML(downloadLink, emailData.senderName, emailData.subject, emailData.message)
         });
         console.log('ダウンロードリンクメール送信成功');
 
-        // ログ記録：受信者メール成功
-        await logActivity({
-            type: LOG_TYPES.SYSTEM,
-            level: LOG_LEVELS.INFO,
-            user: emailData.senderEmail,
-            action: 'Recipient email notification sent',
-            details: {
-                fileId: emailData.fileId,
-                recipient: emailData.recipientEmail,
-                downloadLink: downloadLink
-            },
-            ip: clientIp
+        // 3. 受信者へのセキュリティコードメール
+        await transporter.sendMail({
+            from: '"DataGate System" <138data@gmail.com>',
+            to: emailData.recipientEmail,
+            subject: `[2/2 Security Code] ${emailData.subject}`,
+            html: createSecurityCodeEmailHTML(emailData.securityCode, emailData.fileName)
         });
+        console.log('セキュリティコードメール送信成功');
 
         return true;
     } catch (error) {
         console.error('メール送信エラー:', error);
-        
-        // ログ記録：メール送信失敗
-        await logActivity({
-            type: LOG_TYPES.SYSTEM,
-            level: LOG_LEVELS.ERROR,
-            user: emailData.senderEmail,
-            action: 'Email notification failed',
-            details: {
-                fileId: emailData.fileId,
-                recipient: emailData.recipientEmail,
-                error: error.message
-            },
-            ip: clientIp
-        });
-        
         throw error;
     }
 }
@@ -269,9 +242,6 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    // クライアントIPアドレス取得
-    const clientIp = req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'unknown';
-
     // 設定を読み込む
     const settings = loadSettings();
     const maxFileSizeBytes = settings.maxFileSize * 1024 * 1024;
@@ -286,17 +256,6 @@ export default async function handler(req, res) {
     form.parse(req, async (err, fields, files) => {
         if (err) {
             console.error('Parse error:', err);
-            
-            // ログ記録：パースエラー
-            await logActivity({
-                type: LOG_TYPES.UPLOAD,
-                level: LOG_LEVELS.ERROR,
-                user: 'anonymous',
-                action: 'Upload parse failed',
-                details: { error: err.message },
-                ip: clientIp
-            });
-            
             return res.status(500).json({ error: 'Form parse failed', details: err.message });
         }
 
@@ -305,45 +264,13 @@ export default async function handler(req, res) {
             const file = Array.isArray(files.file) ? files.file[0] : files.file;
             
             if (!file) {
-                // ログ記録：ファイル未選択
-                await logActivity({
-                    type: LOG_TYPES.UPLOAD,
-                    level: LOG_LEVELS.WARNING,
-                    user: 'anonymous',
-                    action: 'Upload failed - no file',
-                    ip: clientIp
-                });
-                
                 return res.status(400).json({ error: 'No file uploaded' });
             }
-
-            // フィールドから値を取得（Formidable v3の書式）
-            const getFieldValue = (field) => {
-                return Array.isArray(field) ? field[0] : field;
-            };
-
-            const senderEmail = getFieldValue(fields.senderEmail) || 'anonymous';
-            const recipientEmail = getFieldValue(fields.recipientEmail) || '';
 
             // ファイルサイズチェック
             if (file.size > maxFileSizeBytes) {
                 // アップロードされたファイルを削除
                 fs.unlinkSync(file.filepath);
-                
-                // ログ記録：ファイルサイズ超過
-                await logActivity({
-                    type: LOG_TYPES.UPLOAD,
-                    level: LOG_LEVELS.WARNING,
-                    user: senderEmail,
-                    action: 'Upload failed - file too large',
-                    details: { 
-                        fileSize: file.size,
-                        maxSize: maxFileSizeBytes,
-                        fileName: file.originalFilename
-                    },
-                    ip: clientIp
-                });
-                
                 return res.status(400).json({ 
                     error: `ファイルサイズが制限（${settings.maxFileSize}MB）を超えています` 
                 });
@@ -351,6 +278,7 @@ export default async function handler(req, res) {
 
             // ファイルIDを生成
             const fileId = generateUniqueId();
+            const securityCode = generateSecurityCode();
             const deleteKey = generateDeleteKey();
             
             // ファイル名を変更
@@ -361,7 +289,12 @@ export default async function handler(req, res) {
             // ファイルを移動
             fs.renameSync(file.filepath, newFilePath);
 
-            // メタデータを作成（securityCodeフィールドを削除）
+            // フィールドから値を取得（Formidable v3の書式）
+            const getFieldValue = (field) => {
+                return Array.isArray(field) ? field[0] : field;
+            };
+
+            // メタデータを作成
             const metadata = {
                 fileId: fileId,
                 originalName: originalName,
@@ -369,12 +302,13 @@ export default async function handler(req, res) {
                 fileSize: file.size,
                 mimeType: file.mimetype || 'application/octet-stream',
                 uploadedAt: new Date().toISOString(),
+                securityCode: securityCode,
                 deleteKey: deleteKey,
                 downloadCount: 0,
                 maxDownloads: settings.maxDownloads,
                 retentionHours: settings.retentionHours,
-                recipientEmail: recipientEmail,
-                senderEmail: senderEmail,
+                recipientEmail: getFieldValue(fields.recipientEmail) || '',
+                senderEmail: getFieldValue(fields.senderEmail) || '',
                 senderName: getFieldValue(fields.senderName) || 'Unknown',
                 subject: getFieldValue(fields.subject) || 'ファイル送信',
                 message: getFieldValue(fields.message) || ''
@@ -384,46 +318,21 @@ export default async function handler(req, res) {
             const metadataPath = path.join(uploadDir, `${fileId}.meta.json`);
             fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
 
-            // ログ記録：アップロード成功
-            await logActivity({
-                type: LOG_TYPES.UPLOAD,
-                level: LOG_LEVELS.INFO,
-                user: senderEmail,
-                action: 'File uploaded successfully',
-                details: {
-                    fileId: fileId,
-                    fileName: originalName,
-                    fileSize: file.size,
-                    mimeType: file.mimetype,
-                    recipient: recipientEmail,
-                    maxDownloads: settings.maxDownloads,
-                    retentionHours: settings.retentionHours,
-                    subject: metadata.subject
-                },
-                ip: clientIp
-            });
-
             // メール送信（メールアドレスが指定されている場合のみ）
             if (metadata.recipientEmail && metadata.senderEmail) {
-                try {
-                    await sendEmails({
-                        ...metadata,
-                        fileSize: file.size,
-                        baseUrl: 'http://localhost:3000'
-                    }, clientIp);
-                } catch (emailError) {
-                    // メール送信エラーでもアップロード自体は成功として扱う
-                    console.error('メール送信エラー:', emailError);
-                }
+                await sendEmails({
+                    ...metadata,
+                    fileSize: file.size,
+                    baseUrl: 'http://localhost:3000'
+                });
             }
 
-            console.log('アップロード成功（3段階認証対応）:', {
+            console.log('アップロード成功:', {
                 fileId: fileId,
                 fileName: originalName,
                 size: file.size,
                 maxDownloads: settings.maxDownloads,
-                retentionHours: settings.retentionHours,
-                authentication: '3-step (email + OTP)'
+                retentionHours: settings.retentionHours
             });
 
             res.status(200).json({
@@ -432,23 +341,11 @@ export default async function handler(req, res) {
                 fileId: fileId,
                 fileName: originalName,
                 maxDownloads: settings.maxDownloads,
-                retentionHours: settings.retentionHours,
-                authentication: '3-step verification'
+                retentionHours: settings.retentionHours
             });
 
         } catch (error) {
             console.error('処理エラー:', error);
-            
-            // ログ記録：システムエラー
-            await logActivity({
-                type: LOG_TYPES.UPLOAD,
-                level: LOG_LEVELS.CRITICAL,
-                user: 'system',
-                action: 'Upload system error',
-                details: { error: error.message },
-                ip: clientIp
-            });
-            
             res.status(500).json({ 
                 error: 'Internal server error',
                 details: error.message

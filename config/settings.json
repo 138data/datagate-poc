@@ -1,0 +1,8 @@
+{
+  "maxDownloads": 3,
+  "retentionHours": 24,
+  "maxFileSize": 100,
+  "autoDelete": true,
+  "createdAt": "2025-10-01T05:43:19.519Z",
+  "updatedAt": "2025-10-01T06:01:10.069Z"
+}

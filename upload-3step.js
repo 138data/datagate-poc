@@ -1,5 +1,5 @@
 // api/upload.js
-// 138DataGate - ファイルアップロードAPI（3段階認証対応版 + ログ記録）
+// 138DataGate - ファイルアップロードAPI（3段階認証対応版）
 // セキュリティコードの事前送信を削除
 
 import formidable from 'formidable';
@@ -7,7 +7,6 @@ import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
-import { logActivity, LOG_TYPES, LOG_LEVELS } from './utils/logger.js';
 
 // 設定ファイルのパス
 const SETTINGS_FILE = path.join(process.cwd(), 'config', 'settings.json');
@@ -178,7 +177,7 @@ function createDownloadEmailHTML(downloadLink, senderName, subject, message) {
 }
 
 // メール送信関数（セキュリティコード送信を削除）
-async function sendEmails(emailData, clientIp) {
+async function sendEmails(emailData) {
     const baseUrl = 'http://localhost:3000';
     
     try {
@@ -194,20 +193,6 @@ async function sendEmails(emailData, clientIp) {
         });
         console.log('送信者への確認メール送信成功');
 
-        // ログ記録：送信者メール成功
-        await logActivity({
-            type: LOG_TYPES.SYSTEM,
-            level: LOG_LEVELS.INFO,
-            user: emailData.senderEmail,
-            action: 'Sender email notification sent',
-            details: {
-                fileId: emailData.fileId,
-                recipient: emailData.recipientEmail,
-                subject: emailData.subject
-            },
-            ip: clientIp
-        });
-
         // 2. 受信者へのダウンロードリンクメール（OTP送信は削除）
         const downloadLink = `${baseUrl}/api/download?id=${emailData.fileId}`;
         await transporter.sendMail({
@@ -218,38 +203,11 @@ async function sendEmails(emailData, clientIp) {
         });
         console.log('ダウンロードリンクメール送信成功');
 
-        // ログ記録：受信者メール成功
-        await logActivity({
-            type: LOG_TYPES.SYSTEM,
-            level: LOG_LEVELS.INFO,
-            user: emailData.senderEmail,
-            action: 'Recipient email notification sent',
-            details: {
-                fileId: emailData.fileId,
-                recipient: emailData.recipientEmail,
-                downloadLink: downloadLink
-            },
-            ip: clientIp
-        });
+        // セキュリティコードメールは送信しない（3段階認証で動的に生成）
 
         return true;
     } catch (error) {
         console.error('メール送信エラー:', error);
-        
-        // ログ記録：メール送信失敗
-        await logActivity({
-            type: LOG_TYPES.SYSTEM,
-            level: LOG_LEVELS.ERROR,
-            user: emailData.senderEmail,
-            action: 'Email notification failed',
-            details: {
-                fileId: emailData.fileId,
-                recipient: emailData.recipientEmail,
-                error: error.message
-            },
-            ip: clientIp
-        });
-        
         throw error;
     }
 }
@@ -269,9 +227,6 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    // クライアントIPアドレス取得
-    const clientIp = req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'unknown';
-
     // 設定を読み込む
     const settings = loadSettings();
     const maxFileSizeBytes = settings.maxFileSize * 1024 * 1024;
@@ -286,17 +241,6 @@ export default async function handler(req, res) {
     form.parse(req, async (err, fields, files) => {
         if (err) {
             console.error('Parse error:', err);
-            
-            // ログ記録：パースエラー
-            await logActivity({
-                type: LOG_TYPES.UPLOAD,
-                level: LOG_LEVELS.ERROR,
-                user: 'anonymous',
-                action: 'Upload parse failed',
-                details: { error: err.message },
-                ip: clientIp
-            });
-            
             return res.status(500).json({ error: 'Form parse failed', details: err.message });
         }
 
@@ -305,45 +249,13 @@ export default async function handler(req, res) {
             const file = Array.isArray(files.file) ? files.file[0] : files.file;
             
             if (!file) {
-                // ログ記録：ファイル未選択
-                await logActivity({
-                    type: LOG_TYPES.UPLOAD,
-                    level: LOG_LEVELS.WARNING,
-                    user: 'anonymous',
-                    action: 'Upload failed - no file',
-                    ip: clientIp
-                });
-                
                 return res.status(400).json({ error: 'No file uploaded' });
             }
-
-            // フィールドから値を取得（Formidable v3の書式）
-            const getFieldValue = (field) => {
-                return Array.isArray(field) ? field[0] : field;
-            };
-
-            const senderEmail = getFieldValue(fields.senderEmail) || 'anonymous';
-            const recipientEmail = getFieldValue(fields.recipientEmail) || '';
 
             // ファイルサイズチェック
             if (file.size > maxFileSizeBytes) {
                 // アップロードされたファイルを削除
                 fs.unlinkSync(file.filepath);
-                
-                // ログ記録：ファイルサイズ超過
-                await logActivity({
-                    type: LOG_TYPES.UPLOAD,
-                    level: LOG_LEVELS.WARNING,
-                    user: senderEmail,
-                    action: 'Upload failed - file too large',
-                    details: { 
-                        fileSize: file.size,
-                        maxSize: maxFileSizeBytes,
-                        fileName: file.originalFilename
-                    },
-                    ip: clientIp
-                });
-                
                 return res.status(400).json({ 
                     error: `ファイルサイズが制限（${settings.maxFileSize}MB）を超えています` 
                 });
@@ -361,6 +273,11 @@ export default async function handler(req, res) {
             // ファイルを移動
             fs.renameSync(file.filepath, newFilePath);
 
+            // フィールドから値を取得（Formidable v3の書式）
+            const getFieldValue = (field) => {
+                return Array.isArray(field) ? field[0] : field;
+            };
+
             // メタデータを作成（securityCodeフィールドを削除）
             const metadata = {
                 fileId: fileId,
@@ -373,48 +290,25 @@ export default async function handler(req, res) {
                 downloadCount: 0,
                 maxDownloads: settings.maxDownloads,
                 retentionHours: settings.retentionHours,
-                recipientEmail: recipientEmail,
-                senderEmail: senderEmail,
+                recipientEmail: getFieldValue(fields.recipientEmail) || '',
+                senderEmail: getFieldValue(fields.senderEmail) || '',
                 senderName: getFieldValue(fields.senderName) || 'Unknown',
                 subject: getFieldValue(fields.subject) || 'ファイル送信',
                 message: getFieldValue(fields.message) || ''
+                // securityCodeは削除（ダウンロード時に動的生成）
             };
 
             // メタデータをファイルに保存
             const metadataPath = path.join(uploadDir, `${fileId}.meta.json`);
             fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
 
-            // ログ記録：アップロード成功
-            await logActivity({
-                type: LOG_TYPES.UPLOAD,
-                level: LOG_LEVELS.INFO,
-                user: senderEmail,
-                action: 'File uploaded successfully',
-                details: {
-                    fileId: fileId,
-                    fileName: originalName,
-                    fileSize: file.size,
-                    mimeType: file.mimetype,
-                    recipient: recipientEmail,
-                    maxDownloads: settings.maxDownloads,
-                    retentionHours: settings.retentionHours,
-                    subject: metadata.subject
-                },
-                ip: clientIp
-            });
-
             // メール送信（メールアドレスが指定されている場合のみ）
             if (metadata.recipientEmail && metadata.senderEmail) {
-                try {
-                    await sendEmails({
-                        ...metadata,
-                        fileSize: file.size,
-                        baseUrl: 'http://localhost:3000'
-                    }, clientIp);
-                } catch (emailError) {
-                    // メール送信エラーでもアップロード自体は成功として扱う
-                    console.error('メール送信エラー:', emailError);
-                }
+                await sendEmails({
+                    ...metadata,
+                    fileSize: file.size,
+                    baseUrl: 'http://localhost:3000'
+                });
             }
 
             console.log('アップロード成功（3段階認証対応）:', {
@@ -438,17 +332,6 @@ export default async function handler(req, res) {
 
         } catch (error) {
             console.error('処理エラー:', error);
-            
-            // ログ記録：システムエラー
-            await logActivity({
-                type: LOG_TYPES.UPLOAD,
-                level: LOG_LEVELS.CRITICAL,
-                user: 'system',
-                action: 'Upload system error',
-                details: { error: error.message },
-                ip: clientIp
-            });
-            
             res.status(500).json({ 
                 error: 'Internal server error',
                 details: error.message

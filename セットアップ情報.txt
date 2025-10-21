@@ -1,0 +1,144 @@
+ログ全消し：
+cls
+
+◆ブログ作成：
+cd C:\Users\138data\Desktop\ai-draft-test
+python .\utf8_system_3writers.py
+
+
+◆DATAGATE
+cd D:\datagate-poc
+
+python .\utf8_system_3writers.py
+
+◆エックスサーバー rootパスワード
+# PowerShellで実行
+$content = @"
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+エックスサーバーVPS 認証情報
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+契約日: 2025年10月14日
+サービス: XServer VPS 2GB
+契約期間: 1ヶ月（テスト）
+
+【認証情報】
+ユーザー名: root
+パスワード: Smtp138Data@2025!
+
+【接続情報】
+IPアドレス: （メール受信後に記入）
+ホスト名: smtp.138data.com
+サーバー名: vps-2025-10-14-14-05-49
+
+【SSH接続コマンド】
+ssh root@[IPアドレス]
+
+【プロジェクト】
+名称: 138DataGate
+用途: SMTPゲートウェイ
+OS: Ubuntu 24.04
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【VPS接続情報】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+IPアドレス: 162.43.28.209 ← 最重要！
+サーバー名: vps-2025-10-14-14-05-49
+UUID: 50db44f1-1701-417e-86b5-47257e776ca2
+
+【SSH接続用】
+ユーザー名: root
+パスワード: Smtp138Data@2025!
+IPアドレス: 162.43.28.209
+
+【VPSパネル用】
+パスワード: u6rgz9lq
+
+シリアルコンソールに接続しました
+
+root@x162-43-28-209:~# ^[[200~node -v~
+node: command not found
+root@x162-43-28-209:~# node -v
+v18.20.8
+root@x162-43-28-209:~# 
+root@x162-43-28-209:~# npm -v
+10.8.2
+root@x162-43-28-209:~# date
+Wed Oct 15 13:00:37 JST 2025
+root@x162-43-28-209:~# ^C
+root@x162-43-28-209:~# apt install -y curl wget git vim nano ufw
+  GNU nano 7.2                          .env                                    
+MAIL_USER=138data@gmail.com
+MAIL_PASS=jusabijlsfogjtjj
+MAIL_FROM=138data@gmail.com
+
+# ログ設定
+LOG_LEVEL=info
+LOG_FILE=/var/log/138datagate-smtp.log
+
+# セキュリティ設定
+MAX_FILE_SIZE=104857600
+ALLOWED_DOMAINS=138data.com
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+"@
+
+$content | Out-File -FilePath "D:\datagate-poc\docs\xserver-vps-credentials.txt" -Encoding UTF8
+
+Write-Host "✅ 認証情報を保存しました！"
+Write-Host "場所: D:\datagate-poc\docs\xserver-vps-credentials.txt"
+
+Smtp138Data@2025!
+
+本番環境URL: https://datagate-a136pipbb-138datas-projects.vercel.app
+ログイン環境URL ：
+https://datagate-a136pipbb-138datas-projects.vercel.app/admin-login.html
+
+
+◆◆プロンプト 
+・指示を修正後、完全版としてコピペできるように出力して
+
+
+・いったんここまでで新しい会話にします。新しい会話でもスムーズにこの会話の続きが勧めることができるよう引き継ぎ資料を作成してください
+
+
+
+アプリパスワードGoogle :jusa bijl sfog jtjj
+
+# Gmail SMTP設定
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=138data@gmail.com
+SMTP_PASS=jusabijlsfogjtjj
+SMTP_FROM=138data@gmail.com
+
+# JWT秘密鍵
+JWT_SECRET=138datagate-secret-key-2025
+
+
+vercel:
+KV_URL="rediss://default:ASeLAAIncDI2NjA4MWE1ZTc3Zjg0Yjk5OTJhYWNiNDk0NTRhZTI4M3AyMTAxMjM@literate-badger-10123.upstash.io:6379"
+KV_REST_API_URL="https://literate-badger-10123.upstash.io"
+KV_REST_API_TOKEN="ASeLAAIncDI2NjA4MWE1ZTc3Zjg0Yjk5OTJhYWNiNDk0NTRhZTI4M3AyMTAxMjM"
+KV_REST_API_READ_ONLY_TOKEN="AieLAAIgcDKkEmZDt_HqJWIWNOKyrfsFH3sMiM8P94CtFfYuoU_Y5g"
+REDIS_URL="rediss://default:ASeLAAIncDI2NjA4MWE1ZTc3Zjg0Yjk5OTJhYWNiNDk0NTRhZTI4M3AyMTAxMjM@literate-badger-10123.upstash.io:6379"
+
+Upstash データベース情報:
+
+データベース名: 138datagate-kv
+リージョン: Tokyo (hnd1)
+プラン: Pay as You Go
+ステータス: Available
+URL: https://literate-badger-10123.upstash.io
+
+環境変数（.env.local に保存済み）:
+
+
+KV_REST_API_URL=https://literate-badger-10123.upstash.io
+KV_REST_API_TOKEN=ASeLAA...（省略）
+
+JWT_SECRET:
+fd37f46bbfc56f84a4dfc5efdd78b69464036a7de70b92ec5096b30dd6010141

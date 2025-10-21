@@ -1,0 +1,117 @@
+{
+  "users": {
+    "admin001": {
+      "id": "admin001",
+      "username": "admin",
+      "email": "admin@138datagate.com",
+      "passwordHash": "$2b$10$kWcqRsWchb.bQ1j1zqhGeurX0i1Y1iq52L7WYdyOttgcgrUPLoBO2",
+      "role": "super_admin",
+      "status": "active",
+      "createdAt": "2025-10-03T00:00:00Z",
+      "createdBy": "system",
+      "lastLogin": null,
+      "lastPasswordChange": "2025-10-03T01:40:19.713Z",
+      "loginAttempts": 0,
+      "lockedUntil": null,
+      "ipWhitelist": [],
+      "twoFactorEnabled": false,
+      "metadata": {
+        "department": "システム管理部",
+        "phone": "",
+        "note": "初期管理者アカウント"
+      }
+    }
+  },
+  "roles": {
+    "super_admin": {
+      "name": "スーパー管理者",
+      "description": "すべての権限を持つ最上位管理者",
+      "permissions": [
+        "admin.view",
+        "admin.create",
+        "admin.update",
+        "admin.delete",
+        "admin.password_reset",
+        "files.view",
+        "files.download",
+        "files.delete",
+        "files.bulk_operations",
+        "settings.view",
+        "settings.update",
+        "logs.view",
+        "logs.export",
+        "system.maintenance",
+        "system.backup"
+      ],
+      "level": 100
+    },
+    "admin": {
+      "name": "管理者",
+      "description": "通常の管理権限",
+      "permissions": [
+        "admin.view",
+        "admin.create",
+        "admin.update",
+        "files.view",
+        "files.download",
+        "files.delete",
+        "settings.view",
+        "logs.view"
+      ],
+      "level": 50
+    },
+    "operator": {
+      "name": "オペレーター",
+      "description": "ファイル操作のみ可能",
+      "permissions": [
+        "files.view",
+        "files.download",
+        "logs.view"
+      ],
+      "level": 20
+    },
+    "viewer": {
+      "name": "閲覧者",
+      "description": "閲覧のみ可能",
+      "permissions": [
+        "files.view",
+        "logs.view"
+      ],
+      "level": 10
+    }
+  },
+  "permissions": {
+    "admin.view": "管理者一覧の閲覧",
+    "admin.create": "管理者の追加",
+    "admin.update": "管理者情報の編集",
+    "admin.delete": "管理者の削除",
+    "admin.password_reset": "パスワードリセット",
+    "files.view": "ファイル一覧の閲覧",
+    "files.download": "ファイルのダウンロード",
+    "files.delete": "ファイルの削除",
+    "files.bulk_operations": "一括操作",
+    "settings.view": "設定の閲覧",
+    "settings.update": "設定の変更",
+    "logs.view": "ログの閲覧",
+    "logs.export": "ログのエクスポート",
+    "system.maintenance": "メンテナンスモード",
+    "system.backup": "バックアップ実行"
+  },
+  "config": {
+    "passwordPolicy": {
+      "minLength": 8,
+      "requireUppercase": true,
+      "requireLowercase": true,
+      "requireNumbers": true,
+      "requireSpecialChars": true,
+      "expiryDays": 90,
+      "historyCount": 5
+    },
+    "loginPolicy": {
+      "maxAttempts": 5,
+      "lockoutDuration": 1800000,
+      "sessionTimeout": 3600000,
+      "requireTwoFactor": false
+    }
+  }
+}

@@ -1,5 +1,5 @@
 // api/download.js
-// ファイルダウンロードAPI - 3段階認証版（OTPファイル保存版）
+// ファイルダウンロードAPI - 3段階認証版（デバッグ版）
 
 import fs from 'fs';
 import path from 'path';
@@ -7,11 +7,19 @@ import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 
 const STORAGE_DIR = path.join(process.cwd(), 'storage');
-const OTP_DIR = path.join(process.cwd(), 'temp-otp');
+const OTP_STORAGE = new Map(); // OTP一時保存
 
-// OTPディレクトリを作成
-if (!fs.existsSync(OTP_DIR)) {
-    fs.mkdirSync(OTP_DIR, { recursive: true });
+// デバッグ用：OTP_STORAGEの内容を表示
+function debugOTPStorage() {
+    console.log('=== OTP Storage Debug ===');
+    console.log('Storage size:', OTP_STORAGE.size);
+    for (const [key, value] of OTP_STORAGE) {
+        console.log(`Key: ${key}`);
+        console.log(`OTP: ${value.otp}`);
+        console.log(`Email: ${value.email}`);
+        console.log(`Created: ${new Date(value.createdAt).toLocaleString()}`);
+    }
+    console.log('========================');
 }
 
 // メール送信設定
@@ -31,103 +39,6 @@ function generateOTP() {
     console.log('Generated OTP:', otp);
     return otp;
 }
-
-// OTPを保存
-function saveOTP(fileId, email, otp, metadata) {
-    const otpKey = `${fileId}_${email.replace('@', '_at_')}`;
-    const otpPath = path.join(OTP_DIR, `${otpKey}.json`);
-    
-    const otpData = {
-        otp: otp,
-        email: email,
-        fileId: fileId,
-        createdAt: Date.now(),
-        expiresAt: Date.now() + (10 * 60 * 1000), // 10分後
-        metadata: metadata
-    };
-    
-    fs.writeFileSync(otpPath, JSON.stringify(otpData, null, 2));
-    console.log(`OTP saved to file: ${otpPath}`);
-    console.log(`OTP content:`, otpData.otp);
-    
-    // 10分後に自動削除
-    setTimeout(() => {
-        if (fs.existsSync(otpPath)) {
-            fs.unlinkSync(otpPath);
-            console.log(`OTP file expired and deleted: ${otpPath}`);
-        }
-    }, 10 * 60 * 1000);
-    
-    return true;
-}
-
-// OTPを取得
-function getOTP(fileId, email) {
-    const otpKey = `${fileId}_${email.replace('@', '_at_')}`;
-    const otpPath = path.join(OTP_DIR, `${otpKey}.json`);
-    
-    console.log(`Looking for OTP file: ${otpPath}`);
-    
-    if (!fs.existsSync(otpPath)) {
-        console.log('OTP file not found');
-        return null;
-    }
-    
-    try {
-        const otpData = JSON.parse(fs.readFileSync(otpPath, 'utf8'));
-        console.log('OTP file found, content:', otpData.otp);
-        
-        // 有効期限チェック
-        if (Date.now() > otpData.expiresAt) {
-            console.log('OTP expired');
-            fs.unlinkSync(otpPath);
-            return null;
-        }
-        
-        return otpData;
-    } catch (error) {
-        console.error('OTP read error:', error);
-        return null;
-    }
-}
-
-// OTPを削除
-function deleteOTP(fileId, email) {
-    const otpKey = `${fileId}_${email.replace('@', '_at_')}`;
-    const otpPath = path.join(OTP_DIR, `${otpKey}.json`);
-    
-    if (fs.existsSync(otpPath)) {
-        fs.unlinkSync(otpPath);
-        console.log('OTP deleted after use');
-    }
-}
-
-// 期限切れOTPをクリーンアップ
-function cleanupExpiredOTPs() {
-    if (!fs.existsSync(OTP_DIR)) return;
-    
-    const files = fs.readdirSync(OTP_DIR);
-    const now = Date.now();
-    
-    files.forEach(file => {
-        if (file.endsWith('.json')) {
-            const filePath = path.join(OTP_DIR, file);
-            try {
-                const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-                if (now > data.expiresAt) {
-                    fs.unlinkSync(filePath);
-                    console.log('Cleaned up expired OTP:', file);
-                }
-            } catch (error) {
-                // エラーの場合は古いファイルとして削除
-                fs.unlinkSync(filePath);
-            }
-        }
-    });
-}
-
-// 定期的にクリーンアップ（5分ごと）
-setInterval(cleanupExpiredOTPs, 5 * 60 * 1000);
 
 // OTP送信メールのHTMLテンプレート
 function createOTPEmailHTML(otp, fileName) {
@@ -204,7 +115,6 @@ function createOpenNotificationHTML(fileInfo) {
             <div class="info-box">
                 <strong>📎 ファイル:</strong> ${fileInfo.originalName}<br>
                 <strong>📧 ダウンロード者:</strong> ${fileInfo.verifiedEmail}<br>
-                <strong>✅ 認証方法:</strong> メールアドレス確認 + OTP認証<br>
                 <strong>📥 日時:</strong> ${downloadTime}<br>
                 <strong>📊 回数:</strong> ${fileInfo.downloadCount} / ${fileInfo.maxDownloads || 5}
             </div>
@@ -224,7 +134,7 @@ async function sendOTP(email, otp, fileName) {
             subject: `[認証コード] ${fileName}`,
             html: createOTPEmailHTML(otp, fileName)
         });
-        console.log(`OTP送信成功: ${email}`);
+        console.log(`OTP送信成功: ${email} (OTP: ${otp})`);
         return true;
     } catch (error) {
         console.error('OTP送信エラー:', error);
@@ -416,10 +326,6 @@ function getDownloadPageHTML(fileId) {
         document.getElementById('emailForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const email = document.getElementById('email').value;
-            const button = e.target.querySelector('button');
-            
-            button.disabled = true;
-            button.textContent = '送信中...';
             
             try {
                 const response = await fetch('/api/download', {
@@ -437,7 +343,6 @@ function getDownloadPageHTML(fileId) {
                     document.getElementById('emailSection').classList.add('hidden');
                     document.getElementById('otpSection').classList.remove('hidden');
                     document.getElementById('emailDisplay').textContent = '送信先: ' + email;
-                    document.getElementById('otp').focus();
                     showSuccess('認証コードを送信しました');
                 } else {
                     const data = await response.json();
@@ -445,19 +350,14 @@ function getDownloadPageHTML(fileId) {
                 }
             } catch (error) {
                 showError('エラーが発生しました');
-            } finally {
-                button.disabled = false;
-                button.textContent = '認証コードを送信';
             }
         });
         
         document.getElementById('otpForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const otp = document.getElementById('otp').value;
-            const button = e.target.querySelector('button');
             
-            button.disabled = true;
-            button.textContent = 'ダウンロード中...';
+            console.log('Submitting OTP:', otp, 'for email:', currentEmail);
             
             try {
                 const response = await fetch('/api/download', {
@@ -495,9 +395,6 @@ function getDownloadPageHTML(fileId) {
                 }
             } catch (error) {
                 showError('エラーが発生しました');
-            } finally {
-                button.disabled = false;
-                button.textContent = 'ダウンロード';
             }
         });
         
@@ -505,18 +402,12 @@ function getDownloadPageHTML(fileId) {
             const errorDiv = document.getElementById('errorMessage');
             errorDiv.textContent = message;
             errorDiv.style.display = 'block';
-            setTimeout(() => {
-                errorDiv.style.display = 'none';
-            }, 5000);
         }
         
         function showSuccess(message) {
             const successDiv = document.getElementById('successMessage');
             successDiv.textContent = message;
             successDiv.style.display = 'block';
-            setTimeout(() => {
-                successDiv.style.display = 'none';
-            }, 5000);
         }
     </script>
 </body>
@@ -527,6 +418,7 @@ function getDownloadPageHTML(fileId) {
 export default async function handler(req, res) {
     console.log('=== Download Request ===');
     console.log('Method:', req.method);
+    console.log('Body:', JSON.stringify(req.body, null, 2));
     
     // CORS設定
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -550,6 +442,7 @@ export default async function handler(req, res) {
     // POSTリクエスト
     if (req.method === 'POST') {
         const { action } = req.body;
+        console.log('Action:', action);
 
         // OTP送信リクエスト
         if (action === 'requestOTP') {
@@ -571,12 +464,31 @@ export default async function handler(req, res) {
                 } else if (fs.existsSync(metadataPath2)) {
                     metadata = JSON.parse(fs.readFileSync(metadataPath2, 'utf8'));
                 } else {
+                    console.log('File not found:', fileId);
                     return res.status(404).json({ error: 'ファイルが見つかりません' });
                 }
 
-                // OTPを生成して保存
+                // OTPを生成
                 const otp = generateOTP();
-                saveOTP(fileId, email, otp, metadata);
+                const otpKey = `${fileId}_${email}`;
+                
+                // OTPを保存
+                OTP_STORAGE.set(otpKey, {
+                    otp: otp,
+                    email: email,
+                    fileId: fileId,
+                    createdAt: Date.now(),
+                    metadata: metadata
+                });
+                
+                console.log(`OTP Stored - Key: ${otpKey}, OTP: ${otp}`);
+                debugOTPStorage();
+
+                // 10分後に自動削除
+                setTimeout(() => {
+                    console.log(`OTP Expired - Key: ${otpKey}`);
+                    OTP_STORAGE.delete(otpKey);
+                }, 10 * 60 * 1000);
 
                 // OTPをメールで送信
                 const sent = await sendOTP(email, otp, metadata.originalName);
@@ -607,20 +519,27 @@ export default async function handler(req, res) {
                 }
 
                 // OTPの検証
-                const otpData = getOTP(fileId, email);
+                const otpKey = `${fileId}_${email}`;
+                console.log(`Looking for OTP with key: ${otpKey}`);
+                debugOTPStorage();
                 
+                const otpData = OTP_STORAGE.get(otpKey);
+
                 if (!otpData) {
+                    console.log('OTP not found for key:', otpKey);
                     return res.status(401).json({ error: '認証コードが無効または期限切れです' });
                 }
 
-                console.log(`Comparing OTP: stored=${otpData.otp}, provided=${otp}`);
+                console.log(`Stored OTP: ${otpData.otp}, Provided OTP: ${otp}`);
                 
                 if (otpData.otp !== otp) {
+                    console.log('OTP mismatch');
                     return res.status(401).json({ error: '認証コードが正しくありません' });
                 }
 
                 // OTP使用済みとして削除
-                deleteOTP(fileId, email);
+                OTP_STORAGE.delete(otpKey);
+                console.log('OTP verified and deleted');
 
                 const metadata = otpData.metadata;
 
@@ -655,18 +574,10 @@ export default async function handler(req, res) {
 
                 console.log(`Download success: ${metadata.originalName} by ${email}`);
 
-                // 開封通知メールを送信（同期的に実行してログを出力）
-                try {
-                    console.log('開封通知メール送信開始...');
-                    const notificationSent = await sendOpenNotification(metadata, email);
-                    if (notificationSent) {
-                        console.log('開封通知メール送信成功');
-                    } else {
-                        console.log('開封通知メール送信失敗（送信者メールなし）');
-                    }
-                } catch (error) {
-                    console.error('開封通知メール送信エラー:', error);
-                }
+                // 開封通知メールを送信
+                sendOpenNotification(metadata, email).catch(error => {
+                    console.error('開封通知エラー:', error);
+                });
 
                 // ファイルを送信
                 const fileContent = fs.readFileSync(filePath);

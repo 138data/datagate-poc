@@ -1,0 +1,10 @@
+{
+  "username": "admin",
+  "password": "$2b$10$m0ax2oTLgR.wgLQYe.nrSuASC8TRGdEYbGUDZElW9bU591tkDjHyG",
+  "createdAt": "2025-10-02T07:51:48.584Z",
+  "lastLogin": "2025-10-03T00:12:22.122Z",
+  "loginAttempts": 0,
+  "lockedUntil": null,
+  "passwordChangedAt": "2025-10-03T01:27:12.675Z",
+  "passwordChangedBy": "admin"
+}

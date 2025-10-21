@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ファイル管理テスト</title>
+</head>
+<body>
+    <h1>ファイル管理テスト</h1>
+    <div id="status"></div>
+    <button onclick="testVerify()">Verifyテスト</button>
+    <button onclick="testFiles()">Filesテスト</button>
+    <pre id="result"></pre>
+
+    <script>
+        const status = document.getElementById('status');
+        const result = document.getElementById('result');
+        
+        // ページ読み込み時 - リダイレクトなし
+        status.textContent = 'ページ読み込み完了';
+        
+        const token = localStorage.getItem('adminToken');
+        if (token) {
+            status.textContent += ' | トークンあり';
+        } else {
+            status.textContent += ' | トークンなし';
+        }
+
+        async function testVerify() {
+            const token = localStorage.getItem('adminToken');
+            const response = await fetch('/api/auth/verify', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({})
+            });
+            const data = await response.json();
+            result.textContent = JSON.stringify(data, null, 2);
+        }
+
+        async function testFiles() {
+            const token = localStorage.getItem('adminToken');
+            const response = await fetch('/api/files/list', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            const data = await response.json();
+            result.textContent = JSON.stringify(data, null, 2);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+{
+  "siteName": "TestSite",
+  "logoUrl": "",
+  "notice": "",
+  "sessionTimeout": 60,
+  "jwtExpiry": 60,
+  "passwordPolicy": "medium",
+  "ipAllowlist": [],
+  "mailProvider": "sendgrid",
+  "sgFrom": "",
+  "smtpHost": "",
+  "smtpPort": 587,
+  "smtpUser": "",
+  "smtpSecure": "starttls",
+  "smtpFrom": "",
+  "updatedAt": "2025-10-09T03:21:37.282Z",
+  "storageType": "JSON File"
+}

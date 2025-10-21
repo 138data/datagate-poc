@@ -294,6 +294,51 @@
         .notification.info {
             border-left: 4px solid #2196F3;
         }
+
+        /* KPIセクション (Phase 21で追加) */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .kpi-card {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        .kpi-label {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+
+        .kpi-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .kpi-value.good {
+            color: #10b981;
+        }
+
+        .kpi-value.warning {
+            color: #f59e0b;
+        }
+
+        .kpi-value.danger {
+            color: #ef4444;
+        }
     </style>
 </head>
 <body>
@@ -325,6 +370,56 @@
         <!-- メインコンテンツ -->
         <div class="content">
             <!-- 統計情報 -->
+
+            <!-- 📊 システムKPI (Phase 21で追加) -->
+            <section class="section">
+                <div class="section-header">
+                    <h2 class="section-title">📊 システムKPI</h2>
+                    <p class="section-description">システムの主要パフォーマンス指標をリアルタイムで監視します</p>
+                </div>
+
+                <div class="kpi-grid">
+                    <div class="kpi-card">
+                        <div class="kpi-label">ファイルアップロード成功率</div>
+                        <div class="kpi-value" id="kpi-upload-success">--%</div>
+                    </div>
+                    
+                    <div class="kpi-card">
+                        <div class="kpi-label">ファイルダウンロード成功率</div>
+                        <div class="kpi-value" id="kpi-download-success">--%</div>
+                    </div>
+                    
+                    <div class="kpi-card">
+                        <div class="kpi-label">平均アップロード時間</div>
+                        <div class="kpi-value" id="kpi-avg-upload-time">--秒</div>
+                    </div>
+                    
+                    <div class="kpi-card">
+                        <div class="kpi-label">平均ダウンロード時間</div>
+                        <div class="kpi-value" id="kpi-avg-download-time">--秒</div>
+                    </div>
+                    
+                    <div class="kpi-card">
+                        <div class="kpi-label">APIレスポンスタイム</div>
+                        <div class="kpi-value" id="kpi-api-response">--ms</div>
+                    </div>
+                    
+                    <div class="kpi-card">
+                        <div class="kpi-label">エラー率</div>
+                        <div class="kpi-value" id="kpi-error-rate">--%</div>
+                    </div>
+                    
+                    <div class="kpi-card">
+                        <div class="kpi-label">ストレージ使用率</div>
+                        <div class="kpi-value" id="kpi-storage-usage">--%</div>
+                    </div>
+                    
+                    <div class="kpi-card">
+                        <div class="kpi-label">有効ファイル数</div>
+                        <div class="kpi-value" id="kpi-active-files">--件</div>
+                    </div>
+                </div>
+            </section>
             <div class="stats-grid">
                 <div class="stat-card">
                     <div class="stat-icon">👥</div>
@@ -549,6 +644,108 @@
             // 30秒ごとに自動更新
             setInterval(loadStats, 30000);
         }
+
+        // KPI監視 (Phase 21で追加)
+        async function loadKPI() {
+            try {
+                const token = localStorage.getItem('adminToken');
+                const response = await fetch('/api/kpi/get', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    console.error('KPI取得エラー:', response.status);
+                    return;
+                }
+                
+                const data = await response.json();
+                
+                if (data.success && data.kpi) {
+                    const kpi = data.kpi;
+                    
+                    // アップロード成功率
+                    document.getElementById('kpi-upload-success').textContent = 
+                        formatKPI(kpi.uploadSuccessRate, '%');
+                    document.getElementById('kpi-upload-success').className = 
+                        'kpi-value ' + getKPIColor(kpi.uploadSuccessRate, 90, 95);
+                    
+                    // ダウンロード成功率
+                    document.getElementById('kpi-download-success').textContent = 
+                        formatKPI(kpi.downloadSuccessRate, '%');
+                    document.getElementById('kpi-download-success').className = 
+                        'kpi-value ' + getKPIColor(kpi.downloadSuccessRate, 90, 95);
+                    
+                    // 平均アップロード時間
+                    document.getElementById('kpi-avg-upload-time').textContent = 
+                        formatKPI(kpi.avgUploadTime, '秒');
+                    
+                    // 平均ダウンロード時間
+                    document.getElementById('kpi-avg-download-time').textContent = 
+                        formatKPI(kpi.avgDownloadTime, '秒');
+                    
+                    // APIレスポンスタイム
+                    document.getElementById('kpi-api-response').textContent = 
+                        formatKPI(kpi.avgApiResponseTime, 'ms');
+                    document.getElementById('kpi-api-response').className = 
+                        'kpi-value ' + getKPIColor(kpi.avgApiResponseTime, 500, 300, true);
+                    
+                    // エラー率
+                    document.getElementById('kpi-error-rate').textContent = 
+                        formatKPI(kpi.errorRate, '%');
+                    document.getElementById('kpi-error-rate').className = 
+                        'kpi-value ' + getKPIColor(kpi.errorRate, 5, 2, true);
+                    
+                    // ストレージ使用率
+                    document.getElementById('kpi-storage-usage').textContent = 
+                        formatKPI(kpi.storageUsage, '%');
+                    document.getElementById('kpi-storage-usage').className = 
+                        'kpi-value ' + getKPIColor(kpi.storageUsage, 80, 90, true);
+                    
+                    // 有効ファイル数
+                    document.getElementById('kpi-active-files').textContent = 
+                        formatKPI(kpi.activeFiles, '件');
+                }
+            } catch (error) {
+                console.error('KPI取得エラー:', error);
+            }
+        }
+
+        // KPI値のフォーマット
+        function formatKPI(value, unit) {
+            if (value === undefined || value === null || value === '--') {
+                return '--' + unit;
+            }
+            
+            if (unit === '%') {
+                return value.toFixed(1) + unit;
+            } else if (unit === '秒' || unit === 'ms') {
+                return value.toFixed(2) + unit;
+            } else {
+                return value + unit;
+            }
+        }
+
+        // KPI色分け
+        function getKPIColor(value, warningThreshold, goodThreshold, reverse = false) {
+            if (value === undefined || value === null || value === '--') {
+                return '';
+            }
+            
+            if (reverse) {
+                if (value >= warningThreshold) return 'danger';
+                if (value >= goodThreshold) return 'warning';
+                return 'good';
+            } else {
+                if (value < warningThreshold) return 'danger';
+                if (value < goodThreshold) return 'warning';
+                return 'good';
+            }
+        }
+
+        // KPI自動更新（30秒ごと）
+        setInterval(loadKPI, 30000);
     </script>
 </body>
 </html>

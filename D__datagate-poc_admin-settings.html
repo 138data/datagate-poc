@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>システム設定 - 138DataGate 管理画面</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 24px;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .nav-btn {
+            padding: 8px 16px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        .nav-btn:hover {
+            background: #5568d3;
+        }
+
+        .logout-btn {
+            background: #e74c3c;
+        }
+
+        .logout-btn:hover {
+            background: #c0392b;
+        }
+
+        .settings-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 15px 20px;
+            text-align: center;
+            cursor: pointer;
+            background: #f8f9fa;
+            border: none;
+            font-size: 16px;
+            color: #666;
+            transition: all 0.3s;
+        }
+
+        .tab.active {
+            background: white;
+            color: #667eea;
+            font-weight: bold;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .tab:hover {
+            background: #e9ecef;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 30px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .form-group input[type="text"],
+        .form-group input[type="email"],
+        .form-group input[type="number"],
+        .form-group input[type="password"],
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .form-group input[type="file"] {
+            padding: 5px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #229954;
+        }
+
+        .btn-warning {
+            background: #f39c12;
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #e67e22;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+
+        .info-box p {
+            color: #1565c0;
+            margin: 5px 0;
+        }
+
+        .warning-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+
+        .warning-box p {
+            color: #856404;
+            margin: 5px 0;
+        }
+
+        .success-message {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 12px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .current-logo {
+            max-width: 200px;
+            margin-top: 10px;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .backup-list {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .backup-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .backup-item:last-child {
+            border-bottom: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- ヘッダー -->
+        <div class="header">
+            <h1>⚙️ システム設定</h1>
+            <div class="nav-buttons">
+                <a href="admin.html" class="nav-btn">📊 ダッシュボード</a>
+                <a href="admin-files.html" class="nav-btn">📁 ファイル管理</a>
+                <a href="admin-users.html" class="nav-btn">👥 ユーザー管理</a>
+                <a href="admin-logs.html" class="nav-btn">📋 ログ管理</a>
+                <a href="#" class="nav-btn logout-btn" onclick="logout()">🚪 ログアウト</a>
+            </div>
+        </div>
+
+        <!-- 設定コンテナ -->
+        <div class="settings-container">
+            <!-- タブ -->
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('general')">🏠 全般設定</button>
+                <button class="tab" onclick="switchTab('security')">🔒 セキュリティ</button>
+                <button class="tab" onclick="switchTab('email')">📧 メール設定</button>
+                <button class="tab" onclick="switchTab('backup')">💾 バックアップ</button>
+            </div>
+
+            <!-- 全般設定 -->
+            <div id="general" class="tab-content active">
+                <h2>🏠 全般設定</h2>
+                <div class="success-message" id="general-success"></div>
+                <div class="error-message" id="general-error"></div>
+
+                <div class="form-group">
+                    <label>サイト名</label>
+                    <input type="text" id="siteName" placeholder="138DataGate">
+                </div>
+
+                <div class="form-group">
+                    <label>サイト説明</label>
+                    <textarea id="siteDescription" placeholder="セキュアなファイル転送システム"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>管理者メールアドレス</label>
+                    <input type="email" id="adminEmail" placeholder="admin@example.com">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>ファイル保存期間（日）</label>
+                        <input type="number" id="fileRetentionDays" min="1" max="365" value="7">
+                    </div>
+                    <div class="form-group">
+                        <label>最大ファイルサイズ（MB）</label>
+                        <input type="number" id="maxFileSize" min="1" max="1000" value="100">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>ロゴ画像</label>
+                    <input type="file" id="logoFile" accept="image/*">
+                    <img id="currentLogo" class="current-logo" style="display:none;">
+                </div>
+
+                <div class="button-group">
+                    <button class="btn btn-primary" onclick="saveGeneralSettings()">💾 保存</button>
+                    <button class="btn btn-warning" onclick="resetGeneralSettings()">🔄 リセット</button>
+                </div>
+            </div>
+
+            <!-- セキュリティ設定 -->
+            <div id="security" class="tab-content">
+                <h2>🔒 セキュリティ設定</h2>
+                <div class="success-message" id="security-success"></div>
+                <div class="error-message" id="security-error"></div>
+
+                <div class="info-box">
+                    <p>セキュリティ設定を変更すると、すべてのユーザーに影響します。慎重に設定してください。</p>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>セッションタイムアウト（分）</label>
+                        <input type="number" id="sessionTimeout" min="5" max="1440" value="60">
+                    </div>
+                    <div class="form-group">
+                        <label>OTP有効期限（分）</label>
+                        <input type="number" id="otpExpiry" min="1" max="60" value="10">
+                    </div>
+                </div>
+
+                <h3 style="margin: 30px 0 15px 0;">パスワードポリシー</h3>
+
+                <div class="form-group">
+                    <label>最小パスワード長</label>
+                    <input type="number" id="minPasswordLength" min="6" max="32" value="8">
+                </div>
+
+                <div class="form-group checkbox-group">
+                    <input type="checkbox" id="requireUppercase" checked>
+                    <label>大文字を必須にする</label>
+                </div>
+
+                <div class="form-group checkbox-group">
+                    <input type="checkbox" id="requireLowercase" checked>
+                    <label>小文字を必須にする</label>
+                </div>
+
+                <div class="form-group checkbox-group">
+                    <input type="checkbox" id="requireNumbers" checked>
+                    <label>数字を必須にする</label>
+                </div>
+
+                <div class="form-group checkbox-group">
+                    <input type="checkbox" id="requireSpecialChars" checked>
+                    <label>特殊文字を必須にする</label>
+                </div>
+
+                <h3 style="margin: 30px 0 15px 0;">アクセス制限</h3>
+
+                <div class="form-group">
+                    <label>ログイン試行回数制限</label>
+                    <input type="number" id="maxLoginAttempts" min="3" max="10" value="5">
+                </div>
+
+                <div class="form-group">
+                    <label>アカウントロック時間（分）</label>
+                    <input type="number" id="lockoutDuration" min="5" max="120" value="30">
+                </div>
+
+                <div class="form-group checkbox-group">
+                    <input type="checkbox" id="enableIpWhitelist">
+                    <label>IPアドレスホワイトリストを有効にする</label>
+                </div>
+
+                <div class="form-group">
+                    <label>許可するIPアドレス（1行に1つ）</label>
+                    <textarea id="ipWhitelist" placeholder="192.168.1.1&#10;10.0.0.0/24"></textarea>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn btn-primary" onclick="saveSecuritySettings()">💾 保存</button>
+                    <button class="btn btn-warning" onclick="resetSecuritySettings()">🔄 リセット</button>
+                </div>
+            </div>
+
+            <!-- メール設定 -->
+            <div id="email" class="tab-content">
+                <h2>📧 メール設定</h2>
+                <div class="success-message" id="email-success"></div>
+                <div class="error-message" id="email-error"></div>
+
+                <div class="warning-box">
+                    <p>⚠️ メール設定を変更する前に、必ずテスト送信で動作確認してください。</p>
+                </div>
+
+                <h3 style="margin-bottom: 15px;">SMTP設定</h3>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>SMTPホスト</label>
+                        <input type="text" id="smtpHost" placeholder="smtp.gmail.com">
+                    </div>
+                    <div class="form-group">
+                        <label>SMTPポート</label>
+                        <input type="number" id="smtpPort" value="587">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>ユーザー名</label>
+                        <input type="text" id="smtpUsername" placeholder="your-email@gmail.com">
+                    </div>
+                    <div class="form-group">
+                        <label>パスワード</label>
+                        <input type="password" id="smtpPassword" placeholder="アプリパスワード">
+                    </div>
+                </div>
+
+                <div class="form-group checkbox-group">
+                    <input type="checkbox" id="smtpSecure" checked>
+                    <label>TLS/SSLを使用する</label>
+                </div>
+
+                <div class="form-group">
+                    <label>送信元メールアドレス</label>
+                    <input type="email" id="fromEmail" placeholder="noreply@example.com">
+                </div>
+
+                <div class="form-group">
+                    <label>送信元名</label>
+                    <input type="text" id="fromName" placeholder="138DataGate">
+                </div>
+
+                <h3 style="margin: 30px 0 15px 0;">メールテンプレート</h3>
+
+                <div class="form-group">
+                    <label>ダウンロードリンク送信メール - 件名</label>
+                    <input type="text" id="downloadEmailSubject" value="ファイルのダウンロードリンク">
+                </div>
+
+                <div class="form-group">
+                    <label>ダウンロードリンク送信メール - 本文</label>
+                    <textarea id="downloadEmailBody" rows="8">{{senderName}}様からファイルが送信されました。
+
+以下のリンクからダウンロードしてください：
+{{downloadLink}}
+
+このリンクは{{expiryDate}}まで有効です。
+
+※このメールに心当たりがない場合は、削除してください。</textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>OTP送信メール - 件名</label>
+                    <input type="text" id="otpEmailSubject" value="認証コード">
+                </div>
+
+                <div class="form-group">
+                    <label>OTP送信メール - 本文</label>
+                    <textarea id="otpEmailBody" rows="6">認証コード: {{otp}}
+
+このコードは{{expiryMinutes}}分間有効です。
+
+※このメールに心当たりがない場合は、削除してください。</textarea>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn btn-success" onclick="testEmail()">📤 テスト送信</button>
+                    <button class="btn btn-primary" onclick="saveEmailSettings()">💾 保存</button>
+                    <button class="btn btn-warning" onclick="resetEmailSettings()">🔄 リセット</button>
+                </div>
+            </div>
+
+            <!-- バックアップ -->
+            <div id="backup" class="tab-content">
+                <h2>💾 バックアップとリストア</h2>
+                <div class="success-message" id="backup-success"></div>
+                <div class="error-message" id="backup-error"></div>
+
+                <div class="info-box">
+                    <p>バックアップには、ユーザーデータ、ログ、設定が含まれます。</p>
+                    <p>ファイル本体は含まれませんので、別途バックアップしてください。</p>
+                </div>
+
+                <h3 style="margin-bottom: 15px;">手動バックアップ</h3>
+
+                <div class="button-group">
+                    <button class="btn btn-success" onclick="createBackup()">💾 今すぐバックアップ</button>
+                    <button class="btn btn-primary" onclick="downloadBackup()">📥 バックアップをダウンロード</button>
+                </div>
+
+                <h3 style="margin: 30px 0 15px 0;">自動バックアップ設定</h3>
+
+                <div class="form-group checkbox-group">
+                    <input type="checkbox" id="enableAutoBackup">
+                    <label>自動バックアップを有効にする</label>
+                </div>
+
+                <div class="form-group">
+                    <label>バックアップ頻度</label>
+                    <select id="backupFrequency">
+                        <option value="daily">毎日</option>
+                        <option value="weekly">毎週</option>
+                        <option value="monthly">毎月</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>保存するバックアップ数</label>
+                    <input type="number" id="backupRetention" min="1" max="30" value="7">
+                </div>
+
+                <h3 style="margin: 30px 0 15px 0;">リストア</h3>
+
+                <div class="warning-box">
+                    <p>⚠️ リストアを実行すると、現在のデータは上書きされます。</p>
+                    <p>事前に必ずバックアップを作成してください。</p>
+                </div>
+
+                <div class="form-group">
+                    <label>バックアップファイルを選択</label>
+                    <input type="file" id="restoreFile" accept=".json">
+                </div>
+
+                <div class="button-group">
+                    <button class="btn btn-warning" onclick="restoreBackup()">🔄 リストアを実行</button>
+                </div>
+
+                <h3 style="margin: 30px 0 15px 0;">バックアップ履歴</h3>
+                <div class="backup-list" id="backupList">
+                    <p>読み込み中...</p>
+                </div>
+
+                <div class="button-group" style="margin-top: 20px;">
+                    <button class="btn btn-primary" onclick="saveBackupSettings()">💾 設定を保存</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ローディング -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>処理中...</p>
+        </div>
+    </div>
+
+    <script>
+        // 認証チェック
+        function checkAuth() {
+            const token = localStorage.getItem('adminToken');
+            if (!token) {
+                window.location.href = 'admin-login.html';
+                return false;
+            }
+            return true;
+        }
+
+        // ページ読み込み時
+        window.onload = function() {
+            if (!checkAuth()) return;
+            loadAllSettings();
+        };
+
+        // タブ切り替え
+        function switchTab(tabName) {
+            // すべてのタブとコンテンツを非アクティブに
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+            // 選択されたタブとコンテンツをアクティブに
+            event.target.classList.add('active');
+            document.getElementById(tabName).classList.add('active');
+        }
+
+        // すべての設定を読み込み
+        async function loadAllSettings() {
+            await loadGeneralSettings();
+            await loadSecuritySettings();
+            await loadEmailSettings();
+            await loadBackupSettings();
+        }
+
+        // 全般設定を読み込み
+        async function loadGeneralSettings() {
+            try {
+                const token = localStorage.getItem('adminToken');
+                const response = await fetch('/api/settings/get?category=general', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.settings) {
+                        document.getElementById('siteName').value = data.settings.siteName || '';
+                        document.getElementById('siteDescription').value = data.settings.siteDescription || '';
+                        document.getElementById('adminEmail').value = data.settings.adminEmail || '';
+                        document.getElementById('fileRetentionDays').value = data.settings.fileRetentionDays || 7;
+                        document.getElementById('maxFileSize').value = data.settings.maxFileSize || 100;
+
+                        if (data.settings.logoUrl) {
+                            document.getElementById('currentLogo').src = data.settings.logoUrl;
+                            document.getElementById('currentLogo').style.display = 'block';
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('設定の読み込みエラー:', error);
+            }
+        }
+
+        // 全般設定を保存
+        async function saveGeneralSettings() {
+            try {
+                showLoading();
+                const token = localStorage.getItem('adminToken');
+
+                const settings = {
+                    siteName: document.getElementById('siteName').value,
+                    siteDescription: document.getElementById('siteDescription').value,
+                    adminEmail: document.getElementById('adminEmail').value,
+                    fileRetentionDays: parseInt(document.getElementById('fileRetentionDays').value),
+                    maxFileSize: parseInt(document.getElementById('maxFileSize').value)
+                };
+
+                const response = await fetch('/api/settings/update', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        category: 'general',
+                        settings: settings
+                    })
+                });
+
+                hideLoading();
+
+                if (response.ok) {
+                    showSuccess('general-success', '全般設定を保存しました');
+                } else {
+                    showError('general-error', '設定の保存に失敗しました');
+                }
+            } catch (error) {
+                hideLoading();
+                showError('general-error', '設定の保存中にエラーが発生しました');
+            }
+        }
+
+        // 全般設定をリセット
+        function resetGeneralSettings() {
+            if (confirm('全般設定をデフォルト値にリセットしますか？')) {
+                document.getElementById('siteName').value = '138DataGate';
+                document.getElementById('siteDescription').value = 'セキュアなファイル転送システム';
+                document.getElementById('adminEmail').value = '';
+                document.getElementById('fileRetentionDays').value = 7;
+                document.getElementById('maxFileSize').value = 100;
+            }
+        }
+
+        // セキュリティ設定を読み込み
+        async function loadSecuritySettings() {
+            try {
+                const token = localStorage.getItem('adminToken');
+                const response = await fetch('/api/settings/get?category=security', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.settings) {
+                        document.getElementById('sessionTimeout').value = data.settings.sessionTimeout || 60;
+                        document.getElementById('otpExpiry').value = data.settings.otpExpiry || 10;
+                        document.getElementById('minPasswordLength').value = data.settings.minPasswordLength || 8;
+                        document.getElementById('requireUppercase').checked = data.settings.requireUppercase !== false;
+                        document.getElementById('requireLowercase').checked = data.settings.requireLowercase !== false;
+                        document.getElementById('requireNumbers').checked = data.settings.requireNumbers !== false;
+                        document.getElementById('requireSpecialChars').checked = data.settings.requireSpecialChars !== false;
+                        document.getElementById('maxLoginAttempts').value = data.settings.maxLoginAttempts || 5;
+                        document.getElementById('lockoutDuration').value = data.settings.lockoutDuration || 30;
+                        document.getElementById('enableIpWhitelist').checked = data.settings.enableIpWhitelist || false;
+                        document.getElementById('ipWhitelist').value = (data.settings.ipWhitelist || []).join('\n');
+                    }
+                }
+            } catch (error) {
+                console.error('設定の読み込みエラー:', error);
+            }
+        }
+
+        // セキュリティ設定を保存
+        async function saveSecuritySettings() {
+            try {
+                showLoading();
+                const token = localStorage.getItem('adminToken');
+
+                const ipWhitelistText = document.getElementById('ipWhitelist').value;
+                const ipWhitelist = ipWhitelistText ? ipWhitelistText.split('\n').filter(ip => ip.trim()) : [];
+
+                const settings = {
+                    sessionTimeout: parseInt(document.getElementById('sessionTimeout').value),
+                    otpExpiry: parseInt(document.getElementById('otpExpiry').value),
+                    minPasswordLength: parseInt(document.getElementById('minPasswordLength').value),
+                    requireUppercase: document.getElementById('requireUppercase').checked,
+                    requireLowercase: document.getElementById('requireLowercase').checked,
+                    requireNumbers: document.getElementById('requireNumbers').checked,
+                    requireSpecialChars: document.getElementById('requireSpecialChars').checked,
+                    maxLoginAttempts: parseInt(document.getElementById('maxLoginAttempts').value),
+                    lockoutDuration: parseInt(document.getElementById('lockoutDuration').value),
+                    enableIpWhitelist: document.getElementById('enableIpWhitelist').checked,
+                    ipWhitelist: ipWhitelist
+                };
+
+                const response = await fetch('/api/settings/update', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        category: 'security',
+                        settings: settings
+                    })
+                });
+
+                hideLoading();
+
+                if (response.ok) {
+                    showSuccess('security-success', 'セキュリティ設定を保存しました');
+                } else {
+                    showError('security-error', '設定の保存に失敗しました');
+                }
+            } catch (error) {
+                hideLoading();
+                showError('security-error', '設定の保存中にエラーが発生しました');
+            }
+        }
+
+        // セキュリティ設定をリセット
+        function resetSecuritySettings() {
+            if (confirm('セキュリティ設定をデフォルト値にリセットしますか？')) {
+                document.getElementById('sessionTimeout').value = 60;
+                document.getElementById('otpExpiry').value = 10;
+                document.getElementById('minPasswordLength').value = 8;
+                document.getElementById('requireUppercase').checked = true;
+                document.getElementById('requireLowercase').checked = true;
+                document.getElementById('requireNumbers').checked = true;
+                document.getElementById('requireSpecialChars').checked = true;
+                document.getElementById('maxLoginAttempts').value = 5;
+                document.getElementById('lockoutDuration').value = 30;
+                document.getElementById('enableIpWhitelist').checked = false;
+                document.getElementById('ipWhitelist').value = '';
+            }
+        }
+
+        // メール設定を読み込み
+        async function loadEmailSettings() {
+            try {
+                const token = localStorage.getItem('adminToken');
+                const response = await fetch('/api/settings/get?category=email', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.settings) {
+                        document.getElementById('smtpHost').value = data.settings.smtpHost || '';
+                        document.getElementById('smtpPort').value = data.settings.smtpPort || 587;
+                        document.getElementById('smtpUsername').value = data.settings.smtpUsername || '';
+                        document.getElementById('smtpPassword').value = data.settings.smtpPassword || '';
+                        document.getElementById('smtpSecure').checked = data.settings.smtpSecure !== false;
+                        document.getElementById('fromEmail').value = data.settings.fromEmail || '';
+                        document.getElementById('fromName').value = data.settings.fromName || '';
+                        document.getElementById('downloadEmailSubject').value = data.settings.downloadEmailSubject || 'ファイルのダウンロードリンク';
+                        document.getElementById('downloadEmailBody').value = data.settings.downloadEmailBody || '';
+                        document.getElementById('otpEmailSubject').value = data.settings.otpEmailSubject || '認証コード';
+                        document.getElementById('otpEmailBody').value = data.settings.otpEmailBody || '';
+                    }
+                }
+            } catch (error) {
+                console.error('設定の読み込みエラー:', error);
+            }
+        }
+
+        // メール設定を保存
+        async function saveEmailSettings() {
+            try {
+                showLoading();
+                const token = localStorage.getItem('adminToken');
+
+                const settings = {
+                    smtpHost: document.getElementById('smtpHost').value,
+                    smtpPort: parseInt(document.getElementById('smtpPort').value),
+                    smtpUsername: document.getElementById('smtpUsername').value,
+                    smtpPassword: document.getElementById('smtpPassword').value,
+                    smtpSecure: document.getElementById('smtpSecure').checked,
+                    fromEmail: document.getElementById('fromEmail').value,
+                    fromName: document.getElementById('fromName').value,
+                    downloadEmailSubject: document.getElementById('downloadEmailSubject').value,
+                    downloadEmailBody: document.getElementById('downloadEmailBody').value,
+                    otpEmailSubject: document.getElementById('otpEmailSubject').value,
+                    otpEmailBody: document.getElementById('otpEmailBody').value
+                };
+
+                const response = await fetch('/api/settings/update', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        category: 'email',
+                        settings: settings
+                    })
+                });
+
+                hideLoading();
+
+                if (response.ok) {
+                    showSuccess('email-success', 'メール設定を保存しました');
+                } else {
+                    showError('email-error', '設定の保存に失敗しました');
+                }
+            } catch (error) {
+                hideLoading();
+                showError('email-error', '設定の保存中にエラーが発生しました');
+            }
+        }
+
+        // メール設定をリセット
+        function resetEmailSettings() {
+            if (confirm('メール設定をデフォルト値にリセットしますか？')) {
+                document.getElementById('smtpHost').value = '';
+                document.getElementById('smtpPort').value = 587;
+                document.getElementById('smtpUsername').value = '';
+                document.getElementById('smtpPassword').value = '';
+                document.getElementById('smtpSecure').checked = true;
+                document.getElementById('fromEmail').value = '';
+                document.getElementById('fromName').value = '138DataGate';
+                document.getElementById('downloadEmailSubject').value = 'ファイルのダウンロードリンク';
+                document.getElementById('downloadEmailBody').value = '{{senderName}}様からファイルが送信されました。\n\n以下のリンクからダウンロードしてください：\n{{downloadLink}}\n\nこのリンクは{{expiryDate}}まで有効です。\n\n※このメールに心当たりがない場合は、削除してください。';
+                document.getElementById('otpEmailSubject').value = '認証コード';
+                document.getElementById('otpEmailBody').value = '認証コード: {{otp}}\n\nこのコードは{{expiryMinutes}}分間有効です。\n\n※このメールに心当たりがない場合は、削除してください。';
+            }
+        }
+
+        // テストメール送信
+        async function testEmail() {
+            const email = prompt('テスト送信先のメールアドレスを入力してください:');
+            if (!email) return;
+
+            try {
+                showLoading();
+                const token = localStorage.getItem('adminToken');
+
+                const response = await fetch('/api/settings/test-email', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ email: email })
+                });
+
+                hideLoading();
+
+                if (response.ok) {
+                    alert('テストメールを送信しました。受信を確認してください。');
+                } else {
+                    const data = await response.json();
+                    alert('テストメールの送信に失敗しました: ' + (data.error || '不明なエラー'));
+                }
+            } catch (error) {
+                hideLoading();
+                alert('テストメールの送信中にエラーが発生しました');
+            }
+        }
+
+        // バックアップ設定を読み込み
+        async function loadBackupSettings() {
+            try {
+                const token = localStorage.getItem('adminToken');
+                const response = await fetch('/api/settings/get?category=backup', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.settings) {
+                        document.getElementById('enableAutoBackup').checked = data.settings.enableAutoBackup || false;
+                        document.getElementById('backupFrequency').value = data.settings.backupFrequency || 'daily';
+                        document.getElementById('backupRetention').value = data.settings.backupRetention || 7;
+                    }
+                }
+
+                // バックアップ履歴を読み込み
+                await loadBackupHistory();
+            } catch (error) {
+                console.error('設定の読み込みエラー:', error);
+            }
+        }
+
+        // バックアップ履歴を読み込み
+        async function loadBackupHistory() {
+            try {
+                const token = localStorage.getItem('adminToken');
+                const response = await fetch('/api/backup/list', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const backupList = document.getElementById('backupList');
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.backups && data.backups.length > 0) {
+                        backupList.innerHTML = data.backups.map(backup => `
+                            <div class="backup-item">
+                                <div>
+                                    <strong>${backup.filename}</strong><br>
+                                    <small>${new Date(backup.createdAt).toLocaleString('ja-JP')}</small>
+                                </div>
+                                <button class="btn btn-primary" onclick="downloadSpecificBackup('${backup.filename}')">📥 ダウンロード</button>
+                            </div>
+                        `).join('');
+                    } else {
+                        backupList.innerHTML = '<p>バックアップがありません</p>';
+                    }
+                } else {
+                    backupList.innerHTML = '<p>バックアップ履歴の読み込みに失敗しました</p>';
+                }
+            } catch (error) {
+                document.getElementById('backupList').innerHTML = '<p>エラーが発生しました</p>';
+            }
+        }
+
+        // バックアップ設定を保存
+        async function saveBackupSettings() {
+            try {
+                showLoading();
+                const token = localStorage.getItem('adminToken');
+
+                const settings = {
+                    enableAutoBackup: document.getElementById('enableAutoBackup').checked,
+                    backupFrequency: document.getElementById('backupFrequency').value,
+                    backupRetention: parseInt(document.getElementById('backupRetention').value)
+                };
+
+                const response = await fetch('/api/settings/update', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        category: 'backup',
+                        settings: settings
+                    })
+                });
+
+                hideLoading();
+
+                if (response.ok) {
+                    showSuccess('backup-success', 'バックアップ設定を保存しました');
+                } else {
+                    showError('backup-error', '設定の保存に失敗しました');
+                }
+            } catch (error) {
+                hideLoading();
+                showError('backup-error', '設定の保存中にエラーが発生しました');
+            }
+        }
+
+        // バックアップ作成
+        async function createBackup() {
+            if (!confirm('バックアップを作成しますか？')) return;
+
+            try {
+                showLoading();
+                const token = localStorage.getItem('adminToken');
+
+                const response = await fetch('/api/backup/create', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                hideLoading();
+
+                if (response.ok) {
+                    showSuccess('backup-success', 'バックアップを作成しました');
+                    await loadBackupHistory();
+                } else {
+                    showError('backup-error', 'バックアップの作成に失敗しました');
+                }
+            } catch (error) {
+                hideLoading();
+                showError('backup-error', 'バックアップの作成中にエラーが発生しました');
+            }
+        }
+
+        // バックアップをダウンロード
+        async function downloadBackup() {
+            try {
+                showLoading();
+                const token = localStorage.getItem('adminToken');
+
+                const response = await fetch('/api/backup/download', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                hideLoading();
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `138datagate-backup-${new Date().toISOString().split('T')[0]}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                } else {
+                    showError('backup-error', 'バックアップのダウンロードに失敗しました');
+                }
+            } catch (error) {
+                hideLoading();
+                showError('backup-error', 'ダウンロード中にエラーが発生しました');
+            }
+        }
+
+        // 特定のバックアップをダウンロード
+        async function downloadSpecificBackup(filename) {
+            try {
+                showLoading();
+                const token = localStorage.getItem('adminToken');
+
+                const response = await fetch(`/api/backup/download?filename=${encodeURIComponent(filename)}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                hideLoading();
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                } else {
+                    alert('バックアップのダウンロードに失敗しました');
+                }
+            } catch (error) {
+                hideLoading();
+                alert('ダウンロード中にエラーが発生しました');
+            }
+        }
+
+        // リストアを実行
+        async function restoreBackup() {
+            const fileInput = document.getElementById('restoreFile');
+            if (!fileInput.files || fileInput.files.length === 0) {
+                alert('リストアするファイルを選択してください');
+                return;
+            }
+
+            if (!confirm('⚠️ リストアを実行すると現在のデータは上書きされます。本当に実行しますか？')) {
+                return;
+            }
+
+            try {
+                showLoading();
+                const token = localStorage.getItem('adminToken');
+                const file = fileInput.files[0];
+
+                const formData = new FormData();
+                formData.append('backup', file);
+
+                const response = await fetch('/api/backup/restore', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: formData
+                });
+
+                hideLoading();
+
+                if (response.ok) {
+                    alert('リストアが完了しました。ページを再読み込みします。');
+                    window.location.reload();
+                } else {
+                    showError('backup-error', 'リストアに失敗しました');
+                }
+            } catch (error) {
+                hideLoading();
+                showError('backup-error', 'リストア中にエラーが発生しました');
+            }
+        }
+
+        // ローディング表示
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+        }
+
+        // ローディング非表示
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        // 成功メッセージ表示
+        function showSuccess(elementId, message) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.style.display = 'block';
+            setTimeout(() => {
+                element.style.display = 'none';
+            }, 3000);
+        }
+
+        // エラーメッセージ表示
+        function showError(elementId, message) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.style.display = 'block';
+            setTimeout(() => {
+                element.style.display = 'none';
+            }, 5000);
+        }
+
+        // ログアウト
+        function logout() {
+            if (confirm('ログアウトしますか？')) {
+                localStorage.removeItem('adminToken');
+                window.location.href = 'admin-login.html';
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+{
+  "general": {
+    "siteName": "138DataGate",
+    "siteDescription": "セキュアなファイル転送システム",
+    "adminEmail": "",
+    "fileRetentionDays": 7,
+    "maxFileSize": 100,
+    "logoUrl": ""
+  },
+  "security": {
+    "sessionTimeout": 60,
+    "otpExpiry": 10,
+    "minPasswordLength": 8,
+    "requireUppercase": true,
+    "requireLowercase": true,
+    "requireNumbers": true,
+    "requireSpecialChars": true,
+    "maxLoginAttempts": 5,
+    "lockoutDuration": 30,
+    "enableIpWhitelist": false,
+    "ipWhitelist": []
+  },
+  "email": {
+    "smtpHost": "",
+    "smtpPort": 587,
+    "smtpUsername": "",
+    "smtpPassword": "",
+    "smtpSecure": true,
+    "fromEmail": "",
+    "fromName": "138DataGate",
+    "downloadEmailSubject": "ファイルのダウンロードリンク",
+    "downloadEmailBody": "{{senderName}}様からファイルが送信されました。\n\n以下のリンクからダウンロードしてください：\n{{downloadLink}}\n\nこのリンクは{{expiryDate}}まで有効です。\n\n※このメールに心当たりがない場合は、削除してください。",
+    "otpEmailSubject": "認証コード",
+    "otpEmailBody": "認証コード: {{otp}}\n\nこのコードは{{expiryMinutes}}分間有効です。\n\n※このメールに心当たりがない場合は、削除してください。"
+  },
+  "backup": {
+    "enableAutoBackup": false,
+    "backupFrequency": "daily",
+    "backupRetention": 7
+  }
+}

@@ -655,18 +655,10 @@ export default async function handler(req, res) {
 
                 console.log(`Download success: ${metadata.originalName} by ${email}`);
 
-                // 開封通知メールを送信（同期的に実行してログを出力）
-                try {
-                    console.log('開封通知メール送信開始...');
-                    const notificationSent = await sendOpenNotification(metadata, email);
-                    if (notificationSent) {
-                        console.log('開封通知メール送信成功');
-                    } else {
-                        console.log('開封通知メール送信失敗（送信者メールなし）');
-                    }
-                } catch (error) {
-                    console.error('開封通知メール送信エラー:', error);
-                }
+                // 開封通知メールを送信
+                sendOpenNotification(metadata, email).catch(error => {
+                    console.error('開封通知エラー:', error);
+                });
 
                 // ファイルを送信
                 const fileContent = fs.readFileSync(filePath);

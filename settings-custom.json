@@ -1,0 +1,17 @@
+{
+  "siteName": "138DataGate",
+  "logoUrl": "",
+  "notice": "",
+  "sessionTimeout": 60,
+  "jwtExpiry": 60,
+  "passwordPolicy": "medium",
+  "ipAllowlist": [],
+  "mailProvider": "smtp",
+  "smtpHost": "",
+  "smtpPort": 587,
+  "smtpUser": "",
+  "smtpSecure": "starttls",
+  "smtpFrom": "",
+  "updatedAt": "2025-10-10T05:14:44.389Z",
+  "storageType": "JSON File"
+}

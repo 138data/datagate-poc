@@ -1,0 +1,52 @@
+{
+  "logs": [
+    {
+      "id": "e3ca5ecc-09a1-42f1-be5a-d494d5585e88",
+      "timestamp": "2025-10-10T04:16:01.276Z",
+      "type": "auth",
+      "level": "info",
+      "user": "admin",
+      "action": "Login successful",
+      "details": {
+        "role": "super_admin"
+      },
+      "ip": "::1"
+    },
+    {
+      "id": "c9170071-45ab-40d1-b2ae-65e22d751314",
+      "timestamp": "2025-10-10T00:17:51.783Z",
+      "type": "auth",
+      "level": "info",
+      "user": "admin",
+      "action": "Login successful",
+      "details": {
+        "role": "super_admin"
+      },
+      "ip": "::1"
+    },
+    {
+      "id": "77d36d1f-3166-4bfc-a6a3-4056475a7d65",
+      "timestamp": "2025-10-09T23:58:42.180Z",
+      "type": "auth",
+      "level": "info",
+      "user": "admin",
+      "action": "Login successful",
+      "details": {
+        "role": "super_admin"
+      },
+      "ip": "::1"
+    },
+    {
+      "id": "82e9c327-77e2-4bed-8611-4ac42728c95e",
+      "timestamp": "2025-10-09T03:19:58.739Z",
+      "type": "auth",
+      "level": "info",
+      "user": "admin",
+      "action": "Login successful",
+      "details": {
+        "role": "super_admin"
+      },
+      "ip": "::1"
+    }
+  ]
+}
