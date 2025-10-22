@@ -1,6 +1,11 @@
-// /api/stats.js
+@'
+// /api/stats.js - Fixed version
 let kv;
-try { kv = require('@vercel/kv').kv; } catch {}
+try { 
+  kv = require('@vercel/kv').kv; 
+} catch (e) {
+  console.log('KV not available, using memory fallback');
+}
 
 const asNumber = (v) => (typeof v === 'number' ? v : parseInt(v, 10) || 0);
 
@@ -8,25 +13,29 @@ const getAllMetaFromKV = async () => {
   const metas = [];
   if (!kv) return metas;
 
-  const collect = async (keys) => {
+  try {
+    let keys = [];
+    
+    // Try different methods to get keys
+    if (kv.keys) {
+      keys = await kv.keys('file:*:meta');
+    }
+    
+    // Collect metadata for each key
     for (const key of keys) {
       try {
         const metaJson = await kv.get(key);
         if (!metaJson) continue;
         const meta = typeof metaJson === 'string' ? JSON.parse(metaJson) : metaJson;
         metas.push(meta);
-      } catch { /* skip bad json */ }
+      } catch (err) {
+        console.error(`Error parsing meta for key ${key}:`, err);
+      }
     }
-  };
-
-  if (kv.scanIterator) {
-    const keys = [];
-    for await (const k of kv.scanIterator({ match: 'file:*:meta', count: 1000 })) keys.push(k);
-    await collect(keys);
-  } else if (kv.keys) {
-    const keys = await kv.keys('file:*:meta');
-    await collect(keys);
+  } catch (err) {
+    console.error('Error getting keys from KV:', err);
   }
+  
   return metas;
 };
 
@@ -40,11 +49,18 @@ const getAllMetaFromMemory = () => {
 };
 
 module.exports = async (req, res) => {
+  // Set CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'GET') return res.status(405).json({ ok: false, error: 'Method not allowed' });
+  
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  if (req.method !== 'GET') {
+    return res.status(405).json({ ok: false, error: 'Method not allowed' });
+  }
 
   try {
     const metasKV = await getAllMetaFromKV();
@@ -64,7 +80,7 @@ module.exports = async (req, res) => {
       sizeTotalBytes += sz;
 
       const notExpired = !m.expiryTime || new Date(m.expiryTime).getTime() > now;
-      const hasQuota = asNumber(m.maxDownloads || 0) > dl;
+      const hasQuota = !m.maxDownloads || asNumber(m.maxDownloads) > dl;
       if (notExpired && hasQuota) activeFiles++;
 
       const up = m.uploadTime ? new Date(m.uploadTime).getTime() : 0;
@@ -82,10 +98,11 @@ module.exports = async (req, res) => {
       uploadsLast24h
     });
   } catch (e) {
+    console.error('Stats API error:', e);
     return res.status(200).json({
       ok: true,
       degraded: true,
-      storageType: kv ? 'KV' : 'Memory',
+      storageType: 'Memory',
       asOf: new Date().toISOString(),
       filesTotal: 0,
       activeFiles: 0,
@@ -97,3 +114,4 @@ module.exports = async (req, res) => {
     });
   }
 };
+'@ | Set-Content -Path "api\stats.js" -Encoding UTF8
