@@ -1,93 +1,127 @@
-import formidable from 'formidable';
-import { promises as fs } from 'fs';
-import { randomBytes } from 'crypto';
-import { kv } from '@vercel/kv';
+// ========================================
+// api/upload.js - 修正版（Part 1）
+// ========================================
 
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
+const { createClient } = require('@vercel/kv');
 
+// 環境変数からの設定読み込み
+const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE || `${50 * 1024 * 1024}`, 10); // 50MB（A-2対応）
+const FILE_RETENTION_DAYS = parseInt(process.env.FILE_RETENTION_DAYS || '7', 10);
+
+// KVクライアント初期化
+const kv = createClient({
+  url: process.env.KV_REST_API_URL,
+  token: process.env.KV_REST_API_TOKEN,
+});
+
+// OTP生成（6桁数字）
 function generateOTP() {
   const chars = '0123456789';
   let otp = '';
-  const randomBytesArray = randomBytes(6);
   for (let i = 0; i < 6; i++) {
-    otp += chars[randomBytesArray[i] % chars.length];
+    otp += chars[Math.floor(Math.random() * chars.length)];
   }
   return otp;
 }
 
-export default async function handler(req, res) {
+// UUIDv4生成
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+module.exports = async (req, res) => {
+  // CORSヘッダー設定（A-3対応: カスタムヘッダー追加）
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-File-Name, X-File-Type');
+
+  // OPTIONSリクエスト（プリフライト）
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
+  // POSTのみ許可
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
   }
 
   try {
-    // Content-Typeを確認
-    const contentType = req.headers['content-type'] || '';
-    if (!contentType.includes('multipart/form-data')) {
-      return res.status(400).json({ 
-        error: 'Invalid content type. Expected multipart/form-data' 
+    // A-3対応: カスタムヘッダーからファイル情報取得
+    const originalName = decodeURIComponent(req.headers['x-file-name'] || 'uploaded-file.dat');
+    const mimeType = req.headers['x-file-type'] || 'application/octet-stream';
+
+    // リクエストボディ（生バイト）を読み込み
+    const chunks = [];
+    for await (const chunk of req) {
+      chunks.push(chunk);
+    }
+    const fileBuffer = Buffer.concat(chunks);
+
+    // ファイルサイズチェック（A-2対応: 環境変数化）
+    if (fileBuffer.length > MAX_FILE_SIZE) {
+      res.status(413).json({
+        error: 'File too large',
+        maxSize: MAX_FILE_SIZE,
+        actualSize: fileBuffer.length
       });
+      return;
     }
 
-    const form = formidable({
-      maxFileSize: 52428800, // 50MB
-      keepExtensions: true,
-      multiples: false
-    });
-
-    const [fields, files] = await form.parse(req);
-    
-    // ファイル取得（配列の場合は最初の要素）
-    const file = Array.isArray(files.file) ? files.file[0] : files.file;
-    
-    if (!file) {
-      return res.status(400).json({ error: 'ファイルが選択されていません' });
-    }
-
-    // ファイル読み込み
-    const fileBuffer = await fs.readFile(file.filepath);
-    
-    // ファイルIDとOTP生成
-    const fileId = randomBytes(16).toString('hex');
+    // ファイルID・OTP生成
+    const fileId = generateUUID();
     const otp = generateOTP();
 
+    // Base64エンコード
+    const fileData = fileBuffer.toString('base64');
+
     // メタデータ作成
-    const metadata = {
-      originalName: file.originalFilename || 'unknown',
-      size: file.size,
-      mimeType: file.mimetype || 'application/octet-stream',
-      uploadedAt: new Date().toISOString(),
-      otp: otp,
-      avScanResult: { clean: true, skipped: true } // Phase 22準備
+    const fileInfo = {
+      fileId,
+      fileName: originalName,
+      fileSize: fileBuffer.length,
+      mimeType,
+      otp,
+      uploadTime: new Date().toISOString(),
+      expiryTime: new Date(Date.now() + FILE_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString(),
+      remainingDownloads: 3,
+      storageType: 'kv',
     };
 
-    // KVに保存
-    await kv.set(`file:${fileId}`, fileBuffer.toString('base64'), { ex: 604800 }); // base64として保存
-    await kv.set(`meta:${fileId}`, metadata, { ex: 604800 });
+    // TTL計算（秒単位）
+    const ttlSeconds = FILE_RETENTION_DAYS * 24 * 60 * 60;
 
-    // 一時ファイル削除
-    try {
-      await fs.unlink(file.filepath);
-    } catch (e) {
-      console.log('Temp file cleanup failed:', e);
-    }
+    // KVに保存（メタデータ + データ）
+    await Promise.all([
+      kv.set(`file:${fileId}:meta`, JSON.stringify(fileInfo), { ex: ttlSeconds }),
+      kv.set(`file:${fileId}:data`, fileData, { ex: ttlSeconds }),
+    ]);
 
-    return res.status(200).json({
+    // A-1対応: 動的ホスト取得
+    const proto = req.headers['x-forwarded-proto'] || 'https';
+    const host = req.headers['x-forwarded-host'] || req.headers.host;
+    const baseUrl = `${proto}://${host}`;
+    const downloadLink = `${baseUrl}/download.html?id=${fileId}`;
+
+    // レスポンス
+    res.status(200).json({
       success: true,
-      fileId: fileId,
-      otp: otp,
-      message: 'ファイルが正常にアップロードされました',
+      fileId,
+      otp,
+      downloadLink,
+      expiryTime: fileInfo.expiryTime,
+      remainingDownloads: 3,
     });
-
   } catch (error) {
-    console.error('Upload error details:', error);
-    return res.status(500).json({ 
-      error: 'アップロード中にエラーが発生しました',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    console.error('Upload error:', error);
+    res.status(500).json({
+      error: 'Upload failed',
+      message: error.message,
     });
   }
-}
+};

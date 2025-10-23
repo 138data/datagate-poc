@@ -148,8 +148,9 @@
         uploadForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const formData = new FormData();
-            formData.append('file', fileInput.files[0]);
+            // A-3対応: 生バイト送信
+            const file = fileInput.files[0];
+            const fileBuffer = await file.arrayBuffer();
             
             uploadBtn.disabled = true;
             uploadBtn.textContent = 'アップロード中...';
@@ -157,7 +158,12 @@
             try {
                 const response = await fetch('/api/upload', {
                     method: 'POST',
-                    body: formData
+                    headers: {
+                        'Content-Type': 'application/octet-stream',
+                        'X-File-Name': encodeURIComponent(file.name),
+                        'X-File-Type': file.type || 'application/octet-stream'
+                    },
+                    body: fileBuffer
                 });
                 
                 const data = await response.json();
