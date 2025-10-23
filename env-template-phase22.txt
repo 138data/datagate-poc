@@ -1,0 +1,61 @@
+# 環境変数テンプレート（Phase 22準備）
+# このファイルを .env にコピーして使用してください
+
+# ===== 既存の環境変数 =====
+
+# SMTP設定（Gmail）
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=138data@gmail.com
+SMTP_PASS=jusabijlsfogjtjj
+SMTP_FROM=138data@gmail.com
+
+# JWT認証
+JWT_SECRET=fd37f46bbfc56f84a4dfc5efdd78b69464036a7de70b92ec5096b30dd6010141
+
+# Upstash Redis (138datagate-kv)
+KV_URL="rediss://default:ASeLAAIncDI2NjA4MWE1ZTc3Zjg0Yjk5OTJhYWNiNDk0NTRhZTI4M3AyMTAxMjM@literate-badger-10123.upstash.io:6379"
+KV_REST_API_URL="https://literate-badger-10123.upstash.io"
+KV_REST_API_TOKEN="ASeLAAIncDI2NjA4MWE1ZTc3Zjg0Yjk5OTJhYWNiNDk0NTRhZTI4M3AyMTAxMjM"
+KV_REST_API_READ_ONLY_TOKEN="AieLAAIgcDKkEmZDt_HqJWIWNOKyrfsFH3sMiM8P94CtFfYuoU_Y5g"
+REDIS_URL="rediss://default:ASeLAAIncDI2NjA4MWE1ZTc3Zjg0Yjk5OTJhYWNiNDk0NTRhZTI4M3AyMTAxMjM@literate-badger-10123.upstash.io:6379"
+
+# 暗号化設定
+FILE_ENCRYPT_KEY=1a90cba0e882bba6754efb299e34368c736b27a8f63f5b679cdaf436bd97e4cf
+
+# Cron認証
+CRON_SECRET=8551f8f77176e90113b873c641576459
+
+# 圧縮機能（Phase 21）
+ENABLE_COMPRESSION=true
+
+# ファイルサイズ制限
+MAX_FILE_SIZE=10485760  # 10MB
+
+# ファイル保持期間
+FILE_RETENTION_DAYS=7
+
+# アラートメール
+ALERT_EMAIL=138data@gmail.com
+
+# ===== Phase 22準備：マルウェアスキャン用の環境変数 =====
+
+# マルウェアスキャンの有効/無効（既定: false）
+# 将来、スキャン機能を導入する際に true に変更します
+AV_ENABLED=false
+
+# AV障害時の挙動（既定: false = Fail-Closed）
+# false: AV障害時はアップロードを拒否（安全側）
+# true:  AV障害時もアップロードを許可（可用性優先）
+AV_FAIL_OPEN=false
+
+# ===== 将来追加予定の環境変数（参考） =====
+
+# VirusTotal API（将来）
+# VIRUSTOTAL_API_KEY=your_api_key_here
+
+# ClamAV REST API（将来）
+# CLAMAV_API_URL=http://your-clamav-server:8080
+
+# Cloudmersive Virus Scan API（将来）
+# CLOUDMERSIVE_API_KEY=your_api_key_here

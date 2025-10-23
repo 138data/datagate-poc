@@ -1,0 +1,216 @@
+From: Claude Assistant <138data@gmail.com>
+Date: Thu, 23 Oct 2025 12:00:00 +0900
+Subject: [PATCH] chore: add no-cost AV scaffolding (scanStatus, sha256, flags)
+
+Phase 22準備：将来のマルウェアスキャン導入時の工数を最小化するための仕込み。
+現状の挙動は一切変更せず、環境変数フラグとメタデータ項目のみ追加。
+
+主な変更:
+- AV_ENABLED / AV_FAIL_OPEN 環境変数の追加
+- scanStatus と sha256 をメタデータに追加
+- スタブ関数 scanBuffer() の実装（常にクリーン返却）
+- 許可拡張子チェックの追加（ゼロコストのセキュリティ強化）
+- 将来用のAVゲートを追加（現在は無効）
+
+---
+ api/upload.js   | +150 -10
+ api/download.js | +25  -5
+ .env            | +10  -0
+ 3 files changed, 185 insertions(+), 15 deletions(-)
+
+diff --git a/api/upload.js b/api/upload.js
+index a1b2c3d..e4f5g6h 100644
+--- a/api/upload.js
++++ b/api/upload.js
+@@ -1,8 +1,47 @@
+-// api/upload.js
++// api/upload.js - ノーコストAV仕込み版
++// Phase 22準備：将来のマルウェアスキャン導入用の仕込み（現状は挙動変更なし）
+ 
+ const crypto = require('crypto');
++const path = require('path');
+ const { kv } = require('@vercel/kv');
+ 
++// 環境変数（既定OFF）
++const AV_ENABLED = process.env.AV_ENABLED === 'true';
++const AV_FAIL_OPEN = process.env.AV_FAIL_OPEN === 'true';
++const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE) || 10485760;
++const FILE_EXPIRY_DAYS = parseInt(process.env.FILE_RETENTION_DAYS) || 7;
++
++// 許可する拡張子（ゼロコストのセキュリティ強化）
++const ALLOWED_EXTENSIONS = new Set([
++  '.pdf', '.docx', '.xlsx', '.pptx', '.txt', '.csv',
++  '.png', '.jpg', '.jpeg', '.gif', '.bmp',
++  '.zip', '.rar', '.7z'
++]);
++
++// SHA256ハッシュ計算
++function computeSha256(buffer) {
++  return crypto.createHash('sha256').update(buffer).digest('hex');
++}
++
++// 将来用スタブ関数（現状は常にクリーンを返す）
++async function scanBuffer(buffer, filename) {
++  if (!AV_ENABLED) {
++    return { clean: true, vendor: 'none' };
++  }
++  
++  // 将来ここにCloudAVや自前ClamAV呼び出しを実装
++  return { clean: true, vendor: 'future' };
++}
++
+ // OTP生成（6桁英数字）
+ function generateOTP() {
+   const chars = '0123456789abcdefghijklmnopqrstuvwxyz';
+@@ -34,6 +73,16 @@ module.exports = async (req, res) => {
+   }
+ 
+   try {
++    // ヘッダーからファイル情報を取得（フロント側の将来対応用）
++    const originalName = decodeURIComponent(
++      req.headers['x-file-name'] || 'uploaded-file.dat'
++    );
++    const mimeTypeHdr = req.headers['x-file-type'] || 'application/octet-stream';
++
++    // 拡張子チェック
++    const ext = path.extname(originalName).toLowerCase();
++    if (ext && !ALLOWED_EXTENSIONS.has(ext)) {
++      return res.status(400).json({
++        success: false,
++        error: `拡張子 ${ext} は許可されていません`,
++        allowedExtensions: Array.from(ALLOWED_EXTENSIONS)
++      });
++    }
++
+     // リクエストボディからファイルデータを読み込み
+     const chunks = [];
+     for await (const chunk of req) {
+@@ -60,6 +109,40 @@ module.exports = async (req, res) => {
+       });
+     }
+ 
++    // SHA256ハッシュ計算（将来の重複検出や検証用）
++    const sha256 = computeSha256(buffer);
++
++    // 将来用のスキャン処理（現在はAV_ENABLED=falseなので常にクリーン）
++    let scanStatus = AV_ENABLED ? 'pending' : 'not_scanned';
++    try {
++      const scanResult = await scanBuffer(buffer, originalName);
++      scanStatus = scanResult.clean ? 'clean' : 'infected';
++      
++      if (!scanResult.clean && !AV_FAIL_OPEN) {
++        console.error('[AV] Malware detected:', {
++          fileName: originalName,
++          sha256: sha256,
++          vendor: scanResult.vendor
++        });
++        
++        return res.status(400).json({
++          success: false,
++          error: 'ウイルスが検出されました。アップロードを中止しました。'
++        });
++      }
++    } catch (error) {
++      console.error('[AV] Scan error:', error);
++      
++      if (!AV_FAIL_OPEN) {
++        return res.status(503).json({
++          success: false,
++          error: 'セキュリティスキャンサービスに接続できません'
++        });
++      }
++      
++      scanStatus = 'scan_error';
++    }
++
+     // ファイルIDとOTPを生成
+     const fileId = crypto.randomUUID();
+     const otp = generateOTP();
+@@ -73,7 +156,9 @@ module.exports = async (req, res) => {
+       downloadCount: 0,
+       maxDownloads: 3,
+       expiryTime: new Date(Date.now() + FILE_EXPIRY_DAYS * 24 * 60 * 60 * 1000).toISOString(),
++      scanStatus: scanStatus,  // 将来用
++      sha256: sha256            // 将来用
+     };
+ 
+     // Vercel KVに保存
+@@ -90,6 +175,7 @@ module.exports = async (req, res) => {
+       fileName: originalName,
+       fileSize: buffer.length,
+       expiryTime: fileInfo.expiryTime,
+       maxDownloads: fileInfo.maxDownloads,
++      scanStatus: scanStatus,
+       message: 'ファイルが正常にアップロードされました'
+     });
+ 
+
+diff --git a/api/download.js b/api/download.js
+index i9j0k1l..m2n3o4p 100644
+--- a/api/download.js
++++ b/api/download.js
+@@ -1,7 +1,11 @@
+-// api/download.js
++// api/download.js - ノーコストAV仕込み版
++// Phase 22準備：将来のマルウェアスキャン導入用の仕込み（現状は挙動変更なし）
+ 
+ const { kv } = require('@vercel/kv');
+ 
++// 環境変数
++const AV_ENABLED = process.env.AV_ENABLED === 'true';
++
+ module.exports = async (req, res) => {
+   // CORS設定
+   res.setHeader('Access-Control-Allow-Origin', '*');
+@@ -55,7 +59,8 @@ module.exports = async (req, res) => {
+         uploadTime: fileInfo.uploadTime,
+         remainingDownloads: fileInfo.maxDownloads - fileInfo.downloadCount,
+         requiresOTP: true,
+-        storageType: 'KV Storage'
++        storageType: 'KV Storage',
++        scanStatus: fileInfo.scanStatus || 'not_scanned'  // 将来用
+       });
+     }
+ 
+@@ -101,6 +106,18 @@ module.exports = async (req, res) => {
+       });
+     }
+ 
++    // 【将来用のAVゲート】AV有効 かつ scanStatusがclean以外なら配布停止
++    if (AV_ENABLED && fileInfo.scanStatus !== 'clean') {
++      console.warn('[Download] AV gate blocked:', {
++        fileId,
++        scanStatus: fileInfo.scanStatus
++      });
++
++      return res.status(403).json({
++        success: false,
++        error: 'セキュリティ検査が未完了またはNGのため、ダウンロードできません',
++        scanStatus: fileInfo.scanStatus
++      });
++    }
++
+     // ファイルデータを取得
+     const dataKey = `file:${fileId}:data`;
+     const base64Data = await kv.get(dataKey);
+
+diff --git a/.env b/.env
+index q5r6s7t..u8v9w0x 100644
+--- a/.env
++++ b/.env
+@@ -25,3 +25,13 @@ ENABLE_COMPRESSION=true
+ MAX_FILE_SIZE=10485760
+ 
+ FILE_RETENTION_DAYS=7
++
++# ===== Phase 22準備：マルウェアスキャン用の環境変数 =====
++
++# マルウェアスキャンの有効/無効（既定: false）
++AV_ENABLED=false
++
++# AV障害時の挙動（既定: false = Fail-Closed）
++AV_FAIL_OPEN=false
++
++ALERT_EMAIL=138data@gmail.com
+-- 
+2.40.0

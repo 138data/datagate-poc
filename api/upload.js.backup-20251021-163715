@@ -1,0 +1,107 @@
+// api/upload.js - Phase 21 Vercel対応版
+import { kv } from '@vercel/kv';
+import formidable from 'formidable';
+import { promises as fs } from 'fs';
+import crypto from 'crypto';
+
+// Vercel設定: bodyParserを無効化（formidableを使用するため）
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
+export default async function handler(req, res) {
+  // CORSヘッダー設定
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    console.log('[Upload] リクエスト受信');
+
+    // formidableでファイルをパース
+    const form = formidable({
+      maxFileSize: 50 * 1024 * 1024, // 50MB
+      keepExtensions: true,
+    });
+
+    const [fields, files] = await new Promise((resolve, reject) => {
+      form.parse(req, (err, fields, files) => {
+        if (err) reject(err);
+        else resolve([fields, files]);
+      });
+    });
+
+    console.log('[Upload] ファイルパース完了');
+
+    // アップロードされたファイルを取得
+    const uploadedFile = files.file?.[0] || files.file;
+    if (!uploadedFile) {
+      throw new Error('ファイルがアップロードされていません');
+    }
+
+    console.log('[Upload] ファイル情報:', {
+      name: uploadedFile.originalFilename,
+      size: uploadedFile.size,
+      type: uploadedFile.mimetype,
+    });
+
+    // ファイルを読み込み
+    const fileBuffer = await fs.readFile(uploadedFile.filepath);
+    console.log('[Upload] ファイル読み込み完了:', fileBuffer.length, 'bytes');
+
+    // ファイルIDとOTPを生成
+    const fileId = crypto.randomBytes(16).toString('hex');
+    const otp = Math.floor(100000 + Math.random() * 900000).toString(); // 6桁の数字
+
+    console.log('[Upload] 生成:', { fileId, otp });
+
+    // Vercel KVに保存（7日間の有効期限）
+    const fileData = {
+      id: fileId,
+      fileName: uploadedFile.originalFilename,
+      mimeType: uploadedFile.mimetype || 'application/octet-stream',
+      size: uploadedFile.size,
+      buffer: fileBuffer.toString('base64'), // Base64エンコード
+      otp: otp,
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    };
+
+    await kv.set(`file:${fileId}`, fileData, { ex: 7 * 24 * 60 * 60 }); // 7日間
+    console.log('[Upload] Vercel KVに保存完了');
+
+    // 一時ファイルを削除
+    await fs.unlink(uploadedFile.filepath);
+    console.log('[Upload] 一時ファイル削除完了');
+
+    // 成功レスポンス
+    return res.status(200).json({
+      success: true,
+      message: 'ファイルのアップロードに成功しました',
+      fileId: fileId,
+      otp: otp,
+      fileName: uploadedFile.originalFilename,
+      size: uploadedFile.size,
+      expiresAt: fileData.expiresAt,
+    });
+
+  } catch (error) {
+    console.error('[Upload] エラー:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'ファイルのアップロードに失敗しました',
+      details: error.message,
+    });
+  }
+}
+

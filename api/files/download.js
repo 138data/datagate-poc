@@ -1,110 +1,142 @@
-const { decryptFile, decryptString } = require('../../lib/encryption');
-const { decompress } = require('../../lib/compression');
-const fetch = require('node-fetch');
-
-// KVクライアント（REST API方式）
-const kvClient = {
-    async get(key) {
-        const url = `${(process.env.KV_REST_API_URL || '').trim()}/get/${key}`;
-        const token = (process.env.KV_REST_API_TOKEN || '').trim();
-        
-        const response = await fetch(url, {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-        
-        if (!response.ok) {
-            if (response.status === 404) return null;
-            throw new Error(`KV GET failed: ${response.statusText}`);
-        }
-        
-        const data = await response.json();
-        return data.result;
-    }
-};
+// api/files/download.js [完全版 - Part 1/2]
+const { createClient } = require('@vercel/kv');
 
 module.exports = async (req, res) => {
-    if (req.method !== 'GET') {
-        return res.status(405).json({
-            success: false,
-            error: 'Method not allowed'
-        });
+  // CORS設定
+  res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+  );
+
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ 
+      success: false, 
+      error: 'Method not allowed' 
+    });
+  }
+
+  const { fileId, otp } = req.body;
+
+  if (!fileId || !otp) {
+    return res.status(400).json({ 
+      success: false, 
+      error: 'ファイルIDとOTPが必要です' 
+    });
+  }
+
+  try {
+    console.log('Download request:', { fileId, otp });
+
+    // Vercel KV クライアントの初期化
+    const kv = createClient({
+      url: process.env.KV_REST_API_URL,
+      token: process.env.KV_REST_API_TOKEN,
+    });
+
+    // ファイル情報の取得
+    const fileKey = `file:${fileId}`;
+    const fileData = await kv.hgetall(fileKey);
+
+    if (!fileData) {
+      console.error('File not found:', fileId);
+      return res.status(404).json({ 
+        success: false, 
+        error: 'ファイルが見つかりません' 
+      });
     }
 
-    const { fileId } = req.query;
+    console.log('File metadata:', fileData);
 
-    if (!fileId) {
-        return res.status(400).json({
-            success: false,
-            error: 'ファイルIDが指定されていません'
-        });
+    // OTP検証（大文字小文字を区別しない）
+    if (fileData.otp.toUpperCase() !== otp.toUpperCase()) {
+      console.error('OTP verification failed:', { 
+        expected: fileData.otp, 
+        received: otp 
+      });
+      return res.status(403).json({ 
+        success: false, 
+        error: 'OTPが正しくありません' 
+      });
     }
 
-    try {
-        // メタデータの取得
-        const metadataJson = await kvClient.get(`file:${fileId}`);
-
-        if (!metadataJson) {
-            return res.status(404).json({
-                success: false,
-                error: 'ファイルが見つかりません',
-                details: '指定されたファイルIDは存在しないか、期限切れです'
-            });
-        }
-
-        const metadata = JSON.parse(metadataJson);
-
-        // 有効期限チェック
-        if (new Date(metadata.expiresAt) < new Date()) {
-            return res.status(410).json({
-                success: false,
-                error: 'ファイルの有効期限が切れています'
-            });
-        }
-
-        // 暗号化ファイルデータの取得（KVから）
-        const encryptedFileBase64 = await kvClient.get(`file:data:${fileId}`);
-        
-        if (!encryptedFileBase64) {
-            return res.status(404).json({
-                success: false,
-                error: 'ファイルデータが見つかりません'
-            });
-        }
-
-        const encryptedFileBuffer = Buffer.from(encryptedFileBase64, 'base64');
-
-        // ファイルの復号
-        const decryptedBuffer = decryptFile(encryptedFileBuffer);
-
-        // 圧縮されている場合は解凍
-        let finalBuffer = decryptedBuffer;
-        if (metadata.compressed) {
-            finalBuffer = await decompress(decryptedBuffer);
-        }
-
-        // ファイル名の復号
-        const fileName = decryptString({
-            encryptedData: metadata.fileName,
-            salt: metadata.fileNameSalt,
-            iv: metadata.fileNameIv,
-            authTag: metadata.fileNameAuthTag
-        });
-
-        // ファイルのダウンロード
-        res.setHeader('Content-Type', metadata.mimeType || 'application/octet-stream');
-        res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(fileName)}"`);
-        res.setHeader('Content-Length', finalBuffer.length);
-
-        return res.status(200).send(finalBuffer);
-
-    } catch (error) {
-        console.error('Download error:', error);
-        return res.status(500).json({
-            success: false,
-            error: 'ファイルのダウンロードに失敗しました',
-            details: error.message
-        });
+    // 有効期限チェック
+    if (fileData.expiresAt && new Date(fileData.expiresAt) < new Date()) {
+      await kv.del(fileKey);
+      await kv.del(`file-data:${fileId}`);
+      return res.status(410).json({ 
+        success: false, 
+        error: 'このファイルは有効期限切れです' 
+      });
     }
+// api/files/download.js [完全版 - Part 2/2]
+    // バイナリデータの取得
+    const dataKey = `file-data:${fileId}`;
+    const fileBuffer = await kv.get(dataKey);
+
+    if (!fileBuffer) {
+      console.error('File data not found:', fileId);
+      return res.status(404).json({ 
+        success: false, 
+        error: 'ファイルデータが見つかりません' 
+      });
+    }
+
+    // ファイル名の取得と処理
+    let fileName = fileData.originalFileName || fileData.fileName || 'download';
+    
+    // ファイル名のサニタイズ（日本語を保持）
+    const sanitizedFileName = fileName
+      .replace(/[<>:"/\\|?*\x00-\x1f]/g, '_')  // 危険な文字を置換
+      .replace(/^\.+/, '_')  // 先頭のドットを置換
+      .replace(/\s+/g, '_')  // 空白をアンダースコアに
+      .substring(0, 255);  // 最大長を制限
+
+    // MIMEタイプの設定
+    const mimeType = fileData.mimeType || 'application/octet-stream';
+
+    console.log('Download success:', {
+      fileId,
+      fileName: sanitizedFileName,
+      size: fileBuffer.length,
+      mimeType
+    });
+
+    // レスポンスヘッダーの設定
+    res.setHeader('Content-Type', mimeType);
+    
+    // ファイル名のエンコード（RFC 5987準拠）
+    const asciiFileName = sanitizedFileName.replace(/[^\x00-\x7F]/g, '_');
+    const utf8FileName = encodeURIComponent(sanitizedFileName);
+    
+    res.setHeader(
+      'Content-Disposition', 
+      `attachment; filename="${asciiFileName}"; filename*=UTF-8''${utf8FileName}`
+    );
+    
+    res.setHeader('Content-Length', fileBuffer.length);
+    
+    // キャッシュ制御
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
+    // バイナリデータを送信
+    res.status(200).end(Buffer.from(fileBuffer));
+
+  } catch (error) {
+    console.error('Download error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'ダウンロード処理中にエラーが発生しました',
+      details: error.message 
+    });
+  }
 };

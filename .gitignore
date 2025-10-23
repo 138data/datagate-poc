@@ -44,3 +44,4 @@ npm-debug.log*
 # Development files
 check-storage.js
 api/test-mail.js
+.env*.local

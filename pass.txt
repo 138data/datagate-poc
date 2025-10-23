@@ -1,0 +1,56 @@
+PS D:\datagate-poc> # Vercel環境変数を表示（コピー用）
+PS D:\datagate-poc> Write-Host "`n=== Vercel環境変数（コピー用）===" -ForegroundColor Cyan
+
+=== Vercel環境変数（コピー用）===
+PS D:\datagate-poc> Write-Host ""
+
+PS D:\datagate-poc> Write-Host "以下を1つずつVercel Dashboardで追加してください：" -ForegroundColor Yellow
+以下を1つずつVercel Dashboardで追加してください：
+PS D:\datagate-poc> Write-Host ""
+
+PS D:\datagate-poc>
+PS D:\datagate-poc> Write-Host "1. JWT_SECRET" -ForegroundColor Green
+1. JWT_SECRET
+PS D:\datagate-poc> Write-Host "   Key:   JWT_SECRET"
+   Key:   JWT_SECRET
+PS D:\datagate-poc> Write-Host "   Value: 8hKHwgR0W1fdaO9btu26TlIF5JSe4iymAVv3LzsoQUq7cXjkpnMrDPECxNBYGZ"
+   Value: 8hKHwgR0W1fdaO9btu26TlIF5JSe4iymAVv3LzsoQUq7cXjkpnMrDPECxNBYGZ
+PS D:\datagate-poc> Write-Host ""
+
+PS D:\datagate-poc>
+PS D:\datagate-poc> Write-Host "2. FILE_ENCRYPT_KEY" -ForegroundColor Green
+2. FILE_ENCRYPT_KEY
+PS D:\datagate-poc> Write-Host "   Key:   FILE_ENCRYPT_KEY"
+   Key:   FILE_ENCRYPT_KEY
+PS D:\datagate-poc> Write-Host "   Value: i346GX9HP7ZKwRgQuMV0ztWUcSAxjCLTyqh2sloOJapIr5Fb1kvnYm8EDNfBed"
+   Value: i346GX9HP7ZKwRgQuMV0ztWUcSAxjCLTyqh2sloOJapIr5Fb1kvnYm8EDNfBed
+PS D:\datagate-poc> Write-Host ""
+
+PS D:\datagate-poc>
+PS D:\datagate-poc> Write-Host "3. CRON_SECRET" -ForegroundColor Green
+3. CRON_SECRET
+PS D:\datagate-poc> Write-Host "   Key:   CRON_SECRET"
+   Key:   CRON_SECRET
+PS D:\datagate-poc> Write-Host "   Value: bpFtDIxN2mAhMiaCTZUnkyvXwKflYBVs"
+   Value: bpFtDIxN2mAhMiaCTZUnkyvXwKflYBVs
+PS D:\datagate-poc> Write-Host ""
+
+PS D:\datagate-poc>
+PS D:\datagate-poc> Write-Host "4. ADMIN_PASSWORD" -ForegroundColor Green
+4. ADMIN_PASSWORD
+PS D:\datagate-poc> Write-Host "   Key:   ADMIN_PASSWORD"
+   Key:   ADMIN_PASSWORD
+PS D:\datagate-poc> Write-Host "   Value: 7Xvf9$!yMu2#8*%W6GhY"
+   Value: 7Xvf9$!yMu2#8*%W6GhY
+PS D:\datagate-poc> Write-Host ""
+
+PS D:\datagate-poc>
+PS D:\datagate-poc> Write-Host "すべての環境変数で以下を選択：" -ForegroundColor Yellow
+すべての環境変数で以下を選択：
+PS D:\datagate-poc> Write-Host "  ✅ Production"
+  ✅ Production
+PS D:\datagate-poc> Write-Host "  ✅ Preview"
+  ✅ Preview
+PS D:\datagate-poc> Write-Host "  ✅ Development"
+  ✅ Development
+PS D:\datagate-poc>

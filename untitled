@@ -1,0 +1,9 @@
+--91d6c389-cf3b-49c5-a6a9-a651f800922e
+Content-Disposition: form-data; name="file"; filename="security-test.txt"
+Content-Type: text/plain
+
+セキュリティ強化テスト
+日時: 2025年10月21日 16:53:07
+内容: OTPログ秘匿化、CORS制限、キャッシュ禁止ヘッダー確認
+
+--91d6c389-cf3b-49c5-a6a9-a651f800922e--
