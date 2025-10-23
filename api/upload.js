@@ -10,7 +10,7 @@ export const config = {
 };
 
 function generateOTP() {
-  const chars = '0123456789abcdefghijklmnopqrstuvwxyz';
+  const chars = '0123456789';
   let otp = '';
   const randomBytesArray = randomBytes(6);
   for (let i = 0; i < 6; i++) {
