@@ -1,7 +1,4 @@
-// ========================================
-// api/upload.js - CommonJS形式（Vercel互換）
-// ========================================
-
+// api/upload.js - Vercel対応版
 const { createClient } = require('@vercel/kv');
 const formidable = require('formidable');
 const fs = require('fs').promises;
@@ -101,32 +98,30 @@ module.exports = async (req, res) => {
     // ファイルIDとOTPを生成
     const fileId = uuidv4();
     const otp = generateOTP();
+    const uploadTime = new Date().toISOString();
+    const expiryTime = new Date(Date.now() + FILE_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
-    console.log('[Upload] 生成情報:', {
-      fileId,
-      otp,
-    });
+    console.log('[Upload] 生成情報:', { fileId, otp });
 
-    // ファイルデータを読み込み
+    // ファイルをBufferとして読み込み
     const fileBuffer = await fs.readFile(file.filepath);
 
-    // メタデータを作成
-    const metadata = {
+    // KVにメタデータとファイルデータを保存
+    const fileData = {
       fileId,
       fileName: file.originalFilename || 'unknown',
+      fileSize: file.size,
       mimeType: file.mimetype || 'application/octet-stream',
-      size: file.size,
       otp,
-      uploadedAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + FILE_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString(),
+      uploadTime,
+      expiryTime,
+      remainingDownloads: 5,
+      fileBuffer: fileBuffer.toString('base64'),
     };
 
-    // KVに保存（ファイルデータはBase64エンコード）
-    await kv.set(`file:${fileId}`, {
-      ...metadata,
-      data: fileBuffer.toString('base64'),
-    }, {
-      ex: FILE_RETENTION_DAYS * 24 * 60 * 60, // TTL（秒）
+    // KVに保存（TTL: FILE_RETENTION_DAYS日）
+    await kv.set(`file:${fileId}`, JSON.stringify(fileData), {
+      ex: FILE_RETENTION_DAYS * 24 * 60 * 60,
     });
 
     console.log('[Upload] KVに保存完了');
@@ -135,30 +130,29 @@ module.exports = async (req, res) => {
     try {
       await fs.unlink(file.filepath);
       console.log('[Upload] 一時ファイル削除完了');
-    } catch (unlinkError) {
-      console.warn('[Upload] 一時ファイル削除失敗（無視）:', unlinkError.message);
+    } catch (unlinkErr) {
+      console.error('[Upload] 一時ファイル削除エラー:', unlinkErr);
     }
 
     // 成功レスポンス
     return res.status(200).json({
       success: true,
-      message: 'ファイルがアップロードされました',
       fileId,
       otp,
       fileName: file.originalFilename,
-      size: file.size,
-      expiresAt: metadata.expiresAt,
+      fileSize: file.size,
+      uploadTime,
+      expiryTime,
+      message: 'ファイルが正常にアップロードされました',
     });
 
   } catch (error) {
     console.error('[Upload] エラー:', error);
-
-    // エラーレスポンス（必ずJSON形式）
     return res.status(500).json({
       success: false,
       error: 'Internal Server Error',
       message: 'ファイルのアップロードに失敗しました',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      details: error.message,
     });
   }
 };
