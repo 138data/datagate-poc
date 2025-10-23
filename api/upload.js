@@ -1,11 +1,11 @@
 // ========================================
-// api/upload.js - 修正版（Part 1）
+// api/upload.js - ES Module版
 // ========================================
 
-const { createClient } = require('@vercel/kv');
+import { createClient } from '@vercel/kv';
 
-// 環境変数からの設定読み込み
-const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE || `${50 * 1024 * 1024}`, 10); // 50MB（A-2対応）
+// 環境変数
+const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE || '52428800', 10); // 50MB
 const FILE_RETENTION_DAYS = parseInt(process.env.FILE_RETENTION_DAYS || '7', 10);
 
 // KVクライアント初期化
@@ -33,13 +33,14 @@ function generateUUID() {
   });
 }
 
-module.exports = async (req, res) => {
-  // CORSヘッダー設定（A-3対応: カスタムヘッダー追加）
+// メインハンドラー
+export default async function handler(req, res) {
+  // CORSヘッダー
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-File-Name, X-File-Type');
 
-  // OPTIONSリクエスト（プリフライト）
+  // OPTIONSリクエスト
   if (req.method === 'OPTIONS') {
     res.status(200).end();
     return;
@@ -52,18 +53,18 @@ module.exports = async (req, res) => {
   }
 
   try {
-    // A-3対応: カスタムヘッダーからファイル情報取得
+    // ヘッダーからファイル情報取得
     const originalName = decodeURIComponent(req.headers['x-file-name'] || 'uploaded-file.dat');
     const mimeType = req.headers['x-file-type'] || 'application/octet-stream';
 
-    // リクエストボディ（生バイト）を読み込み
+    // リクエストボディ読み込み
     const chunks = [];
     for await (const chunk of req) {
       chunks.push(chunk);
     }
     const fileBuffer = Buffer.concat(chunks);
 
-    // ファイルサイズチェック（A-2対応: 環境変数化）
+    // ファイルサイズチェック
     if (fileBuffer.length > MAX_FILE_SIZE) {
       res.status(413).json({
         error: 'File too large',
@@ -96,13 +97,13 @@ module.exports = async (req, res) => {
     // TTL計算（秒単位）
     const ttlSeconds = FILE_RETENTION_DAYS * 24 * 60 * 60;
 
-    // KVに保存（メタデータ + データ）
+    // KVに保存
     await Promise.all([
       kv.set(`file:${fileId}:meta`, JSON.stringify(fileInfo), { ex: ttlSeconds }),
       kv.set(`file:${fileId}:data`, fileData, { ex: ttlSeconds }),
     ]);
 
-    // A-1対応: 動的ホスト取得
+    // ダウンロードリンク生成（A-1対応: 動的ホスト）
     const proto = req.headers['x-forwarded-proto'] || 'https';
     const host = req.headers['x-forwarded-host'] || req.headers.host;
     const baseUrl = `${proto}://${host}`;
@@ -124,4 +125,4 @@ module.exports = async (req, res) => {
       message: error.message,
     });
   }
-};
+}
