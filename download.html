@@ -49,65 +49,47 @@
             border-radius: 8px;
             font-size: 1.1rem;
             text-align: center;
-            letter-spacing: 0.1em;
-            transition: border-color 0.3s;
+            letter-spacing: 0.5rem;
+            font-weight: bold;
         }
-        #otpInput:focus { outline: none; border-color: #667eea; }
+        #otpInput:focus {
+            outline: none;
+            border-color: #667eea;
+        }
         .download-btn {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
-            padding: 12px 24px;
+            padding: 12px 32px;
             border-radius: 8px;
             font-size: 1rem;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: transform 0.2s;
             width: 100%;
-            margin-top: 1rem;
         }
-        .download-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
-        }
+        .download-btn:hover { transform: translateY(-2px); }
         .download-btn:disabled {
-            background: #adb5bd;
+            background: #ccc;
             cursor: not-allowed;
             transform: none;
         }
-        .error {
-            color: #dc3545;
-            background: #f8d7da;
-            padding: 0.75rem;
-            border-radius: 4px;
-            margin: 1rem 0;
+        .message {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 8px;
+            display: none;
         }
-        .success {
-            color: #155724;
-            background: #d4edda;
-            padding: 0.75rem;
-            border-radius: 4px;
-            margin: 1rem 0;
-        }
-        .warning {
-            color: #856404;
-            background: #fff3cd;
-            padding: 0.75rem;
-            border-radius: 4px;
-            margin: 1rem 0;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        .loading { display: none; margin: 1rem 0; }
+        .message.success { background: #d4edda; color: #155724; }
+        .message.error { background: #f8d7da; color: #721c24; }
         .spinner {
-            border: 2px solid #f3f3f3;
-            border-top: 2px solid #667eea;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
             border-radius: 50%;
-            width: 20px;
-            height: 20px;
+            width: 40px;
+            height: 40px;
             animation: spin 1s linear infinite;
-            display: inline-block;
-            margin-right: 0.5rem;
+            margin: 1rem auto;
+            display: none;
         }
         @keyframes spin {
             0% { transform: rotate(0deg); }
@@ -119,8 +101,8 @@
     <div class="container">
         <div class="icon">📥</div>
         <h1>ファイルダウンロード</h1>
-        <div class="warning">⚠️ すべての通信は暗号化されています</div>
-        <div id="fileInfo" class="file-info" style="display: none;">
+        
+        <div class="file-info" id="fileInfo" style="display: none;">
             <h3>ファイル情報</h3>
             <p><strong>ファイル名:</strong> <span id="fileName">-</span></p>
             <p><strong>サイズ:</strong> <span id="fileSize">-</span></p>
@@ -128,45 +110,52 @@
             <p id="expiryRow"><strong>有効期限:</strong> <span id="expiryDate">-</span></p>
             <p><strong>残りダウンロード回数:</strong> <span id="remainingDownloads">-</span></p>
         </div>
+
         <div class="otp-container">
-            <label for="otpInput">OTP（6桁の数字）を入力してください:</label>
-            <input type="text" id="otpInput" maxlength="6" placeholder="例: 123456" inputmode="numeric">
+            <label for="otpInput">ワンタイムパスワード (OTP)</label>
+            <input 
+                type="text" 
+                id="otpInput" 
+                maxlength="6" 
+                placeholder="6桁のOTPを入力"
+                autocomplete="off"
+            >
         </div>
-        <button id="downloadBtn" class="download-btn" onclick="downloadFile()">ダウンロード</button>
-        <div id="loading" class="loading">
-            <div class="spinner"></div>
-            ダウンロード中...
-        </div>
-        <div id="message"></div>
+
+        <button class="download-btn" id="downloadBtn" onclick="downloadFile()">
+            ダウンロード
+        </button>
+
+        <div class="spinner" id="spinner"></div>
+        <div class="message" id="message"></div>
     </div>
+
     <script>
         const urlParams = new URLSearchParams(window.location.search);
         const fileId = urlParams.get('id');
-        
+
         if (!fileId) {
-            showError('ファイルIDが指定されていません');
+            showMessage('ファイルIDが指定されていません', 'error');
         } else {
             loadFileInfo();
         }
 
         async function loadFileInfo() {
             try {
-                // GET /api/download?id=... でファイル情報を取得
                 const response = await fetch(`/api/download?id=${encodeURIComponent(fileId)}`);
                 const data = await response.json();
-                
+
                 if (data.success) {
-                    // APIレスポンスのフィールド名に合わせる（修正1）
                     document.getElementById('fileName').textContent = data.fileName;
                     document.getElementById('fileSize').textContent = formatFileSize(data.fileSize);
                     document.getElementById('uploadDate').textContent = formatDate(data.uploadTime);
                     
-                    // 残りダウンロード回数を表示
+                    // 残りダウンロード回数
                     if (data.remainingDownloads !== undefined) {
                         document.getElementById('remainingDownloads').textContent = data.remainingDownloads;
                     }
-                    
-                    // 期限は現APIのGETでは原則返していないため、なければ非表示（修正2）
+
+                    // 期限が返されていれば表示、なければ非表示
                     const expiryRow = document.getElementById('expiryRow');
                     if (data.expiryTime) {
                         document.getElementById('expiryDate').textContent = formatDate(data.expiryTime);
@@ -174,38 +163,38 @@
                     } else {
                         expiryRow.style.display = 'none';
                     }
-                    
+
                     document.getElementById('fileInfo').style.display = 'block';
                 } else {
-                    showError(data.error || 'ファイル情報の取得に失敗しました');
+                    showMessage(data.error || 'ファイル情報の取得に失敗しました', 'error');
                 }
             } catch (error) {
-                console.error('File info load error:', error);
-                showError('ネットワークエラーが発生しました');
+                console.error('Error:', error);
+                showMessage('ネットワークエラーが発生しました', 'error');
             }
         }
 
         async function downloadFile() {
             const otp = document.getElementById('otpInput').value.trim();
-            
+
             if (!otp) {
-                showError('OTPを入力してください');
-                return;
-            }
-            
-            if (!/^\d{6}$/.test(otp)) {
-                showError('OTPは6桁の数字で入力してください');
+                showMessage('OTPを入力してください', 'error');
                 return;
             }
 
-            const downloadBtn = document.getElementById('downloadBtn');
-            const loading = document.getElementById('loading');
-            downloadBtn.disabled = true;
-            loading.style.display = 'block';
-            clearMessage();
+            if (otp.length !== 6) {
+                showMessage('OTPは6桁で入力してください', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('downloadBtn');
+            const spinner = document.getElementById('spinner');
+
+            btn.disabled = true;
+            spinner.style.display = 'block';
+            document.getElementById('message').style.display = 'none';
 
             try {
-                // POST /api/download?id=... でファイルをダウンロード（修正3）
                 const response = await fetch(`/api/download?id=${encodeURIComponent(fileId)}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -215,55 +204,53 @@
                 if (response.ok) {
                     const blob = await response.blob();
                     const contentDisposition = response.headers.get('Content-Disposition');
-                    let fileName = 'download';
-                    
+                    let filename = 'download';
+
                     if (contentDisposition) {
-                        const matches = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                        const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(contentDisposition);
                         if (matches != null && matches[1]) {
-                            fileName = decodeURIComponent(matches[1].replace(/['"]/g, ''));
+                            filename = matches[1].replace(/['"]/g, '');
+                            filename = decodeURIComponent(filename);
                         }
                     }
 
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = fileName;
+                    a.download = filename;
                     document.body.appendChild(a);
                     a.click();
-                    document.body.removeChild(a);
                     window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+
+                    showMessage('ダウンロードを開始しました', 'success');
                     
-                    showSuccess('ファイルのダウンロードが開始されました');
-                    
-                    // ファイル情報を再読み込み（残りダウンロード回数を更新）
-                    setTimeout(() => loadFileInfo(), 1000);
+                    // 残りダウンロード回数を更新
+                    setTimeout(() => {
+                        loadFileInfo();
+                    }, 1000);
                 } else {
                     const data = await response.json();
-                    showError(data.error || 'ダウンロードに失敗しました');
+                    showMessage(data.error || 'ダウンロードに失敗しました', 'error');
                 }
             } catch (error) {
-                console.error('Download error:', error);
-                showError('ネットワークエラーが発生しました');
+                console.error('Error:', error);
+                showMessage('ネットワークエラーが発生しました', 'error');
             } finally {
-                downloadBtn.disabled = false;
-                loading.style.display = 'none';
+                btn.disabled = false;
+                spinner.style.display = 'none';
             }
         }
 
-        function showError(message) {
-            document.getElementById('message').innerHTML = `<div class="error">${message}</div>`;
-        }
-
-        function showSuccess(message) {
-            document.getElementById('message').innerHTML = `<div class="success">${message}</div>`;
-        }
-
-        function clearMessage() {
-            document.getElementById('message').innerHTML = '';
+        function showMessage(text, type) {
+            const message = document.getElementById('message');
+            message.textContent = text;
+            message.className = 'message ' + type;
+            message.style.display = 'block';
         }
 
         function formatFileSize(bytes) {
-            if (bytes === 0) return '0 Bytes';
+            if (!bytes || bytes === 0) return '0 Bytes';
             const k = 1024;
             const sizes = ['Bytes', 'KB', 'MB', 'GB'];
             const i = Math.floor(Math.log(bytes) / Math.log(k));
@@ -275,13 +262,6 @@
             const date = new Date(dateString);
             return date.toLocaleString('ja-JP');
         }
-
-        // 数字のみ入力可能
-        document.getElementById('otpInput').addEventListener('input', function(e) {
-            let value = e.target.value.replace(/\D/g, '');
-            if (value.length > 6) value = value.substring(0, 6);
-            e.target.value = value;
-        });
 
         // Enterキーでダウンロード
         document.getElementById('otpInput').addEventListener('keypress', function(e) {
