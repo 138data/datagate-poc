@@ -1,158 +1,116 @@
-// api/upload.js - Vercel対応版
-const { createClient } = require('@vercel/kv');
-const formidable = require('formidable');
-const fs = require('fs').promises;
-const { v4: uuidv4 } = require('uuid');
+// api/upload.js
+// DataGate Upload API - KV + FormData + Dynamic URL
+// Phase 22 hotfix
 
-// 環境変数
-const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE || '52428800', 10); // 50MB
-const FILE_RETENTION_DAYS = parseInt(process.env.FILE_RETENTION_DAYS || '7', 10);
+const crypto = require('crypto');
+const multer = require('multer');
 
-// KVクライアント初期化
-const kv = createClient({
-  url: process.env.KV_REST_API_URL,
-  token: process.env.KV_REST_API_TOKEN,
-});
-
-// OTP生成（数字のみ6桁）
-function generateOTP() {
-  const chars = '0123456789';
-  let otp = '';
-  for (let i = 0; i < 6; i++) {
-    otp += chars[Math.floor(Math.random() * chars.length)];
+// --- KVクライアントの安全取得（型チェック付き） ---
+let kvClient = null;
+try {
+  const mod = require('@vercel/kv');           // CJS: { kv: {...} }
+  if (mod && mod.kv && typeof mod.kv.set === 'function') {
+    kvClient = mod.kv;
   }
-  return otp;
+} catch (_) {
+  // SDKが無ければ後でメモリにフォールバック
 }
 
-// メインハンドラー
+// --- 設定値 ---
+const FILE_EXPIRY_DAYS = 7;
+const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE || `${10 * 1024 * 1024}`, 10); // 既定10MB
+
+// --- 受信（FormData）を正式にパース ---
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_FILE_SIZE }
+}).single('file');
+
+// --- メモリフォールバック（download.jsもglobal.fileStorage参照可） ---
+const memoryStorage = new Map();
+global.fileStorage = global.fileStorage || new Map();
+
 module.exports = async (req, res) => {
-  // CORSヘッダー設定
+  // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  // OPTIONSリクエスト処理
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  // POSTメソッドのみ許可
+  if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') {
-    return res.status(405).json({
-      success: false,
-      error: 'Method Not Allowed',
-      message: 'POSTメソッドのみサポートしています',
-    });
+    return res.status(405).json({ success: false, error: 'Method not allowed. Use POST.' });
   }
 
+  // FormDataをパース
   try {
-    console.log('[Upload] ファイルアップロード開始');
-
-    // formidable設定
-    const form = formidable({
-      maxFileSize: MAX_FILE_SIZE,
-      keepExtensions: true,
-      multiples: false,
+    await new Promise((resolve, reject) => {
+      upload(req, res, (err) => (err ? reject(err) : resolve()));
     });
+  } catch (e) {
+    return res.status(400).json({ success: false, error: e.message || 'Invalid multipart/form-data' });
+  }
 
-    // フォームデータをパース
-    const [fields, files] = await new Promise((resolve, reject) => {
-      form.parse(req, (err, fields, files) => {
-        if (err) {
-          console.error('[Upload] formidable parse error:', err);
-          reject(err);
-        } else {
-          resolve([fields, files]);
-        }
-      });
-    });
+  if (!req.file || !req.file.buffer) {
+    return res.status(400).json({ success: false, error: 'ファイルが見つかりません' });
+  }
 
-    console.log('[Upload] フォームデータ解析完了');
+  const buffer = req.file.buffer;
+  const originalName = req.file.originalname || 'uploaded-file.dat';
+  const mimeType = req.file.mimetype || 'application/octet-stream';
 
-    // ファイルチェック
-    const fileArray = files.file;
-    if (!fileArray || fileArray.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'No File',
-        message: 'ファイルが選択されていません',
-      });
+  // ID / OTP
+  const fileId = crypto.randomBytes(16).toString('hex'); // 32文字
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiryTime = new Date(Date.now() + FILE_EXPIRY_DAYS * 24 * 60 * 60 * 1000).toISOString();
+
+  const fileInfo = {
+    fileName: originalName,
+    fileSize: buffer.length,
+    mimeType,
+    otp,
+    uploadTime: new Date().toISOString(),
+    downloadCount: 0,
+    maxDownloads: 3,
+    expiryTime
+  };
+
+  // 保存（まずKV、なければメモリ）—— kv.setが"関数"かを必ず確認
+  try {
+    if (kvClient && typeof kvClient.set === 'function') {
+      const ttl = FILE_EXPIRY_DAYS * 24 * 60 * 60;
+      await kvClient.set(`file:${fileId}:meta`, JSON.stringify(fileInfo), { ex: ttl });
+      await kvClient.set(`file:${fileId}:data`, buffer.toString('base64'), { ex: ttl });
+    } else {
+      // フォールバック：メモリ（download.js側も対応あり）
+      fileInfo.fileData = buffer;
+      memoryStorage.set(fileId, fileInfo);
+      global.fileStorage.set(fileId, fileInfo);
+      console.log('[Upload] KV unavailable -> using memory storage');
     }
-
-    const file = fileArray[0];
-    console.log('[Upload] ファイル情報:', {
-      originalFilename: file.originalFilename,
-      size: file.size,
-      mimetype: file.mimetype,
-    });
-
-    // ファイルサイズチェック
-    if (file.size > MAX_FILE_SIZE) {
-      return res.status(400).json({
-        success: false,
-        error: 'File Too Large',
-        message: `ファイルサイズが上限（${Math.round(MAX_FILE_SIZE / 1024 / 1024)}MB）を超えています`,
-      });
-    }
-
-    // ファイルIDとOTPを生成
-    const fileId = uuidv4();
-    const otp = generateOTP();
-    const uploadTime = new Date().toISOString();
-    const expiryTime = new Date(Date.now() + FILE_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
-
-    console.log('[Upload] 生成情報:', { fileId, otp });
-
-    // ファイルをBufferとして読み込み
-    const fileBuffer = await fs.readFile(file.filepath);
-
-    // KVにメタデータとファイルデータを保存
-    const fileData = {
-      fileId,
-      fileName: file.originalFilename || 'unknown',
-      fileSize: file.size,
-      mimeType: file.mimetype || 'application/octet-stream',
-      otp,
-      uploadTime,
-      expiryTime,
-      remainingDownloads: 5,
-      fileBuffer: fileBuffer.toString('base64'),
-    };
-
-    // KVに保存（TTL: FILE_RETENTION_DAYS日）
-    await kv.set(`file:${fileId}`, JSON.stringify(fileData), {
-      ex: FILE_RETENTION_DAYS * 24 * 60 * 60,
-    });
-
-    console.log('[Upload] KVに保存完了');
-
-    // 一時ファイル削除
-    try {
-      await fs.unlink(file.filepath);
-      console.log('[Upload] 一時ファイル削除完了');
-    } catch (unlinkErr) {
-      console.error('[Upload] 一時ファイル削除エラー:', unlinkErr);
-    }
-
-    // 成功レスポンス
-    return res.status(200).json({
-      success: true,
-      fileId,
-      otp,
-      fileName: file.originalFilename,
-      fileSize: file.size,
-      uploadTime,
-      expiryTime,
-      message: 'ファイルが正常にアップロードされました',
-    });
-
-  } catch (error) {
-    console.error('[Upload] エラー:', error);
+  } catch (e) {
+    console.error('[Upload] Storage error:', e);
     return res.status(500).json({
       success: false,
-      error: 'Internal Server Error',
-      message: 'ファイルのアップロードに失敗しました',
-      details: error.message,
+      error: 'ファイルのアップロードに失敗しました',
+      details: e.message
     });
   }
+
+  // ベースURLはヘッダから動的に生成（本番URL変更に追従）
+  const proto = req.headers['x-forwarded-proto'] || 'https';
+  const host  = req.headers['x-forwarded-host']  || req.headers.host;
+  const baseUrl = `${proto}://${host}`;
+
+  const downloadLink = `${baseUrl}/download.html?id=${encodeURIComponent(fileId)}`;
+
+  return res.status(200).json({
+    success: true,
+    message: 'ファイルが正常にアップロードされました',
+    fileId,
+    downloadLink,
+    otp,
+    fileName: fileInfo.fileName,
+    fileSize: fileInfo.fileSize,
+    storageType: kvClient ? 'KV Storage (Persistent)' : 'Memory (Temporary)',
+    expiryDate: fileInfo.expiryTime
+  });
 };
