@@ -2,33 +2,299 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Upload Test</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>138DataGate - ファイルアップロード</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+            text-align: center;
+        }
+        
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        label {
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        input[type="file"] {
+            padding: 12px;
+            border: 2px dashed #667eea;
+            border-radius: 10px;
+            background: #f8f9ff;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        input[type="file"]:hover {
+            border-color: #764ba2;
+            background: #f0f1ff;
+        }
+        
+        input[type="email"] {
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        input[type="email"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        button[type="submit"] {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        button[type="submit"]:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+        
+        button[type="submit"]:active {
+            transform: translateY(0);
+        }
+        
+        button[type="submit"]:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        #result {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 10px;
+            display: none;
+        }
+        
+        #result.success {
+            display: block;
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        #result.error {
+            display: block;
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        
+        .result-title {
+            font-weight: 600;
+            font-size: 16px;
+            margin-bottom: 15px;
+        }
+        
+        .result-item {
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        
+        .result-item strong {
+            display: inline-block;
+            width: 120px;
+        }
+        
+        .download-link {
+            display: inline-block;
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .download-link:hover {
+            background: #764ba2;
+            transform: translateY(-2px);
+        }
+        
+        .loader {
+            display: none;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        .loader.active {
+            display: block;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
 </head>
 <body>
-    <h1>138DataGate Upload Test</h1>
-    <form id="uploadForm">
-        <input type="file" id="fileInput" name="file" required>
-        <button type="submit">Upload</button>
-    </form>
-    <div id="result"></div>
+    <div class="container">
+        <h1>📤 138DataGate</h1>
+        <p class="subtitle">セキュアなファイル転送システム</p>
+        
+        <form id="uploadForm">
+            <div class="form-group">
+                <label for="fileInput">📁 ファイルを選択</label>
+                <input type="file" id="fileInput" name="file" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="recipientEmail">📧 受信者メールアドレス</label>
+                <input type="email" id="recipientEmail" placeholder="example@example.com" required>
+            </div>
+            
+            <button type="submit" id="submitBtn">アップロード</button>
+        </form>
+        
+        <div class="loader" id="loader"></div>
+        
+        <div id="result"></div>
+    </div>
+
     <script>
         document.getElementById('uploadForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const formData = new FormData();
+            
+            const submitBtn = document.getElementById('submitBtn');
+            const loader = document.getElementById('loader');
+            const resultDiv = document.getElementById('result');
             const fileInput = document.getElementById('fileInput');
-            formData.append('file', fileInput.files[0]);
+            const recipientEmailInput = document.getElementById('recipientEmail');
+            
+            // ボタンを無効化してローダー表示
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'アップロード中...';
+            loader.classList.add('active');
+            resultDiv.style.display = 'none';
+            resultDiv.className = '';
             
             try {
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+                formData.append('recipientEmail', recipientEmailInput.value);
+                
                 const response = await fetch('/api/upload', {
                     method: 'POST',
                     body: formData
                 });
+                
                 const result = await response.json();
-                document.getElementById('result').innerHTML = '<pre>' + JSON.stringify(result, null, 2) + '</pre>';
+                
+                if (response.ok && result.success) {
+                    // 成功時
+                    resultDiv.className = 'success';
+                    resultDiv.innerHTML = `
+                        <div class="result-title">✅ ファイルが正常にアップロードされました</div>
+                        <div class="result-item"><strong>📋 File ID:</strong> ${result.fileId}</div>
+                        <div class="result-item"><strong>📄 ファイル名:</strong> ${result.fileName || 'N/A'}</div>
+                        <div class="result-item"><strong>📦 サイズ:</strong> ${formatBytes(result.fileSize || 0)}</div>
+                        <div class="result-item"><strong>🔑 OTP:</strong> <code>${result.otp}</code></div>
+                        <div class="result-item"><strong>📧 受信者:</strong> ${recipientEmailInput.value}</div>
+                        <a href="${result.downloadUrl}" class="download-link" target="_blank">📥 ダウンロードページを開く</a>
+                    `;
+                    
+                    // フォームをリセット
+                    fileInput.value = '';
+                    recipientEmailInput.value = '';
+                } else {
+                    // エラー時
+                    resultDiv.className = 'error';
+                    resultDiv.innerHTML = `
+                        <div class="result-title">❌ エラーが発生しました</div>
+                        <div class="result-item">${result.error || 'アップロードに失敗しました'}</div>
+                    `;
+                }
             } catch (error) {
-                document.getElementById('result').innerHTML = 'Error: ' + error.message;
+                // ネットワークエラー等
+                resultDiv.className = 'error';
+                resultDiv.innerHTML = `
+                    <div class="result-title">❌ エラーが発生しました</div>
+                    <div class="result-item">ネットワークエラー: ${error.message}</div>
+                `;
+            } finally {
+                // ボタンを有効化してローダー非表示
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'アップロード';
+                loader.classList.remove('active');
             }
         });
+        
+        // ファイルサイズを人間が読める形式に変換
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
     </script>
 </body>
 </html>
