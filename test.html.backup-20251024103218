@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>138DataGate - アップロード/ダウンロードテスト</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .section h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            width: 100%;
+        }
+
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+
+        .file-input-label {
+            display: block;
+            padding: 15px;
+            background: white;
+            border: 2px dashed #667eea;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.3s;
+            color: #667eea;
+        }
+
+        .file-input-label:hover {
+            background: #f0f2ff;
+            border-color: #764ba2;
+        }
+
+        .file-name {
+            margin-top: 10px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            width: 100%;
+            margin-top: 15px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            word-break: break-all;
+        }
+
+        .result.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .result.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-top: 15px;
+            border-radius: 4px;
+        }
+
+        .info-box strong {
+            color: #667eea;
+        }
+
+        .api-url {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📤 138DataGate テスト</h1>
+        <p class="subtitle">アップロード＆ダウンロード動作確認</p>
+
+        <!-- APIベースURL表示 -->
+        <div class="info-box">
+            <strong>🌐 APIベースURL:</strong>
+            <div class="api-url" id="apiBaseUrl">読み込み中...</div>
+        </div>
+
+        <!-- アップロードセクション -->
+        <div class="section">
+            <h2>📤 ファイルアップロード</h2>
+            <div class="file-input-wrapper">
+                <input type="file" id="fileInput" accept="*/*">
+                <label for="fileInput" class="file-input-label">
+                    📁 ファイルを選択
+                </label>
+            </div>
+            <div class="file-name" id="fileName">ファイルが選択されていません</div>
+            <button onclick="uploadFile()" id="uploadBtn" disabled>アップロード</button>
+            <div id="uploadResult"></div>
+        </div>
+
+        <!-- ダウンロードセクション -->
+        <div class="section">
+            <h2>📥 ファイルダウンロード</h2>
+            <input type="text" id="fileId" placeholder="ファイルID" style="margin-bottom: 10px;">
+            <input type="text" id="otp" placeholder="OTP（6桁）">
+            <button onclick="downloadFile()">ダウンロード</button>
+            <div id="downloadResult"></div>
+        </div>
+    </div>
+
+    <script>
+        // APIベースURLを動的に取得
+        const API_BASE = location.origin;
+        
+        // ページ読み込み時にAPIベースURLを表示
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('apiBaseUrl').textContent = API_BASE;
+        });
+
+        // ファイル選択時の処理
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const fileNameDiv = document.getElementById('fileName');
+            const uploadBtn = document.getElementById('uploadBtn');
+            
+            if (file) {
+                const sizeMB = (file.size / 1024 / 1024).toFixed(2);
+                fileNameDiv.textContent = `📄 ${file.name} (${sizeMB} MB)`;
+                uploadBtn.disabled = false;
+            } else {
+                fileNameDiv.textContent = 'ファイルが選択されていません';
+                uploadBtn.disabled = true;
+            }
+        });
+
+        // ファイルアップロード
+        async function uploadFile() {
+            const fileInput = document.getElementById('fileInput');
+            const resultDiv = document.getElementById('uploadResult');
+            const uploadBtn = document.getElementById('uploadBtn');
+            
+            if (!fileInput.files[0]) {
+                showResult('uploadResult', 'error', 'ファイルを選択してください');
+                return;
+            }
+
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = 'アップロード中...';
+
+            try {
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+
+                const response = await fetch(`${API_BASE}/api/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    let message = `✅ アップロード成功！\n\n`;
+                    message += `📋 ファイルID: ${data.fileId}\n`;
+                    message += `🔑 OTP: ${data.otp}\n`;
+                    message += `📄 ファイル名: ${data.fileName}\n`;
+                    message += `📦 サイズ: ${(data.fileSize / 1024).toFixed(2)} KB`;
+                    
+                    if (data.compressed) {
+                        message += `\n🗜️ 圧縮後: ${(data.compressedSize / 1024).toFixed(2)} KB`;
+                        const ratio = ((1 - data.compressedSize / data.fileSize) * 100).toFixed(1);
+                        message += ` (${ratio}% 削減)`;
+                    }
+                    
+                    message += `\n🔗 URL: ${data.downloadUrl}\n`;
+                    message += `⏰ 有効期限: ${new Date(data.expiryTime).toLocaleString('ja-JP')}`;
+                    
+                    showResult('uploadResult', 'success', message);
+                    
+                    // ダウンロードフォームに自動入力
+                    document.getElementById('fileId').value = data.fileId;
+                    document.getElementById('otp').value = data.otp;
+                } else {
+                    showResult('uploadResult', 'error', `❌ ${data.error || 'アップロードに失敗しました'}`);
+                }
+            } catch (error) {
+                showResult('uploadResult', 'error', `❌ エラー: ${error.message}`);
+            } finally {
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = 'アップロード';
+            }
+        }
+
+        // ファイルダウンロード
+        async function downloadFile() {
+            const fileId = document.getElementById('fileId').value.trim();
+            const otp = document.getElementById('otp').value.trim();
+            
+            if (!fileId || !otp) {
+                showResult('downloadResult', 'error', 'ファイルIDとOTPを入力してください');
+                return;
+            }
+
+            try {
+                // まずファイル情報を取得（GET）
+                const infoResponse = await fetch(`${API_BASE}/api/download?id=${fileId}`);
+                const infoData = await infoResponse.json();
+
+                if (!infoData.success) {
+                    showResult('downloadResult', 'error', `❌ ${infoData.error || 'ファイル情報の取得に失敗しました'}`);
+                    return;
+                }
+
+                // 次にファイルをダウンロード（POST）
+                const downloadResponse = await fetch(`${API_BASE}/api/download?id=${fileId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ otp })
+                });
+
+                if (downloadResponse.ok) {
+                    // ファイルをダウンロード
+                    const blob = await downloadResponse.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = infoData.fileName;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+
+                    let message = `✅ ダウンロード成功！\n\n`;
+                    message += `📄 ファイル名: ${infoData.fileName}\n`;
+                    message += `📦 サイズ: ${(infoData.fileSize / 1024).toFixed(2)} KB\n`;
+                    message += `📥 残りDL回数: ${infoData.remainingDownloads - 1} 回`;
+                    
+                    showResult('downloadResult', 'success', message);
+                } else {
+                    const errorData = await downloadResponse.json();
+                    showResult('downloadResult', 'error', `❌ ${errorData.error || 'ダウンロードに失敗しました'}`);
+                }
+            } catch (error) {
+                showResult('downloadResult', 'error', `❌ エラー: ${error.message}`);
+            }
+        }
+
+        // 結果表示
+        function showResult(elementId, type, message) {
+            const div = document.getElementById(elementId);
+            div.className = `result ${type}`;
+            div.innerHTML = message.replace(/\n/g, '<br>');
+            div.style.display = 'block';
+        }
+    </script>
+</body>
+</html>

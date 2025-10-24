@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>繝ｭ繧ｰ邂｡逅・- DataGate Admin</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+        }
+        
+        .sidebar {
+            width: 250px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 2rem 0;
+        }
+        
+        .sidebar h2 {
+            color: white;
+            padding: 0 1.5rem 2rem;
+            font-size: 1.5rem;
+        }
+        
+        .nav-item {
+            display: block;
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            padding: 1rem 1.5rem;
+            transition: all 0.3s ease;
+            border-left: 3px solid transparent;
+        }
+        
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+        
+        .nav-item.active {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            border-left-color: #ffd700;
+        }
+        
+        .nav-icon {
+            display: inline-block;
+            width: 20px;
+            margin-right: 10px;
+        }
+        
+        .main-content {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+        
+        .header {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header h1 {
+            color: #333;
+            margin-bottom: 1rem;
+        }
+        
+        .filters {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .filter-group label {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 0.3rem;
+        }
+        
+        .filter-group input,
+        .filter-group select {
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .btn {
+            padding: 0.7rem 1.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+        }
+        
+        .btn-success {
+            background: #28a745;
+        }
+        
+        .logs-container {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+        
+        .logs-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        
+        .logs-table th {
+            background: #f8f9fa;
+            color: #333;
+            font-weight: 600;
+            text-align: left;
+            padding: 1rem;
+            border-bottom: 2px solid #dee2e6;
+        }
+        
+        .logs-table td {
+            padding: 1rem;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .logs-table tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .log-level {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 3px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        
+        .log-level.info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        .log-level.warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .log-level.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .log-level.critical {
+            background: #721c24;
+            color: white;
+        }
+        
+        .log-type {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 3px;
+            font-size: 0.85rem;
+            background: #e9ecef;
+            color: #495057;
+        }
+        
+        .no-logs {
+            text-align: center;
+            padding: 3rem;
+            color: #6c757d;
+        }
+        
+        .stats-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 10px;
+            padding: 1.5rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        }
+        
+        .stat-card h3 {
+            color: #6c757d;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-card .value {
+            color: #333;
+            font-size: 2rem;
+            font-weight: bold;
+        }
+        
+        .details-cell {
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 0.85rem;
+            color: #6c757d;
+        }
+        
+        .logout-btn {
+            position: absolute;
+            bottom: 2rem;
+            left: 1.5rem;
+            right: 1.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h2>投 DataGate</h2>
+        <nav>
+            <a href="admin.html" class="nav-item">
+                <span class="nav-icon">嶋</span>繝繝・す繝･繝懊・繝・            </a>
+            <a href="admin-files.html" class="nav-item">
+                <span class="nav-icon">刀</span>繝輔ぃ繧､繝ｫ邂｡逅・            </a>
+            <a href="admin-users.html" class="nav-item">
+                <span class="nav-icon">則</span>繝ｦ繝ｼ繧ｶ繝ｼ邂｡逅・            </a>
+            <a href="admin-logs.html" class="nav-item active">
+                <span class="nav-icon">統</span>繝ｭ繧ｰ邂｡逅・            </a>
+            <a href="admin-settings.html" class="nav-item">
+                <span class="nav-icon">笞呻ｸ・/span>險ｭ螳・            </a>
+        </nav>
+        <a href="#" onclick="logout()" class="nav-item logout-btn">
+            <span class="nav-icon">坎</span>繝ｭ繧ｰ繧｢繧ｦ繝・        </a>
+    </div>
+    
+    <div class="main-content">
+        <div class="header">
+            <h1>統 繝ｭ繧ｰ邂｡逅・/h1>
+            
+            <div class="filters">
+                <div class="filter-group">
+                    <label>繝ｭ繧ｰ繧ｿ繧､繝・/label>
+                    <select id="filterType">
+                        <option value="">縺吶∋縺ｦ</option>
+                        <option value="auth">隱崎ｨｼ</option>
+                        <option value="upload">繧｢繝・・繝ｭ繝ｼ繝・/option>
+                        <option value="download">繝繧ｦ繝ｳ繝ｭ繝ｼ繝・/option>
+                        <option value="delete">蜑企勁</option>
+                        <option value="user">繝ｦ繝ｼ繧ｶ繝ｼ</option>
+                        <option value="system">繧ｷ繧ｹ繝・Β</option>
+                        <option value="error">繧ｨ繝ｩ繝ｼ</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label>繝ｭ繧ｰ繝ｬ繝吶Ν</label>
+                    <select id="filterLevel">
+                        <option value="">縺吶∋縺ｦ</option>
+                        <option value="info">Info</option>
+                        <option value="warning">Warning</option>
+                        <option value="error">Error</option>
+                        <option value="critical">Critical</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label>繝ｦ繝ｼ繧ｶ繝ｼ</label>
+                    <input type="text" id="filterUser" placeholder="繝ｦ繝ｼ繧ｶ繝ｼ蜷・>
+                </div>
+                
+                <div class="filter-group">
+                    <label>髢句ｧ区律</label>
+                    <input type="date" id="filterStartDate">
+                </div>
+                
+                <div class="filter-group">
+                    <label>邨ゆｺ・律</label>
+                    <input type="date" id="filterEndDate">
+                </div>
+                
+                <div class="filter-group">
+                    <label>讀懃ｴ｢</label>
+                    <input type="text" id="filterSearch" placeholder="繧ｭ繝ｼ繝ｯ繝ｼ繝画､懃ｴ｢">
+                </div>
+            </div>
+            
+            <div class="action-buttons">
+                <button onclick="loadLogs()" class="btn">
+                    剥 讀懃ｴ｢
+                </button>
+                <button onclick="exportLogs()" class="btn btn-success">
+                    踏 繧ｨ繧ｯ繧ｹ繝昴・繝・                </button>
+                <button onclick="showCleanupDialog()" class="btn btn-danger">
+                    卵・・蜿､縺・Ο繧ｰ繧貞炎髯､
+                </button>
+                <button onclick="clearFilters()" class="btn btn-secondary">
+                    笨厄ｸ・繝輔ぅ繝ｫ繧ｿ繧ｯ繝ｪ繧｢
+                </button>
+            </div>
+        </div>
+        
+        <div class="stats-cards">
+            <div class="stat-card">
+                <h3>邱上Ο繧ｰ謨ｰ</h3>
+                <div class="value" id="totalLogs">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>繧ｨ繝ｩ繝ｼ謨ｰ</h3>
+                <div class="value" id="errorCount">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>莉頑律縺ｮ繧｢繧ｯ繝・ぅ繝薙ユ繧｣</h3>
+                <div class="value" id="todayCount">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>繧｢繧ｯ繝・ぅ繝悶Θ繝ｼ繧ｶ繝ｼ</h3>
+                <div class="value" id="activeUsers">0</div>
+            </div>
+        </div>
+        
+        <div class="logs-container">
+            <table class="logs-table" id="logsTable">
+                <thead>
+                    <tr>
+                        <th>譌･譎・/th>
+                        <th>繧ｿ繧､繝・/th>
+                        <th>繝ｬ繝吶Ν</th>
+                        <th>繝ｦ繝ｼ繧ｶ繝ｼ</th>
+                        <th>繧｢繧ｯ繧ｷ繝ｧ繝ｳ</th>
+                        <th>隧ｳ邏ｰ</th>
+                        <th>IP</th>
+                    </tr>
+                </thead>
+                <tbody id="logsTableBody">
+                    <tr>
+                        <td colspan="7" class="no-logs">繝ｭ繧ｰ繧定ｪｭ縺ｿ霎ｼ縺ｿ荳ｭ...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <script>
+        const API_BASE = 'http://localhost:3000/api';
+        let currentLogs = [];
+        
+        // 蛻晄悄蛹・        async function init() {
+            const token = localStorage.getItem('adminToken');
+            if (!token) {
+                window.location.href = '/admin-login.html';
+                return;
+            }
+            
+            await loadLogs();
+        }
+        
+        // 繝ｭ繧ｰ隱ｭ縺ｿ霎ｼ縺ｿ
+        async function loadLogs() {
+            try {
+                const token = localStorage.getItem('adminToken');
+                
+                // 繝輔ぅ繝ｫ繧ｿ繝代Λ繝｡繝ｼ繧ｿ繧呈ｧ狗ｯ・                const params = new URLSearchParams();
+                const type = document.getElementById('filterType').value;
+                const level = document.getElementById('filterLevel').value;
+                const user = document.getElementById('filterUser').value;
+                const startDate = document.getElementById('filterStartDate').value;
+                const endDate = document.getElementById('filterEndDate').value;
+                const search = document.getElementById('filterSearch').value;
+                
+                if (type) params.append('type', type);
+                if (level) params.append('level', level);
+                if (user) params.append('user', user);
+                if (startDate) params.append('startDate', startDate);
+                if (endDate) params.append('endDate', endDate);
+                if (search) params.append('search', search);
+                
+                const response = await fetch(`${API_BASE}/logs/list?${params}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    currentLogs = data.logs || [];
+                    displayLogs(currentLogs);
+                    updateStats(currentLogs);
+                } else {
+                    console.error('Failed to load logs');
+                    displayError('繝ｭ繧ｰ縺ｮ隱ｭ縺ｿ霎ｼ縺ｿ縺ｫ螟ｱ謨励＠縺ｾ縺励◆');
+                }
+            } catch (error) {
+                console.error('Error loading logs:', error);
+                displayError('繝ｭ繧ｰ縺ｮ隱ｭ縺ｿ霎ｼ縺ｿ荳ｭ縺ｫ繧ｨ繝ｩ繝ｼ縺檎匱逕溘＠縺ｾ縺励◆');
+            }
+        }
+        
+        // 繝ｭ繧ｰ陦ｨ遉ｺ
+        function displayLogs(logs) {
+            const tbody = document.getElementById('logsTableBody');
+            
+            if (logs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="no-logs">繝ｭ繧ｰ縺瑚ｦ九▽縺九ｊ縺ｾ縺帙ｓ</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = logs.map(log => `
+                <tr>
+                    <td>${formatDate(log.timestamp)}</td>
+                    <td><span class="log-type">${log.type}</span></td>
+                    <td><span class="log-level ${log.level}">${log.level.toUpperCase()}</span></td>
+                    <td>${log.user || '-'}</td>
+                    <td>${log.action}</td>
+                    <td class="details-cell" title="${escapeHtml(JSON.stringify(log.details || {}))}">
+                        ${formatDetails(log.details)}
+                    </td>
+                    <td>${log.ip || '-'}</td>
+                </tr>
+            `).join('');
+        }
+        
+        // 邨ｱ險域峩譁ｰ
+        function updateStats(logs) {
+            // 邱上Ο繧ｰ謨ｰ
+            document.getElementById('totalLogs').textContent = logs.length;
+            
+            // 繧ｨ繝ｩ繝ｼ謨ｰ
+            const errorCount = logs.filter(log => 
+                log.level === 'error' || log.level === 'critical'
+            ).length;
+            document.getElementById('errorCount').textContent = errorCount;
+            
+            // 莉頑律縺ｮ繧｢繧ｯ繝・ぅ繝薙ユ繧｣
+            const today = new Date().toISOString().split('T')[0];
+            const todayCount = logs.filter(log => 
+                log.timestamp.startsWith(today)
+            ).length;
+            document.getElementById('todayCount').textContent = todayCount;
+            
+            // 繧｢繧ｯ繝・ぅ繝悶Θ繝ｼ繧ｶ繝ｼ謨ｰ
+            const uniqueUsers = new Set(logs.map(log => log.user).filter(u => u && u !== 'system'));
+            document.getElementById('activeUsers').textContent = uniqueUsers.size;
+        }
+        
+        // 譌･莉倥ヵ繧ｩ繝ｼ繝槭ャ繝・        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleString('ja-JP');
+        }
+        
+        // 隧ｳ邏ｰ繝輔か繝ｼ繝槭ャ繝・        function formatDetails(details) {
+            if (!details || Object.keys(details).length === 0) return '-';
+            
+            // 荳ｻ隕√↑諠・ｱ縺縺代ｒ陦ｨ遉ｺ
+            const keys = ['fileName', 'fileId', 'email', 'error'];
+            for (const key of keys) {
+                if (details[key]) {
+                    return `${key}: ${details[key]}`;
+                }
+            }
+            
+            // 縺昴・莉悶・蝣ｴ蜷医・譛蛻昴・繧ｭ繝ｼ繝舌Μ繝･繝ｼ繧定｡ｨ遉ｺ
+            const firstKey = Object.keys(details)[0];
+            return `${firstKey}: ${details[firstKey]}`;
+        }
+        
+        // HTML繧ｨ繧ｹ繧ｱ繝ｼ繝・        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+        
+        // 繧ｨ繧ｯ繧ｹ繝昴・繝・        async function exportLogs() {
+            try {
+                const token = localStorage.getItem('adminToken');
+                
+                // 迴ｾ蝨ｨ縺ｮ繝輔ぅ繝ｫ繧ｿ繝代Λ繝｡繝ｼ繧ｿ繧剃ｽｿ逕ｨ
+                const params = new URLSearchParams();
+                const type = document.getElementById('filterType').value;
+                const level = document.getElementById('filterLevel').value;
+                const user = document.getElementById('filterUser').value;
+                const startDate = document.getElementById('filterStartDate').value;
+                const endDate = document.getElementById('filterEndDate').value;
+                const search = document.getElementById('filterSearch').value;
+                
+                if (type) params.append('type', type);
+                if (level) params.append('level', level);
+                if (user) params.append('user', user);
+                if (startDate) params.append('startDate', startDate);
+                if (endDate) params.append('endDate', endDate);
+                if (search) params.append('search', search);
+                
+                // 繝繧ｦ繝ｳ繝ｭ繝ｼ繝牙ｮ溯｡・                window.location.href = `${API_BASE}/logs/export?${params}&token=${token}`;
+                
+            } catch (error) {
+                console.error('Error exporting logs:', error);
+                alert('繝ｭ繧ｰ縺ｮ繧ｨ繧ｯ繧ｹ繝昴・繝医↓螟ｱ謨励＠縺ｾ縺励◆');
+            }
+        }
+        
+        // 繧ｯ繝ｪ繝ｼ繝ｳ繧｢繝・・繝繧､繧｢繝ｭ繧ｰ
+        function showCleanupDialog() {
+            const days = prompt('菴墓律繧医ｊ蜿､縺・Ο繧ｰ繧貞炎髯､縺励∪縺吶°・・, '30');
+            if (days && !isNaN(days)) {
+                cleanupLogs(parseInt(days));
+            }
+        }
+        
+        // 繝ｭ繧ｰ繧ｯ繝ｪ繝ｼ繝ｳ繧｢繝・・
+        async function cleanupLogs(daysToKeep) {
+            if (!confirm(`${daysToKeep}譌･繧医ｊ蜿､縺・Ο繧ｰ繧貞炎髯､縺励※繧ゅｈ繧阪＠縺・〒縺吶°・歔)) {
+                return;
+            }
+            
+            try {
+                const token = localStorage.getItem('adminToken');
+                
+                const response = await fetch(`${API_BASE}/logs/cleanup`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ daysToKeep })
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    alert(`${result.deletedCount}莉ｶ縺ｮ繝ｭ繧ｰ繧貞炎髯､縺励∪縺励◆`);
+                    loadLogs(); // 繝ｪ繝ｭ繝ｼ繝・                } else {
+                    alert('繝ｭ繧ｰ縺ｮ蜑企勁縺ｫ螟ｱ謨励＠縺ｾ縺励◆');
+                }
+            } catch (error) {
+                console.error('Error cleaning up logs:', error);
+                alert('繝ｭ繧ｰ縺ｮ蜑企勁荳ｭ縺ｫ繧ｨ繝ｩ繝ｼ縺檎匱逕溘＠縺ｾ縺励◆');
+            }
+        }
+        
+        // 繝輔ぅ繝ｫ繧ｿ繧ｯ繝ｪ繧｢
+        function clearFilters() {
+            document.getElementById('filterType').value = '';
+            document.getElementById('filterLevel').value = '';
+            document.getElementById('filterUser').value = '';
+            document.getElementById('filterStartDate').value = '';
+            document.getElementById('filterEndDate').value = '';
+            document.getElementById('filterSearch').value = '';
+            loadLogs();
+        }
+        
+        // 繧ｨ繝ｩ繝ｼ陦ｨ遉ｺ
+        function displayError(message) {
+            const tbody = document.getElementById('logsTableBody');
+            tbody.innerHTML = `<tr><td colspan="7" class="no-logs">${message}</td></tr>`;
+        }
+        
+        // 繝ｭ繧ｰ繧｢繧ｦ繝・        function logout() {
+            if (confirm('繝ｭ繧ｰ繧｢繧ｦ繝医＠縺ｦ繧ゅｈ繧阪＠縺・〒縺吶°・・)) {
+                localStorage.removeItem('adminToken');
+                window.location.href = '/admin-login.html';
+            }
+        }
+        
+        // 蛻晄悄蛹門ｮ溯｡・        init();
+    </script>
+</body>
+</html>

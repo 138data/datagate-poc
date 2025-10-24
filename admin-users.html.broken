@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>繝ｦ繝ｼ繧ｶ繝ｼ邂｡逅・- 138DataGate Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+        }
+
+        .sidebar {
+            width: 250px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 2rem;
+        }
+
+        .logo {
+            color: white;
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 2rem;
+        }
+
+        .nav-item {
+            display: block;
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 0.5rem;
+            transition: all 0.3s;
+        }
+
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        .nav-item.active {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 2rem;
+        }
+
+        .header {
+            background: white;
+            border-radius: 1rem;
+            padding: 1.5rem 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 1.75rem;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .user-info span {
+            color: #666;
+        }
+
+        .logout-btn {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: #dc2626;
+        }
+
+        .content-card {
+            background: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .search-box {
+            display: flex;
+            gap: 1rem;
+            flex: 1;
+            max-width: 500px;
+        }
+
+        .search-box input {
+            flex: 1;
+            padding: 0.75rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .search-box select {
+            padding: 0.75rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            background: white;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.3s;
+        }
+
+        .btn-primary:hover {
+            background: #5a67d8;
+        }
+
+        .users-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .users-table th {
+            text-align: left;
+            padding: 1rem;
+            background: #f3f4f6;
+            color: #4b5563;
+            font-weight: 600;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .users-table td {
+            padding: 1rem;
+            border-bottom: 1px solid #e5e7eb;
+            color: #4b5563;
+        }
+
+        .users-table tr:hover {
+            background: #f9fafb;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .status-active {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-inactive {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .role-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .role-admin {
+            background: #ddd6fe;
+            color: #5b21b6;
+        }
+
+        .role-manager {
+            background: #fed7aa;
+            color: #92400e;
+        }
+
+        .role-user {
+            background: #e0e7ff;
+            color: #3730a3;
+        }
+
+        .actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn-edit, .btn-delete {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.3s;
+        }
+
+        .btn-edit {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-edit:hover {
+            background: #2563eb;
+        }
+
+        .btn-delete {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-delete:hover {
+            background: #dc2626;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            width: 90%;
+            max-width: 500px;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-header h2 {
+            color: #333;
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #9ca3af;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #4b5563;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+        }
+
+        .btn-cancel {
+            background: #e5e7eb;
+            color: #4b5563;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #9ca3af;
+        }
+
+        .empty-state svg {
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 1rem;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="logo">138DataGate</div>
+        <nav>
+            <a href="admin.html" class="nav-item">繝繝・す繝･繝懊・繝・/a>
+            <a href="admin-files.html" class="nav-item">繝輔ぃ繧､繝ｫ邂｡逅・/a>
+            <a href="admin-users.html" class="nav-item active">繝ｦ繝ｼ繧ｶ繝ｼ邂｡逅・/a>
+            <a href="admin-logs.html" class="nav-item">繝ｭ繧ｰ邂｡逅・/a>
+            <a href="admin-settings.html" class="nav-item">險ｭ螳・/a>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <div class="header">
+            <h1>繝ｦ繝ｼ繧ｶ繝ｼ邂｡逅・/h1>
+            <div class="user-info">
+                <span id="adminName">邂｡逅・・/span>
+                <button class="logout-btn" onclick="logout()">繝ｭ繧ｰ繧｢繧ｦ繝・/button>
+            </div>
+        </div>
+
+        <div class="content-card">
+            <div class="toolbar">
+                <div class="search-box">
+                    <input type="text" id="searchInput" placeholder="繝ｦ繝ｼ繧ｶ繝ｼ蜷阪√Γ繝ｼ繝ｫ繧｢繝峨Ξ繧ｹ縺ｧ讀懃ｴ｢...">
+                    <select id="roleFilter">
+                        <option value="">蜈ｨ繝ｭ繝ｼ繝ｫ</option>
+                        <option value="admin">邂｡逅・・/option>
+                        <option value="manager">繝槭ロ繝ｼ繧ｸ繝｣繝ｼ</option>
+                        <option value="user">繝ｦ繝ｼ繧ｶ繝ｼ</option>
+                    </select>
+                    <select id="statusFilter">
+                        <option value="">蜈ｨ繧ｹ繝・・繧ｿ繧ｹ</option>
+                        <option value="active">繧｢繧ｯ繝・ぅ繝・/option>
+                        <option value="inactive">髱槭い繧ｯ繝・ぅ繝・/option>
+                    </select>
+                </div>
+                <button class="btn-primary" onclick="openCreateModal()">譁ｰ隕上Θ繝ｼ繧ｶ繝ｼ菴懈・</button>
+            </div>
+
+            <div id="usersContainer">
+                <table class="users-table">
+                    <thead>
+                        <tr>
+                            <th>繝ｦ繝ｼ繧ｶ繝ｼ蜷・/th>
+                            <th>豌丞錐</th>
+                            <th>繝｡繝ｼ繝ｫ</th>
+                            <th>驛ｨ鄂ｲ</th>
+                            <th>繝ｭ繝ｼ繝ｫ</th>
+                            <th>繧ｹ繝・・繧ｿ繧ｹ</th>
+                            <th>譛邨ゅΟ繧ｰ繧､繝ｳ</th>
+                            <th>謫堺ｽ・/th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTableBody">
+                        <!-- 繝ｦ繝ｼ繧ｶ繝ｼ陦後′縺薙％縺ｫ霑ｽ蜉縺輔ｌ縺ｾ縺・-->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 繝ｦ繝ｼ繧ｶ繝ｼ菴懈・/邱ｨ髮・Δ繝ｼ繝繝ｫ -->
+    <div id="userModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">譁ｰ隕上Θ繝ｼ繧ｶ繝ｼ菴懈・</h2>
+                <button class="close-modal" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="userForm">
+                <div class="form-group">
+                    <label for="username">繝ｦ繝ｼ繧ｶ繝ｼ蜷・/label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="email">繝｡繝ｼ繝ｫ繧｢繝峨Ξ繧ｹ</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="fullName">豌丞錐</label>
+                    <input type="text" id="fullName" name="fullName" required>
+                </div>
+                <div class="form-group">
+                    <label for="department">驛ｨ鄂ｲ</label>
+                    <input type="text" id="department" name="department">
+                </div>
+                <div class="form-group">
+                    <label for="role">繝ｭ繝ｼ繝ｫ</label>
+                    <select id="role" name="role" required>
+                        <option value="user">繝ｦ繝ｼ繧ｶ繝ｼ</option>
+                        <option value="manager">繝槭ロ繝ｼ繧ｸ繝｣繝ｼ</option>
+                        <option value="admin">邂｡逅・・/option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="status">繧ｹ繝・・繧ｿ繧ｹ</label>
+                    <select id="status" name="status" required>
+                        <option value="active">繧｢繧ｯ繝・ぅ繝・/option>
+                        <option value="inactive">髱槭い繧ｯ繝・ぅ繝・/option>
+                    </select>
+                </div>
+                <div class="form-group" id="passwordGroup">
+                    <label for="password">蛻晄悄繝代せ繝ｯ繝ｼ繝・/label>
+                    <input type="password" id="password" name="password">
+                    <small style="color: #9ca3af;">邱ｨ髮・凾縺ｯ遨ｺ谺・〒螟画峩縺ｪ縺・/small>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-cancel" onclick="closeModal()">繧ｭ繝｣繝ｳ繧ｻ繝ｫ</button>
+                    <button type="submit" class="btn-primary">菫晏ｭ・/button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let users = [];
+        let editingUserId = null;
+
+        // 蛻晄悄蛹厄ｼ育ｰ｡逡･迚・- 隱崎ｨｼ繧偵せ繧ｭ繝・・・・
+        async function init() {
+            console.log('蛻晄悄蛹夜幕蟋・..');
+            const token = localStorage.getItem('adminToken');
+            
+            if (!token) {
+                console.log('繝医・繧ｯ繝ｳ縺瑚ｦ九▽縺九ｊ縺ｾ縺帙ｓ');
+                window.location.href = '/admin-login.html';
+                return;
+            }
+
+            console.log('繝医・繧ｯ繝ｳ遒ｺ隱弘K');
+            
+            // 隱崎ｨｼ繝√ぉ繝・け繧偵せ繧ｭ繝・・縺励※逶ｴ謗･陦ｨ遉ｺ
+            document.getElementById('adminName').textContent = 'admin';
+            
+            // 繝繝溘・繝・・繧ｿ縺ｧ陦ｨ遉ｺ
+            users = [
+                {
+                    id: "usr_001",
+                    username: "user1",
+                    email: "user1@example.com",
+                    fullName: "螻ｱ逕ｰ 螟ｪ驛・,
+                    department: "蝟ｶ讌ｭ驛ｨ",
+                    role: "user",
+                    status: "active",
+                    lastLogin: "2024-01-15T10:30:00Z"
+                },
+                {
+                    id: "usr_002",
+                    username: "user2",
+                    email: "user2@example.com",
+                    fullName: "菴占陸 闃ｱ蟄・,
+                    department: "髢狗匱驛ｨ",
+                    role: "user",
+                    status: "active",
+                    lastLogin: "2024-01-14T15:45:00Z"
+                },
+                {
+                    id: "usr_003",
+                    username: "manager1",
+                    email: "manager@example.com",
+                    fullName: "驤ｴ譛ｨ 荳驛・,
+                    department: "邂｡逅・Κ",
+                    role: "manager",
+                    status: "active",
+                    lastLogin: "2024-01-15T09:00:00Z"
+                }
+            ];
+            
+            renderUsers();
+        }
+
+        // 繝ｦ繝ｼ繧ｶ繝ｼ荳隕ｧ繧定｡ｨ遉ｺ
+        function renderUsers() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const roleFilter = document.getElementById('roleFilter').value;
+            const statusFilter = document.getElementById('statusFilter').value;
+
+            const filteredUsers = users.filter(user => {
+                const matchesSearch = !searchTerm || 
+                    user.username.toLowerCase().includes(searchTerm) ||
+                    user.email.toLowerCase().includes(searchTerm) ||
+                    user.fullName.toLowerCase().includes(searchTerm);
+                
+                const matchesRole = !roleFilter || user.role === roleFilter;
+                const matchesStatus = !statusFilter || user.status === statusFilter;
+
+                return matchesSearch && matchesRole && matchesStatus;
+            });
+
+            const tbody = document.getElementById('usersTableBody');
+            
+            if (filteredUsers.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" style="text-align: center; padding: 2rem; color: #9ca3af;">
+                            隧ｲ蠖薙☆繧九Θ繝ｼ繧ｶ繝ｼ縺瑚ｦ九▽縺九ｊ縺ｾ縺帙ｓ
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = filteredUsers.map(user => `
+                <tr>
+                    <td>${user.username}</td>
+                    <td>${user.fullName}</td>
+                    <td>${user.email}</td>
+                    <td>${user.department || '-'}</td>
+                    <td><span class="role-badge role-${user.role}">${getRoleName(user.role)}</span></td>
+                    <td><span class="status-badge status-${user.status}">${getStatusName(user.status)}</span></td>
+                    <td>${formatDate(user.lastLogin)}</td>
+                    <td>
+                        <div class="actions">
+                            <button class="btn-edit" onclick="openEditModal('${user.id}')">邱ｨ髮・/button>
+                            <button class="btn-delete" onclick="deleteUser('${user.id}')">蜑企勁</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // 繝ｭ繝ｼ繝ｫ蜷阪ｒ蜿門ｾ・
+        function getRoleName(role) {
+            const roleNames = {
+                admin: '邂｡逅・・,
+                manager: '繝槭ロ繝ｼ繧ｸ繝｣繝ｼ',
+                user: '繝ｦ繝ｼ繧ｶ繝ｼ'
+            };
+            return roleNames[role] || role;
+        }
+
+        // 繧ｹ繝・・繧ｿ繧ｹ蜷阪ｒ蜿門ｾ・
+        function getStatusName(status) {
+            const statusNames = {
+                active: '繧｢繧ｯ繝・ぅ繝・,
+                inactive: '髱槭い繧ｯ繝・ぅ繝・
+            };
+            return statusNames[status] || status;
+        }
+
+        // 譌･莉倥ヵ繧ｩ繝ｼ繝槭ャ繝・
+        function formatDate(dateString) {
+            if (!dateString) return '-';
+            const date = new Date(dateString);
+            return date.toLocaleString('ja-JP', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // 譁ｰ隕丈ｽ懈・繝｢繝ｼ繝繝ｫ繧帝幕縺・
+        function openCreateModal() {
+            editingUserId = null;
+            document.getElementById('modalTitle').textContent = '譁ｰ隕上Θ繝ｼ繧ｶ繝ｼ菴懈・';
+            document.getElementById('userForm').reset();
+            document.getElementById('passwordGroup').style.display = 'block';
+            document.getElementById('password').required = true;
+            document.getElementById('userModal').style.display = 'flex';
+        }
+
+        // 邱ｨ髮・Δ繝ｼ繝繝ｫ繧帝幕縺・
+        function openEditModal(userId) {
+            const user = users.find(u => u.id === userId);
+            if (!user) return;
+
+            editingUserId = userId;
+            document.getElementById('modalTitle').textContent = '繝ｦ繝ｼ繧ｶ繝ｼ邱ｨ髮・;
+            document.getElementById('username').value = user.username;
+            document.getElementById('email').value = user.email;
+            document.getElementById('fullName').value = user.fullName;
+            document.getElementById('department').value = user.department || '';
+            document.getElementById('role').value = user.role;
+            document.getElementById('status').value = user.status;
+            document.getElementById('password').value = '';
+            document.getElementById('password').required = false;
+            document.getElementById('userModal').style.display = 'flex';
+        }
+
+        // 繝｢繝ｼ繝繝ｫ繧帝哩縺倥ｋ
+        function closeModal() {
+            document.getElementById('userModal').style.display = 'none';
+            document.getElementById('userForm').reset();
+            editingUserId = null;
+        }
+
+        // 繝ｦ繝ｼ繧ｶ繝ｼ菫晏ｭ假ｼ医ム繝溘・蜃ｦ逅・ｼ・
+        document.getElementById('userForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = new FormData(e.target);
+            const userData = Object.fromEntries(formData);
+
+            if (editingUserId) {
+                // 邱ｨ髮・・蝣ｴ蜷・
+                const index = users.findIndex(u => u.id === editingUserId);
+                users[index] = { ...users[index], ...userData };
+                alert('繝ｦ繝ｼ繧ｶ繝ｼ繧呈峩譁ｰ縺励∪縺励◆');
+            } else {
+                // 譁ｰ隕丈ｽ懈・縺ｮ蝣ｴ蜷・
+                const newUser = {
+                    id: `usr_${Date.now()}`,
+                    ...userData,
+                    lastLogin: null
+                };
+                users.push(newUser);
+                alert('繝ｦ繝ｼ繧ｶ繝ｼ繧剃ｽ懈・縺励∪縺励◆');
+            }
+
+            renderUsers();
+            closeModal();
+        });
+
+        // 繝ｦ繝ｼ繧ｶ繝ｼ蜑企勁
+        async function deleteUser(userId) {
+            if (!confirm('縺薙・繝ｦ繝ｼ繧ｶ繝ｼ繧貞炎髯､縺励※繧ゅｈ繧阪＠縺・〒縺吶°・・)) {
+                return;
+            }
+
+            users = users.filter(u => u.id !== userId);
+            renderUsers();
+            alert('繝ｦ繝ｼ繧ｶ繝ｼ繧貞炎髯､縺励∪縺励◆');
+        }
+
+        // 遨ｺ縺ｮ迥ｶ諷九ｒ陦ｨ遉ｺ
+        function showEmptyState() {
+            document.getElementById('usersContainer').innerHTML = `
+                <div class="empty-state">
+                    <p>繝ｦ繝ｼ繧ｶ繝ｼ繝・・繧ｿ繧定ｪｭ縺ｿ霎ｼ繧√∪縺帙ｓ縺ｧ縺励◆</p>
+                </div>
+            `;
+        }
+
+        // 繝ｭ繧ｰ繧｢繧ｦ繝・
+        function logout() {
+            localStorage.removeItem('adminToken');
+            window.location.href = '/admin-login.html';
+        }
+
+        // 讀懃ｴ｢繝ｻ繝輔ぅ繝ｫ繧ｿ縺ｮ繧､繝吶Φ繝医Μ繧ｹ繝翫・
+        document.getElementById('searchInput').addEventListener('input', renderUsers);
+        document.getElementById('roleFilter').addEventListener('change', renderUsers);
+        document.getElementById('statusFilter').addEventListener('change', renderUsers);
+
+        // 蛻晄悄蛹門ｮ溯｡・
+        init();
+    </script>
+</body>
+</html>

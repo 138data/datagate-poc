@@ -1,0 +1,35 @@
+{
+  "version": 2,
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "/index.html"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/test.html",
+      "dest": "/public/test.html"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/cleanup",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/kpi/check-alerts",
+      "schedule": "0 * * * *"
+    }
+  ],
+  "env": {
+    "ALLOW_TEST_ENDPOINTS": "false",
+    "ALLOW_TEST_UI": "false"
+  },
+  "build": {
+    "env": {
+      "ALLOW_TEST_ENDPOINTS": "false",
+      "ALLOW_TEST_UI": "false"
+    }
+  }
+}

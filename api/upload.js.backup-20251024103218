@@ -48,8 +48,8 @@ module.exports = async (req, res) => {
   try {
     console.log('[Upload] ファイルアップロード開始');
 
-    // formidable設定
-    const form = formidable({
+    // formidable設定（修正: new formidable.IncomingForm()）
+    const form = new formidable.IncomingForm({
       maxFileSize: MAX_FILE_SIZE,
       keepExtensions: true,
       multiples: false,

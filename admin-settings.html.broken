@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>繧ｷ繧ｹ繝・Β險ｭ螳・- 138DataGate</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .back-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .section {
+            margin-bottom: 40px;
+            padding: 25px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 500;
+            color: #555;
+            margin-bottom: 8px;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group input[type="checkbox"] {
+            width: auto;
+            margin-right: 8px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+
+        .info-box p {
+            color: #555;
+            line-height: 1.6;
+            margin: 5px 0;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-online {
+            background: #28a745;
+        }
+
+        .status-offline {
+            background: #dc3545;
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .kpi-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+        }
+
+        .kpi-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .kpi-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            z-index: 1000;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .notification.success {
+            background: #28a745;
+        }
+
+        .notification.error {
+            background: #dc3545;
+        }
+
+        .notification.info {
+            background: #2196F3;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .policy-links {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .policy-link {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+
+        .policy-link:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>笞呻ｸ・繧ｷ繧ｹ繝・Β險ｭ螳・/h1>
+            <a href="/admin.html" class="back-btn">竊・繝繝・す繝･繝懊・繝峨↓謌ｻ繧・/a>
+        </div>
+
+        <div class="content">
+            <!-- Section 1: SMTP險ｭ螳・-->
+            <div class="section">
+                <div class="section-title">透 SMTP險ｭ螳・/div>
+                
+                <div class="form-group">
+                    <label>SMTP繝帙せ繝・/label>
+                    <input type="text" id="smtp-host" value="smtp.gmail.com" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label>SMTP繝昴・繝・/label>
+                    <input type="number" id="smtp-port" value="587" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label>繝ｦ繝ｼ繧ｶ繝ｼ蜷・/label>
+                    <input type="email" id="smtp-user" value="138data@gmail.com" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label>騾∽ｿ｡蜈・い繝峨Ξ繧ｹ</label>
+                    <input type="email" id="smtp-from" value="138data@gmail.com" readonly>
+                </div>
+
+                <div class="info-box">
+                    <p><strong>東 豕ｨ諢・</strong> SMTP險ｭ螳壹・迺ｰ蠅・､画焚縺ｧ邂｡逅・＆繧後※縺・∪縺吶・/p>
+                    <p>螟画峩縺吶ｋ蝣ｴ蜷医・縲〃ercel Dashboard縺ｧ迺ｰ蠅・､画焚繧呈峩譁ｰ縺励※縺上□縺輔＞縲・/p>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn btn-success" onclick="testSMTP()">
+                        剥 SMTP謗･邯壹ユ繧ｹ繝・                    </button>
+                </div>
+
+                <div id="smtp-status" class="info-box" style="display:none; margin-top: 15px;">
+                    <!-- SMTP謗･邯夂ｵ先棡縺後％縺薙↓陦ｨ遉ｺ縺輔ｌ繧・-->
+                </div>
+            </div>
+
+            <!-- Section 2: 繝輔ぃ繧､繝ｫ菫晄戟繝昴Μ繧ｷ繝ｼ (Phase 21) -->
+            <div class="section">
+                <div class="section-title">唐 繝輔ぃ繧､繝ｫ菫晄戟繝昴Μ繧ｷ繝ｼ</div>
+
+                <div class="kpi-grid">
+                    <div class="kpi-item">
+                        <div class="kpi-label">譛螟ｧ繝輔ぃ繧､繝ｫ繧ｵ繧､繧ｺ</div>
+                        <div class="kpi-value">50 MB</div>
+                    </div>
+                    <div class="kpi-item">
+                        <div class="kpi-label">繝輔ぃ繧､繝ｫ菫晄戟譛滄俣</div>
+                        <div class="kpi-value">7譌･髢・/div>
+                    </div>
+                    <div class="kpi-item">
+                        <div class="kpi-label">閾ｪ蜍募炎髯､譎ょ綾</div>
+                        <div class="kpi-value">蜊亥燕2譎・/div>
+                    </div>
+                </div>
+
+                <div class="info-box">
+                    <p><strong>東 閾ｪ蜍募炎髯､繝昴Μ繧ｷ繝ｼ:</strong></p>
+                    <p>窶｢ 繧｢繝・・繝ｭ繝ｼ繝峨°繧・譌･蠕後↓閾ｪ蜍慕噪縺ｫ蜑企勁縺輔ｌ縺ｾ縺・/p>
+                    <p>窶｢ 豈取律蜊亥燕2譎ゑｼ・TC・峨↓繧ｯ繝ｪ繝ｼ繝ｳ繧｢繝・・繧ｸ繝ｧ繝悶′螳溯｡後＆繧後∪縺・/p>
+                    <p>窶｢ 蜑企勁縺輔ｌ縺溘ヵ繧｡繧､繝ｫ縺ｯ蠕ｩ蜈・〒縺阪∪縺帙ｓ</p>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn btn-success" onclick="testCleanup()">
+                        ｧｹ 繧ｯ繝ｪ繝ｼ繝ｳ繧｢繝・・繝・せ繝・                    </button>
+                </div>
+
+                <div id="cleanup-result" class="info-box" style="display:none; margin-top: 15px;">
+                    <!-- 繧ｯ繝ｪ繝ｼ繝ｳ繧｢繝・・邨先棡縺後％縺薙↓陦ｨ遉ｺ縺輔ｌ繧・-->
+                </div>
+            </div>
+
+            <!-- Section 3: 蝨ｧ邵ｮ險ｭ螳・(Phase 21) -->
+            <div class="section">
+                <div class="section-title">梨・・繝輔ぃ繧､繝ｫ蝨ｧ邵ｮ險ｭ螳・/div>
+
+                <div class="kpi-grid">
+                    <div class="kpi-item">
+                        <div class="kpi-label">蝨ｧ邵ｮ讖溯・</div>
+                        <div class="kpi-value" style="color: #28a745;">譛牙柑</div>
+                    </div>
+                    <div class="kpi-item">
+                        <div class="kpi-label">蝨ｧ邵ｮ繧｢繝ｫ繧ｴ繝ｪ繧ｺ繝</div>
+                        <div class="kpi-value" style="font-size: 18px;">gzip</div>
+                    </div>
+                    <div class="kpi-item">
+                        <div class="kpi-label">莠域Φ蝨ｧ邵ｮ邇・/div>
+                        <div class="kpi-value">70-90%</div>
+                    </div>
+                </div>
+
+                <div class="info-box">
+                    <p><strong>東 蝨ｧ邵ｮ蟇ｾ雎｡繝輔ぃ繧､繝ｫ:</strong></p>
+                    <p>窶｢ 繝・く繧ｹ繝医ヵ繧｡繧､繝ｫ (.txt, .csv, .json, .xml)</p>
+                    <p>窶｢ 繝峨く繝･繝｡繝ｳ繝・(.html, .css, .js)</p>
+                    <p>窶｢ 縺昴・莉悶・繝・く繧ｹ繝亥ｽ｢蠑上ヵ繧｡繧､繝ｫ</p>
+                    <p><strong>蝨ｧ邵ｮ蟇ｾ雎｡螟・</strong> 逕ｻ蜒上∝虚逕ｻ縲・浹螢ｰ縲∵里縺ｫ蝨ｧ邵ｮ縺輔ｌ縺溘ヵ繧｡繧､繝ｫ</p>
+                </div>
+            </div>
+
+            <!-- Section 4: 繧｢繝ｩ繝ｼ繝郁ｨｭ螳・(Phase 21) -->
+            <div class="section">
+                <div class="section-title">圷 繧｢繝ｩ繝ｼ繝郁ｨｭ螳・/div>
+
+                <div class="form-group">
+                    <label>繧｢繝ｩ繝ｼ繝磯∽ｿ｡蜈医Γ繝ｼ繝ｫ繧｢繝峨Ξ繧ｹ</label>
+                    <input type="email" id="alert-email" value="138data@gmail.com" readonly>
+                </div>
+
+                <div class="kpi-grid">
+                    <div class="kpi-item">
+                        <div class="kpi-label">繧ｨ繝ｩ繝ｼ邇・明蛟､</div>
+                        <div class="kpi-value">5%</div>
+                    </div>
+                    <div class="kpi-item">
+                        <div class="kpi-label">繧ｹ繝医Ξ繝ｼ繧ｸ髢ｾ蛟､</div>
+                        <div class="kpi-value">80%</div>
+                    </div>
+                    <div class="kpi-item">
+                        <div class="kpi-label">謌仙粥邇・明蛟､</div>
+                        <div class="kpi-value">90%</div>
+                    </div>
+                    <div class="kpi-item">
+                        <div class="kpi-label">繝√ぉ繝・け鬆ｻ蠎ｦ</div>
+                        <div class="kpi-value" style="font-size: 18px;">豈取凾</div>
+                    </div>
+                </div>
+
+                <div class="info-box">
+                    <p><strong>東 繧｢繝ｩ繝ｼ繝域擅莉ｶ:</strong></p>
+                    <p>窶｢ 繧ｨ繝ｩ繝ｼ邇・′5%繧定ｶ・∴縺溷ｴ蜷・/p>
+                    <p>窶｢ 繧ｹ繝医Ξ繝ｼ繧ｸ菴ｿ逕ｨ邇・′80%繧定ｶ・∴縺溷ｴ蜷・/p>
+                    <p>窶｢ 繧｢繝・・繝ｭ繝ｼ繝・繝繧ｦ繝ｳ繝ｭ繝ｼ繝画・蜉溽紫縺・0%譛ｪ貅縺ｮ蝣ｴ蜷・/p>
+                    <p>窶｢ 豈取凾00蛻・↓閾ｪ蜍輔メ繧ｧ繝・け縺悟ｮ溯｡後＆繧後∪縺・/p>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn btn-success" onclick="testAlert()">
+                        闘 繧｢繝ｩ繝ｼ繝医ユ繧ｹ繝磯∽ｿ｡
+                    </button>
+                </div>
+
+                <div id="alert-result" class="info-box" style="display:none; margin-top: 15px;">
+                    <!-- 繧｢繝ｩ繝ｼ繝医ユ繧ｹ繝育ｵ先棡縺後％縺薙↓陦ｨ遉ｺ縺輔ｌ繧・-->
+                </div>
+            </div>
+
+            <!-- Section 5: 繧ｻ繧ｭ繝･繝ｪ繝・ぅ繝昴Μ繧ｷ繝ｼ -->
+            <div class="section">
+                <div class="section-title">白 繧ｻ繧ｭ繝･繝ｪ繝・ぅ繝昴Μ繧ｷ繝ｼ</div>
+
+                <div class="kpi-grid">
+                    <div class="kpi-item">
+                        <div class="kpi-label">證怜捷蛹匁婿蠑・/div>
+                        <div class="kpi-value" style="font-size: 16px;">AES-256-GCM</div>
+                    </div>
+                    <div class="kpi-item">
+                        <div class="kpi-label">骰ｵ蟆主・髢｢謨ｰ</div>
+                        <div class="kpi-value" style="font-size: 18px;">PBKDF2</div>
+                    </div>
+                    <div class="kpi-item">
+                        <div class="kpi-label">蜿榊ｾｩ蝗樊焚</div>
+                        <div class="kpi-value">100,000</div>
+                    </div>
+                    <div class="kpi-item">
+                        <div class="kpi-label">JWT譛牙柑譛滄剞</div>
+                        <div class="kpi-value">24譎る俣</div>
+                    </div>
+                </div>
+
+                <div class="info-box">
+                    <p><strong>東 繧ｻ繧ｭ繝･繝ｪ繝・ぅ蟇ｾ遲・</strong></p>
+                    <p>窶｢ 繝輔ぃ繧､繝ｫ縺ｯ驫陦後Ξ繝吶Ν縺ｮ證怜捷蛹厄ｼ・ES-256-GCM・峨〒菫晁ｭｷ</p>
+                    <p>窶｢ 繝｡繧ｿ繝・・繧ｿ繧ょ句挨縺ｫ證怜捷蛹・/p>
+                    <p>窶｢ 繝ｭ繧ｰ繧､繝ｳ隧ｦ陦悟屓謨ｰ蛻ｶ髯撰ｼ・蝗・15蛻・ｼ・/p>
+                    <p>窶｢ HTTPS騾壻ｿ｡縺ｮ縺ｿ・・ercel閾ｪ蜍百SL・・/p>
+                </div>
+
+                <div class="policy-links">
+                    <a href="/docs/security-policy.md" class="policy-link" target="_blank">
+                        塘 螳悟・縺ｪ繝昴Μ繧ｷ繝ｼ繧定｡ｨ遉ｺ
+                    </a>
+                    <a href="/docs/security-for-clients.md" class="policy-link" target="_blank">
+                        則 鬘ｧ螳｢蜷代￠隱ｬ譏手ｳ・侭
+                    </a>
+                </div>
+            </div>
+
+            <!-- Section 6: 繧ｷ繧ｹ繝・Β諠・ｱ -->
+            <div class="section">
+                <div class="section-title">邃ｹ・・繧ｷ繧ｹ繝・Β諠・ｱ</div>
+
+                <div class="kpi-grid">
+                    <div class="kpi-item">
+                        <div class="kpi-label">繝舌・繧ｸ繝ｧ繝ｳ</div>
+                        <div class="kpi-value" style="font-size: 18px;">Phase 21</div>
+                    </div>
+                    <div class="kpi-item">
+                        <div class="kpi-label">繝帙せ繝・ぅ繝ｳ繧ｰ</div>
+                        <div class="kpi-value" style="font-size: 18px;">Vercel Pro</div>
+                    </div>
+                    <div class="kpi-item">
+                        <div class="kpi-label">繝・・繧ｿ繝吶・繧ｹ</div>
+                        <div class="kpi-value" style="font-size: 18px;">Upstash</div>
+                    </div>
+                    <div class="kpi-item">
+                        <div class="kpi-label">遞ｼ蜒咲憾豕・/div>
+                        <div class="kpi-value" style="color: #28a745; font-size: 18px;">遞ｼ蜒堺ｸｭ</div>
+                    </div>
+                </div>
+
+                <div class="info-box">
+                    <p><strong>東 譛邨よ峩譁ｰ:</strong> 2025蟷ｴ10譛・3譌･</p>
+                    <p><strong>繝励Ο繧ｸ繧ｧ繧ｯ繝・</strong> 138DataGate - PPAP髮｢閼ｱ繧ｽ繝輔ヨ</p>
+                    <p><strong>繧ｵ繝昴・繝・</strong> 138data@gmail.com</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 騾夂衍陦ｨ遉ｺ
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.style.animation = 'slideIn 0.3s ease-out reverse';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+
+        // 繝ｭ繝ｼ繝・ぅ繝ｳ繧ｰ陦ｨ遉ｺ
+        function showLoading(button) {
+            button.disabled = true;
+            button.innerHTML = '<span class="loading"></span> 螳溯｡御ｸｭ...';
+        }
+
+        function hideLoading(button, originalText) {
+            button.disabled = false;
+            button.innerHTML = originalText;
+        }
+
+        // SMTP謗･邯壹ユ繧ｹ繝・        async function testSMTP() {
+            const button = event.target;
+            const originalText = button.innerHTML;
+            showLoading(button);
+
+            const statusDiv = document.getElementById('smtp-status');
+            statusDiv.style.display = 'none';
+
+            try {
+                const token = localStorage.getItem('adminToken');
+                const response = await fetch('/api/health/smtp', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    statusDiv.innerHTML = `
+                        <p style="color: #28a745;"><strong>笨・SMTP謗･邯壽・蜉滂ｼ・/strong></p>
+                        <p>繝ｬ繧ｹ繝昴Φ繧ｹ繧ｿ繧､繝: ${data.responseTime}ms</p>
+                    `;
+                    statusDiv.style.background = '#d4edda';
+                    statusDiv.style.borderColor = '#28a745';
+                    showNotification('SMTP謗･邯壹↓謌仙粥縺励∪縺励◆', 'success');
+                } else {
+                    throw new Error(data.error);
+                }
+
+                statusDiv.style.display = 'block';
+            } catch (error) {
+                statusDiv.innerHTML = `
+                    <p style="color: #dc3545;"><strong>笶・SMTP謗･邯壹お繝ｩ繝ｼ</strong></p>
+                    <p>${error.message}</p>
+                `;
+                statusDiv.style.background = '#f8d7da';
+                statusDiv.style.borderColor = '#dc3545';
+                statusDiv.style.display = 'block';
+                showNotification('SMTP謗･邯壹↓螟ｱ謨励＠縺ｾ縺励◆', 'error');
+            } finally {
+                hideLoading(button, originalText);
+            }
+        }
+
+        // 繧ｯ繝ｪ繝ｼ繝ｳ繧｢繝・・繝・せ繝・        async function testCleanup() {
+            const button = event.target;
+            const originalText = button.innerHTML;
+            showLoading(button);
+
+            const resultDiv = document.getElementById('cleanup-result');
+            resultDiv.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/cron/cleanup', {
+                    headers: {
+                        'X-Cron-Secret': 'test-secret'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <p style="color: #28a745;"><strong>笨・繧ｯ繝ｪ繝ｼ繝ｳ繧｢繝・・螳御ｺ・/strong></p>
+                        <p>蜑企勁: ${data.summary.deleted}莉ｶ</p>
+                        <p>繧ｹ繧ｭ繝・・: ${data.summary.skipped}莉ｶ</p>
+                        <p>繧ｨ繝ｩ繝ｼ: ${data.summary.errors}莉ｶ</p>
+                    `;
+                    resultDiv.style.background = '#d4edda';
+                    resultDiv.style.borderColor = '#28a745';
+                    showNotification('繧ｯ繝ｪ繝ｼ繝ｳ繧｢繝・・繝・せ繝医′螳御ｺ・＠縺ｾ縺励◆', 'success');
+                } else {
+                    throw new Error(data.error);
+                }
+
+                resultDiv.style.display = 'block';
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <p style="color: #dc3545;"><strong>笶・繧ｯ繝ｪ繝ｼ繝ｳ繧｢繝・・繧ｨ繝ｩ繝ｼ</strong></p>
+                    <p>${error.message}</p>
+                `;
+                resultDiv.style.background = '#f8d7da';
+                resultDiv.style.borderColor = '#dc3545';
+                resultDiv.style.display = 'block';
+                showNotification('繧ｯ繝ｪ繝ｼ繝ｳ繧｢繝・・繝・せ繝医↓螟ｱ謨励＠縺ｾ縺励◆', 'error');
+            } finally {
+                hideLoading(button, originalText);
+            }
+        }
+
+        // 繧｢繝ｩ繝ｼ繝医ユ繧ｹ繝・        async function testAlert() {
+            const button = event.target;
+            const originalText = button.innerHTML;
+            showLoading(button);
+
+            const resultDiv = document.getElementById('alert-result');
+            resultDiv.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/kpi/check-alerts', {
+                    headers: {
+                        'X-Cron-Secret': process.env.CRON_SECRET || 'test-secret'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    const alertCount = data.alerts.count;
+                    resultDiv.innerHTML = `
+                        <p style="color: #28a745;"><strong>笨・繧｢繝ｩ繝ｼ繝医メ繧ｧ繝・け螳御ｺ・/strong></p>
+                        <p>讀懷・縺輔ｌ縺溘い繝ｩ繝ｼ繝・ ${alertCount}莉ｶ</p>
+                        ${alertCount > 0 ? `<p>繧｢繝ｩ繝ｼ繝医Γ繝ｼ繝ｫ繧帝∽ｿ｡縺励∪縺励◆</p>` : `<p>縺吶∋縺ｦ豁｣蟶ｸ遽・峇蜀・〒縺・/p>`}
+                    `;
+                    resultDiv.style.background = '#d4edda';
+                    resultDiv.style.borderColor = '#28a745';
+                    showNotification('繧｢繝ｩ繝ｼ繝医メ繧ｧ繝・け縺悟ｮ御ｺ・＠縺ｾ縺励◆', 'success');
+                } else {
+                    throw new Error(data.error);
+                }
+
+                resultDiv.style.display = 'block';
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <p style="color: #dc3545;"><strong>笶・繧｢繝ｩ繝ｼ繝医メ繧ｧ繝・け繧ｨ繝ｩ繝ｼ</strong></p>
+                    <p>${error.message}</p>
+                `;
+                resultDiv.style.background = '#f8d7da';
+                resultDiv.style.borderColor = '#dc3545';
+                resultDiv.style.display = 'block';
+                showNotification('繧｢繝ｩ繝ｼ繝医メ繧ｧ繝・け縺ｫ螟ｱ謨励＠縺ｾ縺励◆', 'error');
+            } finally {
+                hideLoading(button, originalText);
+            }
+        }
+
+        // 隱崎ｨｼ繝√ぉ繝・け
+        function checkAuth() {
+            const token = localStorage.getItem('adminToken');
+            if (!token) {
+                window.location.href = '/admin-login.html';
+            }
+        }
+
+        // 繝壹・繧ｸ隱ｭ縺ｿ霎ｼ縺ｿ譎・        window.addEventListener('DOMContentLoaded', () => {
+            checkAuth();
+        });
+    </script>
+</body>
+</html>
+

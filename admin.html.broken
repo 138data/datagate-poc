@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>138DataGate - 管理画面</title>
+    <title>138DataGate - 邂｡逅・判髱｢</title>
     <style>
         * {
             margin: 0;
@@ -211,7 +211,7 @@
             opacity: 0.9;
         }
 
-        /* KPI統計セクション */
+        /* KPI邨ｱ險医そ繧ｯ繧ｷ繝ｧ繝ｳ */
         .kpi-section {
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
@@ -238,15 +238,15 @@
 
         .kpi-item {
             padding: 1rem;
-            background: rgba(102, 126, 234, 0.05);
-            border-radius: 8px;
-            text-align: center;
+            background: linear-gradient(135deg, rgba(102,126,234,0.05) 0%, rgba(118,75,162,0.05) 100%);
+            border-radius: 10px;
+            border: 1px solid rgba(102,126,234,0.2);
         }
 
         .kpi-label {
-            color: #777;
             font-size: 0.875rem;
-            margin-bottom: 0.5rem;
+            color: #666;
+            margin-bottom: 0.25rem;
         }
 
         .kpi-value {
@@ -254,140 +254,144 @@
             font-weight: bold;
             color: #667eea;
         }
-
-        .content-section {
-            display: none;
-        }
-
-        .content-section:first-of-type {
-            display: block;
-        }
     </style>
 </head>
 <body>
-    <!-- サイドバー -->
+    <!-- 繧ｵ繧､繝峨ヰ繝ｼ -->
     <div class="sidebar">
         <div class="sidebar-header">
             <div class="logo">
-                <span>🔐</span>
+                <span>孱・・/span>
                 <span>138DataGate</span>
             </div>
         </div>
-        <div class="nav-menu">
-            <!-- ダッシュボード -->
-            <a href="./admin.html" class="nav-item active">
-                <span>📊</span>
-                <span>ダッシュボード</span>
+        <nav class="nav-menu">
+            <a href="#dashboard" class="nav-item active" onclick="showSection('dashboard')">
+                <span>投</span>
+                <span>繝繝・す繝･繝懊・繝・/span>
             </a>
-            
-            <!-- ファイル管理 -->
-            <a href="./admin-files.html" class="nav-item">
-                <span>📁</span>
-                <span>ファイル管理</span>
+            <a href="#files" class="nav-item" onclick="showSection('files')">
+                <span>刀</span>
+                <span>繝輔ぃ繧､繝ｫ邂｡逅・/span>
             </a>
-            
-            <!-- ユーザー管理 -->
-            <a href="./admin-users.html" class="nav-item">
-                <span>👥</span>
-                <span>ユーザー管理</span>
+            <a href="#users" class="nav-item" onclick="showSection('users')">
+                <span>則</span>
+                <span>繝ｦ繝ｼ繧ｶ繝ｼ邂｡逅・/span>
             </a>
-            
-            <!-- ログ -->
-            <a href="./admin-logs.html" class="nav-item">
-                <span>📋</span>
-                <span>ログ</span>
+            <a href="#logs" class="nav-item" onclick="showSection('logs')">
+                <span>統</span>
+                <span>繝ｭ繧ｰ</span>
             </a>
-            
-            <!-- 設定 -->
-            <a href="./admin-settings.html" class="nav-item">
-                <span>⚙️</span>
-                <span>設定</span>
+            <a href="#settings" class="nav-item" onclick="showSection('settings')">
+                <span>笞呻ｸ・/span>
+                <span>險ｭ螳・/span>
             </a>
-        </div>
+        </nav>
     </div>
 
-    <!-- メインコンテンツ -->
+    <!-- 繝｡繧､繝ｳ繧ｳ繝ｳ繝・Φ繝・-->
     <div class="main-content">
-        <!-- ヘッダー -->
+        <!-- 繝倥ャ繝繝ｼ -->
         <div class="header">
-            <h1>管理画面</h1>
+            <h1>邂｡逅・判髱｢</h1>
             <div class="user-info">
-                <span>👤 管理者</span>
-                <button class="logout-btn" onclick="logout()">ログアウト</button>
+                <span>側 邂｡逅・・/span>
+                <button class="logout-btn" onclick="logout()">繝ｭ繧ｰ繧｢繧ｦ繝・/button>
             </div>
         </div>
 
-        <!-- ダッシュボードセクション -->
-        <div id="dashboard-section" class="content-section" style="display: block;">
-            <!-- 統計カード -->
+        <!-- 繝繝・す繝･繝懊・繝峨そ繧ｯ繧ｷ繝ｧ繝ｳ -->
+        <div id="dashboard-section" class="content-section">
+            <!-- 邨ｱ險医き繝ｼ繝・-->
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-label">総ユーザー数</div>
-                    <div class="stat-value" id="totalUsers">3</div>
+                    <div class="stat-label">邱上Θ繝ｼ繧ｶ繝ｼ謨ｰ</div>
+                    <div class="stat-value" id="totalUsers">-</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-label">総ファイル数</div>
-                    <div class="stat-value" id="totalFiles">0</div>
+                    <div class="stat-label">邱上ヵ繧｡繧､繝ｫ謨ｰ</div>
+                    <div class="stat-value" id="totalFiles">-</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-label">今日のアップロード</div>
-                    <div class="stat-value" id="todayUploads">0</div>
+                    <div class="stat-label">莉頑律縺ｮ繧｢繝・・繝ｭ繝ｼ繝・/div>
+                    <div class="stat-value" id="todayUploads">-</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-label">ストレージ使用量</div>
-                    <div class="stat-value" id="storageUsed">0 B</div>
+                    <div class="stat-label">繧ｹ繝医Ξ繝ｼ繧ｸ菴ｿ逕ｨ驥・/div>
+                    <div class="stat-value" id="storageUsed">-</div>
                 </div>
             </div>
 
-            <!-- システムKPI -->
+            <!-- ・ Phase 21: KPI邨ｱ險医そ繧ｯ繧ｷ繝ｧ繝ｳ -->
             <div class="kpi-section">
-                <div class="kpi-header">📊 システムKPI</div>
+                <div class="kpi-header">嶋 繧ｷ繧ｹ繝・ΒKPI</div>
                 <div class="kpi-grid">
                     <div class="kpi-item">
-                        <div class="kpi-label">転送速度</div>
-                        <div class="kpi-value" id="transferSpeed">未計測</div>
+                        <div class="kpi-label">霆｢騾・溷ｺｦ</div>
+                        <div class="kpi-value" id="transferSpeed">-</div>
                     </div>
                     <div class="kpi-item">
-                        <div class="kpi-label">圧縮率</div>
-                        <div class="kpi-value" id="compressionRatio">未計測</div>
+                        <div class="kpi-label">蝨ｧ邵ｮ邇・/div>
+                        <div class="kpi-value" id="compressionRatio">-</div>
                     </div>
                     <div class="kpi-item">
-                        <div class="kpi-label">アップロード成功率</div>
-                        <div class="kpi-value" id="uploadSuccessRate">未計測</div>
+                        <div class="kpi-label">繧｢繝・・繝ｭ繝ｼ繝画・蜉溽紫</div>
+                        <div class="kpi-value" id="uploadSuccessRate">-</div>
                     </div>
                     <div class="kpi-item">
-                        <div class="kpi-label">平均ファイルサイズ</div>
-                        <div class="kpi-value" id="avgFileSize">未計測</div>
+                        <div class="kpi-label">蟷ｳ蝮・ヵ繧｡繧､繝ｫ繧ｵ繧､繧ｺ</div>
+                        <div class="kpi-value" id="avgFileSize">-</div>
                     </div>
                 </div>
             </div>
 
-            <!-- 最近のアクティビティ -->
+            <!-- 譛霑代・繧｢繧ｯ繝・ぅ繝薙ユ繧｣ -->
             <div class="recent-activity">
-                <div class="activity-header">最近のアクティビティ</div>
+                <div class="activity-header">譛霑代・繧｢繧ｯ繝・ぅ繝薙ユ繧｣</div>
                 <ul class="activity-list">
                     <li class="activity-item">
-                        <div>新規ファイル「report.pdf」がアップロードされました</div>
-                        <div class="activity-time">5分前</div>
+                        <div>譁ｰ隕上ヵ繧｡繧､繝ｫ縲罫eport.pdf縲阪′繧｢繝・・繝ｭ繝ｼ繝峨＆繧後∪縺励◆</div>
+                        <div class="activity-time">5蛻・燕</div>
                     </li>
                     <li class="activity-item">
-                        <div>ユーザー「user01」がログインしました</div>
-                        <div class="activity-time">15分前</div>
+                        <div>繝ｦ繝ｼ繧ｶ繝ｼ縲蛍ser01縲阪′繝ｭ繧ｰ繧､繝ｳ縺励∪縺励◆</div>
+                        <div class="activity-time">15蛻・燕</div>
                     </li>
                     <li class="activity-item">
-                        <div>ファイル「data.xlsx」がダウンロードされました</div>
-                        <div class="activity-time">30分前</div>
+                        <div>繝輔ぃ繧､繝ｫ縲慧ata.xlsx縲阪′繝繧ｦ繝ｳ繝ｭ繝ｼ繝峨＆繧後∪縺励◆</div>
+                        <div class="activity-time">30蛻・燕</div>
                     </li>
                 </ul>
             </div>
         </div>
+
+        <!-- 縺昴・莉悶・繧ｻ繧ｯ繧ｷ繝ｧ繝ｳ・磯撼陦ｨ遉ｺ・・-->
+        <div id="files-section" class="content-section" style="display: none;">
+            <h2>繝輔ぃ繧､繝ｫ邂｡逅・/h2>
+            <p>繝輔ぃ繧､繝ｫ邂｡逅・ｩ溯・縺ｯ髢狗匱荳ｭ縺ｧ縺吶・/p>
+        </div>
+
+        <div id="users-section" class="content-section" style="display: none;">
+            <h2>繝ｦ繝ｼ繧ｶ繝ｼ邂｡逅・/h2>
+            <p>繝ｦ繝ｼ繧ｶ繝ｼ邂｡逅・ｩ溯・縺ｯ髢狗匱荳ｭ縺ｧ縺吶・/p>
+        </div>
+
+        <div id="logs-section" class="content-section" style="display: none;">
+            <h2>繝ｭ繧ｰ</h2>
+            <p>繝ｭ繧ｰ讖溯・縺ｯ髢狗匱荳ｭ縺ｧ縺吶・/p>
+        </div>
+
+        <div id="settings-section" class="content-section" style="display: none;">
+            <h2>險ｭ螳・/h2>
+            <p>險ｭ螳壽ｩ溯・縺ｯ髢狗匱荳ｭ縺ｧ縺吶・/p>
+        </div>
     </div>
 
-    <!-- 通知 -->
+    <!-- 騾夂衍 -->
     <div id="notification" class="notification"></div>
 
     <script>
-        // 認証チェック
+        // 隱崎ｨｼ繝√ぉ繝・け
         function checkAuth() {
             const token = localStorage.getItem('adminToken');
             if (!token) {
@@ -397,15 +401,34 @@
             return true;
         }
 
-        // ログアウト
+        // 繧ｻ繧ｯ繧ｷ繝ｧ繝ｳ蛻・ｊ譖ｿ縺・
+        function showSection(section) {
+            // 縺吶∋縺ｦ縺ｮ繧ｻ繧ｯ繧ｷ繝ｧ繝ｳ繧帝撼陦ｨ遉ｺ
+            document.querySelectorAll('.content-section').forEach(el => {
+                el.style.display = 'none';
+            });
+            
+            // 縺吶∋縺ｦ縺ｮ繝翫ン繧｢繧､繝・Β縺九ｉ active 繧ｯ繝ｩ繧ｹ繧貞炎髯､
+            document.querySelectorAll('.nav-item').forEach(el => {
+                el.classList.remove('active');
+            });
+            
+            // 驕ｸ謚槭＆繧後◆繧ｻ繧ｯ繧ｷ繝ｧ繝ｳ繧定｡ｨ遉ｺ
+            document.getElementById(`${section}-section`).style.display = 'block';
+            
+            // 驕ｸ謚槭＆繧後◆繝翫ン繧｢繧､繝・Β縺ｫ active 繧ｯ繝ｩ繧ｹ繧定ｿｽ蜉
+            event.currentTarget.classList.add('active');
+        }
+
+        // 繝ｭ繧ｰ繧｢繧ｦ繝・
         function logout() {
-            if (confirm('ログアウトしますか？')) {
+            if (confirm('繝ｭ繧ｰ繧｢繧ｦ繝医＠縺ｾ縺吶°・・)) {
                 localStorage.removeItem('adminToken');
                 window.location.href = '/admin-login.html';
             }
         }
 
-        // 通知表示
+        // 騾夂衍陦ｨ遉ｺ
         function showNotification(message, type = 'info') {
             const notification = document.getElementById('notification');
             notification.textContent = message;
@@ -416,12 +439,12 @@
             }, 3000);
         }
 
-        // 統計情報の読み込み
+        // 邨ｱ險域ュ蝣ｱ縺ｮ隱ｭ縺ｿ霎ｼ縺ｿ
         async function loadStats() {
             try {
                 const token = localStorage.getItem('adminToken');
                 
-                // Stats APIを呼び出し
+                // Stats API繧貞他縺ｳ蜃ｺ縺・
                 const response = await fetch('/api/stats', {
                     headers: {
                         'Authorization': `Bearer ${token}`
@@ -434,16 +457,16 @@
 
                 const data = await response.json();
 
-                // 基本統計の更新（実際のAPIレスポンス形式に合わせる）
+                // 蝓ｺ譛ｬ邨ｱ險医・譖ｴ譁ｰ・亥ｮ滄圀縺ｮAPI繝ｬ繧ｹ繝昴Φ繧ｹ蠖｢蠑上↓蜷医ｏ縺帙ｋ・・
                 if (data.ok) {
-                    // totalUsersは固定値3を使用
+                    // totalUsers縺ｯ蝗ｺ螳壼､3繧剃ｽｿ逕ｨ
                     document.getElementById('totalUsers').textContent = '3';
-                    // ファイル数
+                    // 繝輔ぃ繧､繝ｫ謨ｰ
                     document.getElementById('totalFiles').textContent = data.filesTotal || '0';
-                    // 今日のアップロード数
+                    // 莉頑律縺ｮ繧｢繝・・繝ｭ繝ｼ繝画焚
                     document.getElementById('todayUploads').textContent = data.uploadsLast24h || '0';
                     
-                    // ストレージ使用量の計算と表示
+                    // 繧ｹ繝医Ξ繝ｼ繧ｸ菴ｿ逕ｨ驥上・險育ｮ励→陦ｨ遉ｺ
                     const sizeInBytes = data.sizeTotalBytes || 0;
                     let storageText = '0 B';
                     if (sizeInBytes > 0) {
@@ -460,7 +483,7 @@
                     document.getElementById('storageUsed').textContent = storageText;
                 }
 
-                // KPI情報の取得（別エンドポイント）
+                // KPI諠・ｱ縺ｮ蜿門ｾ暦ｼ亥挨繧ｨ繝ｳ繝峨・繧､繝ｳ繝茨ｼ・
                 try {
                     const kpiResponse = await fetch('/api/kpi/get', {
                         headers: {
@@ -471,65 +494,65 @@
                     if (kpiResponse.ok) {
                         const kpiData = await kpiResponse.json();
                         
-                        // KPIデータの更新（現在はデフォルト値を表示）
-                        // 転送速度
+                        // KPI繝・・繧ｿ縺ｮ譖ｴ譁ｰ・育樟蝨ｨ縺ｯ繝・ヵ繧ｩ繝ｫ繝亥､繧定｡ｨ遉ｺ・・
+                        // 霆｢騾・溷ｺｦ
                         const transferSpeedEl = document.getElementById('transferSpeed');
                         if (transferSpeedEl) {
-                            transferSpeedEl.textContent = '未計測';
+                            transferSpeedEl.textContent = '譛ｪ險域ｸｬ';
                         }
                         
-                        // 圧縮率
+                        // 蝨ｧ邵ｮ邇・
                         const compressionRatioEl = document.getElementById('compressionRatio');
                         if (compressionRatioEl) {
-                            compressionRatioEl.textContent = '未計測';
+                            compressionRatioEl.textContent = '譛ｪ險域ｸｬ';
                         }
                         
-                        // アップロード成功率
+                        // 繧｢繝・・繝ｭ繝ｼ繝画・蜉溽紫
                         const uploadSuccessRateEl = document.getElementById('uploadSuccessRate');
                         if (uploadSuccessRateEl) {
                             const uploadsTotal = kpiData.counters?.uploadsTotal || 0;
                             if (uploadsTotal > 0) {
-                                // 実際のデータがある場合は100%と表示
+                                // 螳滄圀縺ｮ繝・・繧ｿ縺後≠繧句ｴ蜷医・100%縺ｨ陦ｨ遉ｺ
                                 uploadSuccessRateEl.textContent = '100.0%';
                             } else {
-                                uploadSuccessRateEl.textContent = '未計測';
+                                uploadSuccessRateEl.textContent = '譛ｪ險域ｸｬ';
                             }
                         }
                         
-                        // 平均ファイルサイズ
+                        // 蟷ｳ蝮・ヵ繧｡繧､繝ｫ繧ｵ繧､繧ｺ
                         const avgFileSizeEl = document.getElementById('avgFileSize');
                         if (avgFileSizeEl) {
-                            avgFileSizeEl.textContent = '未計測';
+                            avgFileSizeEl.textContent = '譛ｪ險域ｸｬ';
                         }
                     }
                 } catch (kpiError) {
-                    console.log('KPI取得エラー（無視）:', kpiError);
-                    // KPIエラーは無視（オプショナルなため）
+                    console.log('KPI蜿門ｾ励お繝ｩ繝ｼ・育┌隕厄ｼ・', kpiError);
+                    // KPI繧ｨ繝ｩ繝ｼ縺ｯ辟｡隕厄ｼ医が繝励す繝ｧ繝翫Ν縺ｪ縺溘ａ・・
                 }
 
             } catch (error) {
-                console.error('統計情報の読み込みエラー:', error);
-                // デフォルト値を設定
+                console.error('邨ｱ險域ュ蝣ｱ縺ｮ隱ｭ縺ｿ霎ｼ縺ｿ繧ｨ繝ｩ繝ｼ:', error);
+                // 繝・ヵ繧ｩ繝ｫ繝亥､繧定ｨｭ螳・
                 document.getElementById('totalUsers').textContent = '3';
                 document.getElementById('totalFiles').textContent = '0';
                 document.getElementById('todayUploads').textContent = '0';
                 document.getElementById('storageUsed').textContent = '0 B';
                 
-                // KPI要素が存在する場合はデフォルト値を設定
+                // KPI隕∫ｴ縺悟ｭ伜惠縺吶ｋ蝣ｴ蜷医・繝・ヵ繧ｩ繝ｫ繝亥､繧定ｨｭ螳・
                 const kpiElements = ['transferSpeed', 'compressionRatio', 'uploadSuccessRate', 'avgFileSize'];
                 kpiElements.forEach(id => {
                     const el = document.getElementById(id);
                     if (el) {
-                        el.textContent = 'エラー';
+                        el.textContent = '繧ｨ繝ｩ繝ｼ';
                     }
                 });
             }
         }
 
-        // 初期化
+        // 蛻晄悄蛹・
         if (checkAuth()) {
             loadStats();
-            // 30秒ごとに自動更新
+            // 30遘偵＃縺ｨ縺ｫ閾ｪ蜍墓峩譁ｰ
             setInterval(loadStats, 30000);
         }
     </script>

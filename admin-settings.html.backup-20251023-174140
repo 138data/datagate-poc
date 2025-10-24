@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DataGate — システム設定</title>
+  <style>
+    :root{--primary:#667eea;--bg:#f7f7fb;--card:#fff;--muted:#6b7280}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:"Segoe UI",Tahoma,Arial,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:24px;min-height:100vh}
+    .wrap{max-width:980px;margin:0 auto;background:var(--card);border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,.25);padding:28px;position:relative}
+    h1{margin:0 0 4px;font-size:28px;color:#111}
+    .sub{color:var(--muted);margin:0 0 24px}
+    .grid{display:grid;grid-template-columns:1fr;gap:18px}
+    @media (min-width:900px){.grid{grid-template-columns:1fr 1fr}}
+    .card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:18px}
+    .card h2{font-size:18px;margin:0 0 8px;color:#111}
+    .help{color:var(--muted);font-size:12px;margin-top:4px}
+    label{display:block;font-weight:600;margin:12px 0 6px}
+    input,select,textarea{width:100%;padding:10px 12px;border:1.5px solid #e5e7eb;border-radius:10px;font-size:14px}
+    textarea{min-height:88px}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+    button, a.ghost{appearance:none;border:none;border-radius:10px;padding:12px 16px;font-weight:700;cursor:pointer;transition:all 0.2s; text-decoration: none; display: inline-block; text-align: center;}
+    button:hover, a.ghost:hover{opacity:0.9;transform:translateY(-1px)}
+    button:active, a.ghost:active{transform:translateY(0)}
+    .primary{background:var(--primary);color:#fff}
+    .ghost{background:#eef2ff;color:#3730a3}
+    .secondary{background:#f3f4f6;color:#1f2937}
+    .danger{background:#fee2e2;color:#991b1b}
+    .success{background:#d1fae5;color:#065f46;border:2px solid #10b981;font-weight:700;font-size:16px;padding:16px 20px}
+    .warn{background:#fff7ed;color:#9a3412;border:1px solid #fed7aa}
+    .error{background:#fee2e2;color:#991b1b;border:2px solid #ef4444;font-weight:700;font-size:16px;padding:16px 20px}
+    .msg{position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:9999;min-width:400px;max-width:600px;padding:16px 24px;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,0.2);display:none;animation:slideDown 0.3s ease}
+    @keyframes slideDown{from{opacity:0;transform:translate(-50%,-20px)}to{opacity:1;transform:translate(-50%,0)}}
+    .footer{margin-top:22px;color:#6b7280;font-size:12px}
+    /* ▼▼▼ 追加したCSS ▼▼▼ */
+    .info-box {
+      background: #f5f5f5;
+      padding: 15px;
+      border-radius: 8px;
+      margin: 15px 0;
+      font-size: 14px;
+      line-height: 1.8;
+    }
+    .policy-summary {
+      background: #f5f5f5;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    .policy-summary h3 {
+      margin-top: 0;
+      color: #333;
+      font-size: 16px;
+      margin-bottom: 12px;
+    }
+    .policy-summary ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .policy-summary li {
+      padding: 6px 0;
+      font-size: 14px;
+      color: #555;
+    }
+    .policy-info {
+      background: #eef2ff;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      border-left: 4px solid var(--primary);
+    }
+    .policy-info p {
+      margin: 8px 0;
+      font-size: 14px;
+      color: #333;
+    }
+    .policy-info strong {
+      color: var(--primary);
+    }
+    /* ▲▲▲ 追加したCSS ▲▲▲ */
+  </style>
+</head>
+<body>
+  <div id="msg" class="msg"></div>
+  <div class="wrap">
+    <h1>⚙️ システム設定</h1>
+    <p class="sub">サイト情報 / セキュリティ / メール / バックアップ</p>
+    <div class="grid">
+      <section class="card">
+        <h2>1) 全般</h2>
+        <label>サイト名</label>
+        <input id="siteName" placeholder="例) 138DataGate">
+        <label>ロゴURL</label>
+        <input id="logoUrl" placeholder="https://.../logo.png">
+        <label>お知らせ（バナー/注記など）</label>
+        <textarea id="notice" placeholder="メンテナンス予定: ..."></textarea>
+      </section>
+      <section class="card">
+        <h2>2) セキュリティ</h2>
+        <div class="row">
+          <div>
+            <label>セッション有効期限（分）</label>
+            <input id="sessionTimeout" type="number" min="5" step="5" placeholder="60">
+          </div>
+          <div>
+            <label>JWT有効期限（分）</label>
+            <input id="jwtExpiry" type="number" min="5" step="5" placeholder="60">
+          </div>
+        </div>
+        <label>パスワードポリシー</label>
+        <select id="passwordPolicy">
+          <option value="low">Low（英数字6文字以上）</option>
+          <option value="medium">Medium（英大小・数字8文字以上）</option>
+          <option value="high">High（英大小・数字・記号12文字以上）</option>
+        </select>
+        <label>IPアクセス許可リスト（カンマ区切り）</label>
+        <input id="ipAllowlist" placeholder="203.0.113.10, 198.51.100.42">
+      </section>
+      <section class="card">
+        <h2>3) メール</h2>
+        <label>送信方式</label>
+        <select id="mailProvider">
+          <option value="smtp">SMTP</option>
+        </select>
+        <div id="smtpBlock" style="display:none">
+          <div class="row">
+            <div>
+              <label>SMTPホスト</label>
+              <input id="smtpHost" placeholder="smtp.example.com">
+            </div>
+            <div>
+              <label>ポート</label>
+              <input id="smtpPort" type="number" placeholder="587">
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label>ユーザー名</label>
+              <input id="smtpUser" placeholder="user@example.com">
+            </div>
+            <div>
+              <label>パスワード</label>
+              <input id="smtpPass" type="password" placeholder="••••••••">
+            </div>
+          </div>
+          <label>セキュリティ</label>
+          <select id="smtpSecure">
+            <option value="starttls">STARTTLS (587)</option>
+            <option value="ssl">SSL/TLS (465)</option>
+            <option value="plain">PLAIN (25)</option>
+          </select>
+          <label>送信元アドレス</label>
+          <input id="smtpFrom" placeholder="no-reply@example.com">
+          <div class="btns">
+            <button class="ghost" id="btnTestMail">テスト送信</button>
+            <button class="ghost" id="btnSmtpHealth">SMTP接続確認</button>
+          </div>
+        </div>
+        <p class="help">※ APIキーなどの機微情報はサーバ側の環境変数を使用</p>
+      </section>
+      <section class="card">
+        <h2>4) 📂 ファイル保持ポリシー</h2>
+        <label>ファイル保持期間（日数）</label>
+        <input type="number" id="fileRetentionDays" value="7" min="1" max="30" readonly>
+        <small>アップロードされたファイルが自動削除されるまでの日数</small>
+        <div class="info-box">
+          <strong>現在の設定:</strong> 7日後に自動削除<br>
+          <strong>暗号化方式:</strong> AES-256-GCM<br>
+          <strong>削除方式:</strong> 完全削除（復元不可）<br>
+          <strong>実行時刻:</strong> 毎日午前2時（UTC）
+        </div>
+        <div class="btns">
+          <button class="ghost" id="btnTestCleanup">クリーンアップテスト</button>
+        </div>
+      </section>
+      <section class="card">
+        <h2>5) バックアップ / リストア</h2>
+        <div class="btns">
+          <button class="ghost" id="btnExport">設定をエクスポート</button>
+          <input type="file" id="importFile" style="display:none" accept="application/json">
+          <button class="danger" id="btnImport">設定をインポート</button>
+        </div>
+        <p class="help">設定は JSON としてバックアップできます</p>
+      </section>
+      <section class="card">
+        <h2>6) 🔒 セキュリティポリシー</h2>
+        <div class="policy-summary">
+          <h3>現在のセキュリティ設定</h3>
+          <ul>
+            <li>✅ ファイル暗号化: AES-256-GCM</li>
+            <li>✅ メタデータ暗号化: 有効</li>
+            <li>✅ 自動削除: 7日後</li>
+            <li>✅ ファイルID認証: 有効</li>
+            <li>✅ 通信暗号化: TLS1.3</li>
+            <li>✅ アクセスログ: 記録中</li>
+            <li>✅ レート制限: 有効</li>
+          </ul>
+        </div>
+        <div class="policy-info">
+          <p><strong>📄 詳細なセキュリティポリシー</strong></p>
+          <p>138DataGateのセキュリティ対策、データ保護方針、運用体制について詳しく記載しています。</p>
+          <p><strong>👥 顧客向け説明資料</strong></p>
+          <p>お客様にわかりやすく、5つの安心ポイントやPPAPとの比較を説明しています。</p>
+        </div>
+        <div class="btns">
+          <a href="/docs/security-policy.md" target="_blank" class="ghost">
+            📄 完全なポリシーを表示
+          </a>
+          <a href="/docs/security-for-clients.md" target="_blank" class="ghost">
+            👥 顧客向け説明資料
+          </a>
+        </div>
+      </section>
+    </div>
+    <div class="btns">
+      <button class="primary" id="btnSave">保存</button>
+      <button class="ghost" id="btnReload">最新を再読込</button>
+      <button class="warn" id="btnReset">🔄 デフォルトに戻す</button>
+    </div>
+    <div class="footer">Storage: <span id="storageType">—</span> / 最終更新: <span id="updatedAt">—</span></div>
+  </div>
+<script>
+(function(){
+  console.log('✅ Script loaded');
+  const $=id=>document.getElementById(id);
+  const msg=$('msg');
+  const DEFAULTS={siteName:'138DataGate',logoUrl:'',notice:'',sessionTimeout:60,jwtExpiry:60,passwordPolicy:'medium',ipAllowlist:[],mailProvider:'smtp',smtpHost:'',smtpPort:587,smtpUser:'',smtpPass:'',smtpSecure:'starttls',smtpFrom:''};
+  let msgTimeout;
+
+  function show(type,text){
+    console.log('📢 Show message:', type, text);
+    if(msgTimeout)clearTimeout(msgTimeout);
+    msg.className='msg '+(type==='ok'?'success':(type==='warn'?'warn':'error'));
+    msg.textContent=text;
+    msg.style.display='block';
+    console.log('✅ Message displayed, will hide in 8 seconds');
+    msgTimeout=setTimeout(()=>{
+      msg.style.display='none';
+      console.log('🔄 Message hidden');
+    },8000);
+  }
+
+  function handleAuthError(res) {
+    if (res.status === 401 || res.status === 403) {
+      console.error('❌ Authentication/Authorization Error');
+      localStorage.removeItem('adminToken');
+      show('ng', '認証エラー。2秒後にログインページに移動します。');
+      setTimeout(() => window.location.href = '/admin-login.html', 2000);
+      return true;
+    }
+    return false;
+  }
+
+  function toggle(){
+    $('smtpBlock').style.display = 'block';
+    const healthCheckBtn = $('btnSmtpHealth');
+    if(healthCheckBtn) healthCheckBtn.style.display = 'inline-block';
+  }
+
+  async function load(){
+    console.log('🔄 Loading settings...');
+    const token = localStorage.getItem('adminToken');
+    if (!token) {
+      show('ng', '認証トークンがありません。ログインしてください。');
+      setTimeout(() => window.location.href = '/admin-login.html', 2000);
+      return;
+    }
+    try{
+      const res = await fetch('/api/settings/get', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      console.log('📡 Response status:', res.status);
+      if (handleAuthError(res)) return;
+      if(!res.ok)throw new Error('設定の取得に失敗');
+
+      const d=await res.json();
+      console.log('📦 Data:', d);
+      $('siteName').value=d.siteName||'';
+      $('logoUrl').value=d.logoUrl||'';
+      $('notice').value=d.notice||'';
+      $('sessionTimeout').value=d.sessionTimeout??60;
+      $('jwtExpiry').value=d.jwtExpiry??60;
+      $('passwordPolicy').value=d.passwordPolicy||'medium';
+      $('ipAllowlist').value=(d.ipAllowlist||[]).join(', ');
+      $('mailProvider').value='smtp';
+      $('smtpHost').value=d.smtpHost||'';
+      $('smtpPort').value=d.smtpPort||587;
+      $('smtpUser').value=d.smtpUser||'';
+      $('smtpPass').value='';
+      $('smtpSecure').value=d.smtpSecure||'starttls';
+      $('smtpFrom').value=d.smtpFrom||'';
+      $('storageType').textContent=d.storageType||'-';
+      $('updatedAt').textContent=d.updatedAt||'-';
+      toggle();
+      console.log('✅ Settings loaded, showing message...');
+      show('ok','✅ 設定を読み込みました');
+    }catch(e){
+      console.error('❌ Error:', e);
+      show('ng','❌ '+e.message);
+    }
+  }
+
+  function reset(){
+    console.log('🔄 Reset to defaults');
+    if(!confirm('デフォルト値に戻しますか？'))return;
+    $('siteName').value=DEFAULTS.siteName;
+    $('logoUrl').value=DEFAULTS.logoUrl;
+    $('notice').value=DEFAULTS.notice;
+    $('sessionTimeout').value=DEFAULTS.sessionTimeout;
+    $('jwtExpiry').value=DEFAULTS.jwtExpiry;
+    $('passwordPolicy').value=DEFAULTS.passwordPolicy;
+    $('ipAllowlist').value=DEFAULTS.ipAllowlist.join(', ');
+    $('mailProvider').value=DEFAULTS.mailProvider;
+    $('smtpHost').value=DEFAULTS.smtpHost;
+    $('smtpPort').value=DEFAULTS.smtpPort;
+    $('smtpUser').value=DEFAULTS.smtpUser;
+    $('smtpPass').value=DEFAULTS.smtpPass;
+    $('smtpSecure').value=DEFAULTS.smtpSecure;
+    $('smtpFrom').value=DEFAULTS.smtpFrom;
+    toggle();
+    show('ok','✅ デフォルト値に戻しました');
+  }
+
+  async function save(){
+    console.log('💾 Saving...');
+    const token = localStorage.getItem('adminToken');
+    if (!token) {
+      show('ng', '認証トークンがありません。ログインしてください。');
+      setTimeout(() => window.location.href = '/admin-login.html', 2000);
+      return;
+    }
+    const payload={
+      siteName:$('siteName').value.trim(),
+      logoUrl:$('logoUrl').value.trim(),
+      notice:$('notice').value.trim(),
+      sessionTimeout:Number($('sessionTimeout').value||60),
+      jwtExpiry:Number($('jwtExpiry').value||60),
+      passwordPolicy:$('passwordPolicy').value,
+      ipAllowlist:$('ipAllowlist').value.split(',').map(s=>s.trim()).filter(Boolean),
+      mailProvider:'smtp',
+      smtpHost:$('smtpHost').value.trim(),
+      smtpPort:Number($('smtpPort').value||587),
+      smtpUser:$('smtpUser').value.trim(),
+      smtpPass:$('smtpPass').value.trim()||undefined,
+      smtpSecure:$('smtpSecure').value,
+      smtpFrom:$('smtpFrom').value.trim()
+    };
+    try{
+      const res=await fetch('/api/settings/update',{
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body:JSON.stringify(payload)
+      });
+      if (handleAuthError(res)) return;
+      const d=await res.json();
+      console.log('📡 Save response:', d);
+      if(!res.ok||!d.success)throw new Error(d.error||'保存失敗');
+      $('updatedAt').textContent=d.updatedAt||'-';
+      $('storageType').textContent=d.storageType||'-';
+      show('ok','✅ 設定を保存しました');
+    }catch(e){
+      console.error('❌ Save error:', e);
+      show('ng','❌ '+e.message);
+    }
+  }
+
+  async function exp(){
+    console.log('📤 Exporting...');
+    const token = localStorage.getItem('adminToken');
+    if (!token) {
+      show('ng', '認証トークンがありません。ログインしてください。');
+      setTimeout(() => window.location.href = '/admin-login.html', 2000);
+      return;
+    }
+    try{
+      const res=await fetch('/api/settings/export', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (handleAuthError(res)) return;
+      if(!res.ok){show('ng','❌ エクスポート失敗');return;}
+      const blob=await res.blob();
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      a.href=url;
+      a.download='datagate-settings.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      show('ok','✅ エクスポート完了');
+    }catch(e){
+      console.error('❌ Export error:', e);
+      show('ng','❌ エクスポート失敗');
+    }
+  }
+
+  async function imp(e){
+    const file=e.target.files[0];
+    if(!file)return;
+    console.log('📥 Importing:', file.name);
+    const token = localStorage.getItem('adminToken');
+    if (!token) {
+      show('ng', '認証トークンがありません。ログインしてください。');
+      setTimeout(() => window.location.href = '/admin-login.html', 2000);
+      return;
+    }
+    const text=await file.text();
+    try{
+      const res=await fetch('/api/settings/import',{
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body:text
+      });
+      if (handleAuthError(res)) return;
+      const d=await res.json();
+      if(!res.ok||!d.success)throw new Error(d.error||'インポート失敗');
+      show('ok','✅ インポート完了');
+      load();
+    }catch(err){
+      console.error('❌ Import error:', err);
+      show('ng','❌ '+err.message);
+    }
+  }
+
+  async function testMail(){
+    const to=prompt('送信先メールアドレス');
+    if(!to)return;
+    console.log('📧 Test mail to:', to);
+    const token = localStorage.getItem('adminToken');
+    if (!token) {
+      show('ng', '認証トークンがありません。ログインしてください。');
+      setTimeout(() => window.location.href = '/admin-login.html', 2000);
+      return;
+    }
+    try{
+      const res=await fetch('/api/settings/test-mail',{
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body:JSON.stringify({to})
+      });
+      if (handleAuthError(res)) return;
+      const d=await res.json();
+      console.log('📧 Mail response:', d);
+      if(!res.ok||!d.success)throw new Error(d.error||'送信失敗');
+      show('ok','✅ '+d.message);
+    }catch(e){
+      console.error('❌ Mail error:', e);
+      show('ng','❌ '+e.message);
+    }
+  }
+
+  async function checkSmtp() {
+    console.log('🩺 SMTP接続確認を開始...');
+    show('ok', '⏳ SMTPサーバーへの接続を確認しています...');
+    try {
+      const token = localStorage.getItem('adminToken');
+      if (!token) {
+        throw new Error('認証トークンが見つかりません。再ログインしてください。');
+      }
+      const res = await fetch('/api/health/smtp', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (handleAuthError(res)) return;
+      const d = await res.json();
+      console.log('🩺 SMTP接続確認の結果:', d);
+      if (!res.ok || !d.success) {
+        const errorMsg = d.health?.details?.map(detail => detail.message).join(', ') || d.error || '接続に失敗しました';
+        throw new Error(errorMsg);
+      }
+      const responseTime = d.health?.checks?.connection?.responseTime || '不明';
+      const overallStatus = d.health?.overall || 'unknown';
+      if (overallStatus === 'healthy') {
+        show('ok', `✅ SMTP接続が正常です（応答時間: ${responseTime}）`);
+      } else if (overallStatus === 'degraded') {
+        show('warn', `⚠️ SMTP接続に問題があります（応答時間: ${responseTime}）`);
+      } else {
+        show('error', '❌ SMTP接続に失敗しました');
+      }
+    } catch (e) {
+      console.error('SMTP接続確認エラー:', e);
+      show('error', '❌ ' + e.message);
+    }
+  }
+
+  console.log('🔗 Attaching event listeners...');
+  $('mailProvider').addEventListener('change',toggle);
+  $('btnReload').addEventListener('click',()=>{console.log('🔄 Reload clicked');load();});
+  $('btnSave').addEventListener('click',()=>{console.log('💾 Save clicked');save();});
+  $('btnReset').addEventListener('click',()=>{console.log('🔄 Reset clicked');reset();});
+  $('btnExport').addEventListener('click',()=>{console.log('📤 Export clicked');exp();});
+  $('btnImport').addEventListener('click',()=>$('importFile').click());
+  $('importFile').addEventListener('change',imp);
+  $('btnTestMail').addEventListener('click',()=>{console.log('📧 Test mail clicked');testMail();});
+  $('btnSmtpHealth').addEventListener('click', ()=>{console.log('🩺 SMTP Health Check clicked'); checkSmtp();});
+
+  // ▼▼▼ 追加したJavaScript ▼▼▼
+  // クリーンアップテスト実行
+  async function testCleanup() {
+    console.log('🧹 クリーンアップテスト開始...');
+    show('ok', '⏳ クリーンアップジョブを実行しています...');
+    try {
+      const token = localStorage.getItem('adminToken');
+      if (!token) {
+        throw new Error('認証トークンが見つかりません。再ログインしてください。');
+      }
+      // 開発環境では管理者トークンで実行可能
+      const res = await fetch('/api/cron/cleanup', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (handleAuthError(res)) return;
+      const d = await res.json();
+      console.log('🧹 クリーンアップ結果:', d);
+      if (!res.ok || !d.success) {
+        throw new Error(d.error || 'クリーンアップに失敗しました');
+      }
+      const summary = d.summary || {};
+      show('ok', `✅ クリーンアップ完了（削除: ${summary.deleted || 0}件、スキップ: ${summary.skipped || 0}件）`);
+    } catch (e) {
+      console.error('クリーンアップエラー:', e);
+      show('error', '❌ ' + e.message);
+    }
+  }
+  console.log('🔧 Attaching cleanup event listener...');
+  $('btnTestCleanup').addEventListener('click', () => {
+    console.log('🧹 Cleanup Test clicked');
+    testCleanup();
+  });
+  // ▲▲▲ 追加したJavaScript ▲▲▲
+
+  console.log('✅ Event listeners attached');
+  console.log('🔄 Initial load...');
+  load();
+})();
+</script>
+</body>
+</html>
