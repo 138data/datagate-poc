@@ -6,6 +6,12 @@
       "destination": "/index.html"
     }
   ],
+  "routes": [
+    {
+      "src": "/test.html",
+      "dest": "/public/test.html"
+    }
+  ],
   "crons": [
     {
       "path": "/api/cron/cleanup",
