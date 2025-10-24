@@ -4,12 +4,10 @@
     {
       "source": "/",
       "destination": "/index.html"
-    }
-  ],
-  "routes": [
+    },
     {
-      "src": "/test.html",
-      "dest": "/public/test.html"
+      "source": "/test.html",
+      "destination": "/public/test.html"
     }
   ],
   "crons": [
