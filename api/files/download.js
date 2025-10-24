@@ -28,7 +28,7 @@ module.exports = async (req, res) => {
     });
   }
 
-  // パラメータ取得
+// パラメータ取得
   let fileId, otp, action;
 
   if (req.method === 'GET') {
@@ -37,9 +37,9 @@ module.exports = async (req, res) => {
     action = req.query.action;
   } else {
     const body = req.body || {};
-    fileId = body.fileId;
-    otp = body.otp;
-    action = body.action;
+    fileId = body.fileId || body.id || req.query.id; // ⭐ 修正: id も受け入れる
+    otp = body.otp || req.query.otp;                 // ⭐ 修正: query からも取得
+    action = body.action || req.query.action;        // ⭐ 修正: query からも取得
   }
 
   console.log('[download] Request:', { fileId, otp, action, method: req.method });
