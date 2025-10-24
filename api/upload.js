@@ -1,14 +1,11 @@
-// api/upload.js
-// DataGate Upload API - KV + FormData + Dynamic URL
-// Phase 22 hotfix
-
+// api/upload.js - Phase 22対応版
 const crypto = require('crypto');
 const multer = require('multer');
 
-// --- KVクライアントの安全取得（型チェック付き） ---
+// --- KVクライアントの安全取得 ---
 let kvClient = null;
 try {
-  const mod = require('@vercel/kv');           // CJS: { kv: {...} }
+  const mod = require('@vercel/kv');
   if (mod && mod.kv && typeof mod.kv.set === 'function') {
     kvClient = mod.kv;
   }
@@ -18,7 +15,7 @@ try {
 
 // --- 設定値 ---
 const FILE_EXPIRY_DAYS = 7;
-const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE || `${10 * 1024 * 1024}`, 10); // 既定10MB
+const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE || `${50 * 1024 * 1024}`, 10); // 50MB
 
 // --- 受信（FormData）を正式にパース ---
 const upload = multer({
@@ -26,7 +23,7 @@ const upload = multer({
   limits: { fileSize: MAX_FILE_SIZE }
 }).single('file');
 
-// --- メモリフォールバック（download.jsもglobal.fileStorage参照可） ---
+// --- メモリフォールバック ---
 const memoryStorage = new Map();
 global.fileStorage = global.fileStorage || new Map();
 
@@ -35,7 +32,9 @@ module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  
   if (req.method === 'OPTIONS') return res.status(200).end();
+  
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, error: 'Method not allowed. Use POST.' });
   }
@@ -46,11 +45,37 @@ module.exports = async (req, res) => {
       upload(req, res, (err) => (err ? reject(err) : resolve()));
     });
   } catch (e) {
-    return res.status(400).json({ success: false, error: e.message || 'Invalid multipart/form-data' });
+    return res.status(400).json({ 
+      success: false, 
+      error: e.message || 'Invalid multipart/form-data' 
+    });
   }
 
+  // ファイルチェック
   if (!req.file || !req.file.buffer) {
-    return res.status(400).json({ success: false, error: 'ファイルが見つかりません' });
+    return res.status(400).json({ 
+      success: false, 
+      error: 'ファイルが見つかりません' 
+    });
+  }
+
+  // 受信者メールアドレスを取得（Phase 22で追加）
+  const recipientEmail = req.body.recipientEmail;
+  
+  if (!recipientEmail) {
+    return res.status(400).json({ 
+      success: false, 
+      error: '受信者メールアドレスが必要です' 
+    });
+  }
+
+  // メールアドレスの簡易バリデーション
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(recipientEmail)) {
+    return res.status(400).json({ 
+      success: false, 
+      error: '有効なメールアドレスを入力してください' 
+    });
   }
 
   const buffer = req.file.buffer;
@@ -67,27 +92,29 @@ module.exports = async (req, res) => {
     fileSize: buffer.length,
     mimeType,
     otp,
+    recipientEmail, // Phase 22で追加
     uploadTime: new Date().toISOString(),
     downloadCount: 0,
     maxDownloads: 3,
     expiryTime
   };
 
-  // 保存（まずKV、なければメモリ）—— kv.setが"関数"かを必ず確認
+  // 保存（まずKV、なければメモリ）
   try {
     if (kvClient && typeof kvClient.set === 'function') {
       const ttl = FILE_EXPIRY_DAYS * 24 * 60 * 60;
       await kvClient.set(`file:${fileId}:meta`, JSON.stringify(fileInfo), { ex: ttl });
       await kvClient.set(`file:${fileId}:data`, buffer.toString('base64'), { ex: ttl });
+      console.log('[upload] Saved to KV:', { fileId, recipient: recipientEmail });
     } else {
-      // フォールバック：メモリ（download.js側も対応あり）
+      // フォールバック：メモリ
       fileInfo.fileData = buffer;
       memoryStorage.set(fileId, fileInfo);
       global.fileStorage.set(fileId, fileInfo);
-      console.log('[Upload] KV unavailable -> using memory storage');
+      console.log('[upload] KV unavailable -> using memory storage');
     }
   } catch (e) {
-    console.error('[Upload] Storage error:', e);
+    console.error('[upload] Storage error:', e);
     return res.status(500).json({
       success: false,
       error: 'ファイルのアップロードに失敗しました',
@@ -95,21 +122,50 @@ module.exports = async (req, res) => {
     });
   }
 
-  // ベースURLはヘッダから動的に生成（本番URL変更に追従）
+  // ベースURLを動的生成
   const proto = req.headers['x-forwarded-proto'] || 'https';
-  const host  = req.headers['x-forwarded-host']  || req.headers.host;
+  const host = req.headers['x-forwarded-host'] || req.headers.host;
   const baseUrl = `${proto}://${host}`;
+  const downloadUrl = `${baseUrl}/download.html?id=${encodeURIComponent(fileId)}`;
 
-  const downloadLink = `${baseUrl}/download.html?id=${encodeURIComponent(fileId)}`;
+  // send-link APIを呼び出し（Phase 22で追加）
+  try {
+    const sendLinkUrl = `${baseUrl}/api/files/send-link`;
+    
+    console.log('[upload] Calling send-link API:', sendLinkUrl);
+    
+    const sendLinkResponse = await fetch(sendLinkUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fileId,
+        to: recipientEmail,
+        message: ''
+      })
+    });
 
+    const sendLinkResult = await sendLinkResponse.json();
+    
+    if (sendLinkResult.success) {
+      console.log('[upload] Email sent successfully to:', recipientEmail);
+    } else {
+      console.error('[upload] Email sending failed:', sendLinkResult.error);
+    }
+  } catch (emailError) {
+    console.error('[upload] Email sending error:', emailError.message);
+    // メール送信エラーでもアップロードは成功として扱う
+  }
+
+  // レスポンス
   return res.status(200).json({
     success: true,
     message: 'ファイルが正常にアップロードされました',
     fileId,
-    downloadLink,
+    downloadUrl,
     otp,
     fileName: fileInfo.fileName,
     fileSize: fileInfo.fileSize,
+    recipientEmail, // Phase 22で追加
     storageType: kvClient ? 'KV Storage (Persistent)' : 'Memory (Temporary)',
     expiryDate: fileInfo.expiryTime
   });
