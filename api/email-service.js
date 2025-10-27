@@ -274,17 +274,22 @@ async function sendEmail(to, subject, html, text, options = {}) {
 }
 
 // ダウンロードリンク通知メールを送信
-async function sendDownloadLinkEmail(recipientEmail, downloadLink, otp, expiresInDays = 7) {
+async function sendDownloadLinkEmail({ to, downloadUrl, otp, expiresAt }) {
   try {
-    const { subject, html, text } = createDownloadEmailTemplate(downloadLink, otp, expiresInDays);
+    // expiresAtから日数を計算
+    const expiresInDays = expiresAt 
+      ? Math.ceil((new Date(expiresAt) - new Date()) / (1000 * 60 * 60 * 24))
+      : 7;
     
-    const result = await sendEmail(recipientEmail, subject, html, text);
-    
+    const { subject, html, text } = createDownloadEmailTemplate(downloadUrl, otp, expiresInDays);
+
+    const result = await sendEmail(to, subject, html, text);
+
     return {
       success: true,
       ...result
     };
-    
+
   } catch (error) {
     console.error('Failed to send download link email:', error);
     return {
@@ -293,7 +298,6 @@ async function sendDownloadLinkEmail(recipientEmail, downloadLink, otp, expiresI
     };
   }
 }
-
 export {
   sendDownloadLinkEmail,
   sendEmail,
