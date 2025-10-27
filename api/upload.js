@@ -2,7 +2,7 @@
 import formidable from 'formidable';
 import crypto from 'crypto';
 import { kv } from '@vercel/kv';
-import { sendDownloadEmail } from '../../lib/email-service.js';
+import { sendDownloadLinkEmail } from '../../lib/email-service.js';
 import { getEnvironmentConfig } from '../../lib/environment.js';
 
 // 定数
@@ -140,7 +140,7 @@ export default async function handler(req, res) {
 
     if (recipient && envConfig.enableEmailSending) {
       try {
-        const emailSendResult = await sendDownloadEmail({
+        const emailSendResult = await sendDownloadLinkEmail({
           to: recipient,
           downloadUrl: downloadUrl,
           otp: otp,
