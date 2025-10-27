@@ -1,57 +1,24 @@
-// ファイルアップロードAPI - メール送信機能統合版
-import formidable from 'formidable';
-import crypto from 'crypto';
+// api/upload.js - 完全版（Part 1/2）
+
 import { kv } from '@vercel/kv';
-import { sendDownloadLinkEmail } from './email-service.js';
-import { getEnvironmentConfig } from './environment.js';
+import { randomBytes } from 'crypto';
+import { encryptFile, generateOTP } from '../lib/crypto.js';
+import { sendDownloadLinkEmail, sendFileAsAttachment } from './email-service.js';
+import { getEnvironmentConfig, canUseDirectAttach } from './environment.js';
+import { saveAuditLog } from './audit-log.js';
 
-// 定数
-const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE || '52428800'); // 50MB
-const FILE_TTL_SECONDS = 7 * 24 * 60 * 60; // 7日間
-const MAX_DOWNLOADS = 3;
-const OTP_LENGTH = 6;
-
-// 暗号化キー（環境変数から取得）
-const ENCRYPTION_KEY = process.env.FILE_ENCRYPT_KEY;
-
-if (!ENCRYPTION_KEY || ENCRYPTION_KEY.length !== 64) {
-  throw new Error('FILE_ENCRYPT_KEY must be a 64-character hex string');
-}
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+  maxDuration: 60,
+};
 
 /**
- * ファイルを暗号化（AES-256-GCM）
+ * ファイルアップロードAPI
  */
-function encryptFile(buffer, password) {
-  const salt = crypto.randomBytes(16);
-  const key = crypto.pbkdf2Sync(password, salt, 100000, 32, 'sha256');
-  const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-  
-  const encrypted = Buffer.concat([
-    cipher.update(buffer),
-    cipher.final()
-  ]);
-  
-  const authTag = cipher.getAuthTag();
-  
-  return {
-    salt: salt.toString('base64'),
-    iv: iv.toString('base64'),
-    authTag: authTag.toString('base64'),
-    data: encrypted.toString('base64')
-  };
-}
-
-/**
- * 数値OTPを生成（6桁）
- */
-function generateNumericOTP() {
-  const otp = crypto.randomInt(0, 1000000).toString().padStart(OTP_LENGTH, '0');
-  return otp;
-}
-
 export default async function handler(req, res) {
-  // CORS対応
+  // CORS設定
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -65,154 +32,294 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 環境設定取得
     const envConfig = getEnvironmentConfig();
+    console.log('[Upload] Environment:', envConfig.environment);
+    console.log('[Upload] Email enabled:', envConfig.enableEmailSending);
+    console.log('[Upload] Direct attach enabled:', envConfig.enableDirectAttach);
+
+    // multipart/form-data のパース
+    const formData = await parseMultipartFormData(req);
     
-    // Formidableでファイルパース
-    const form = formidable({
-      maxFileSize: MAX_FILE_SIZE,
-      keepExtensions: true,
+    if (!formData.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const { file, fields } = formData;
+    const recipient = fields.recipient || null;
+
+    console.log('[Upload] File received:', {
+      fileName: file.fileName,
+      fileSize: file.fileSize,
+      mimeType: file.mimeType,
+      recipient: recipient
     });
 
-    const [fields, files] = await form.parse(req);
-    
-    const file = files.file?.[0];
-    const recipient = fields.recipient?.[0];
-
-    if (!file) {
-      return res.status(400).json({ 
-        error: 'No file uploaded',
-        environment: envConfig.environment 
-      });
-    }
-
-    // recipientが指定されている場合はバリデーション
-    if (recipient && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) {
-      return res.status(400).json({ 
-        error: 'Invalid email address',
-        environment: envConfig.environment 
-      });
-    }
-
-    // ファイル読み込み
-    const fs = await import('fs');
-    const fileBuffer = await fs.promises.readFile(file.filepath);
-
     // ファイルID生成
-    const fileId = crypto.randomBytes(16).toString('hex');
+    const fileId = randomBytes(16).toString('hex');
     
-    // OTP生成（数値6桁）
-    const otp = generateNumericOTP();
+    // OTP生成（6桁数値）
+    const otp = generateOTP();
+    
+    // 有効期限（7日後）
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
     // ファイル暗号化
-    const encrypted = encryptFile(fileBuffer, ENCRYPTION_KEY);
+    console.log('[Upload] Encrypting file...');
+    const encryptedData = encryptFile(file.fileContent, fileId, otp);
 
     // メタデータ
     const metadata = {
-      fileName: file.originalFilename || 'unnamed',
-      fileSize: file.size,
-      mimeType: file.mimetype || 'application/octet-stream',
+      fileName: file.fileName,
+      fileSize: file.fileSize,
+      mimeType: file.mimeType,
       uploadedAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + FILE_TTL_SECONDS * 1000).toISOString(),
+      expiresAt: expiresAt,
       downloadCount: 0,
-      maxDownloads: MAX_DOWNLOADS,
-      otp: otp,
-      salt: encrypted.salt,
-      iv: encrypted.iv,
-      authTag: encrypted.authTag
+      maxDownloads: 3,
+      otp: otp
     };
 
     // KVに保存
-    await kv.set(`file:${fileId}:meta`, metadata, { ex: FILE_TTL_SECONDS });
-    await kv.set(`file:${fileId}:data`, encrypted.data, { ex: FILE_TTL_SECONDS });
-
-    // ダウンロードURL生成
-    const baseUrl = envConfig.baseUrl;
-    const downloadUrl = `${baseUrl}/download.html?id=${fileId}`;
-
-    // メール送信処理
-    let emailResult = {
-      sent: false,
-      success: false,
-      error: null,
-      statusCode: null
-    };
-
-    // 🔍 デバッグログ追加
-    console.log('[upload.js] Email sending check:', {
-      hasRecipient: !!recipient,
-      recipient: recipient,
-      enableEmailSending: envConfig.enableEmailSending,
-      hasSendgridApiKey: !!envConfig.sendgridApiKey,
-      hasSendgridFromEmail: !!envConfig.sendgridFromEmail,
-      sendgridFromEmail: envConfig.sendgridFromEmail,
-      environment: envConfig.environment
+    console.log('[Upload] Saving to KV...');
+    await kv.set(`file:${fileId}:meta`, JSON.stringify(metadata), {
+      ex: 7 * 24 * 60 * 60 // 7日間
     });
 
+    await kv.set(`file:${fileId}:data`, encryptedData.encryptedContent, {
+      ex: 7 * 24 * 60 * 60 // 7日間
+    });
+
+    console.log('[Upload] File saved successfully:', fileId);
+
+    // ダウンロードURL生成
+    const baseUrl = `https://${req.headers.host}`;
+    const downloadUrl = `${baseUrl}/download.html?id=${fileId}`;
+
+    // 応答の基本構造
+    const response = {
+      success: true,
+      fileId: fileId,
+      fileName: file.fileName,
+      fileSize: file.fileSize,
+      expiresAt: expiresAt,
+      downloadUrl: downloadUrl,
+      otp: otp
+    };
+
+    // メール送信処理
     if (recipient && envConfig.enableEmailSending) {
-      console.log('[upload.js] ✅ Entering email sending block');
-      try {
-        const emailSendResult = await sendDownloadLinkEmail({
+      console.log('[Upload] Processing email send...');
+      
+      // 添付直送判定
+      const directAttachCheck = canUseDirectAttach(recipient, file.fileSize);
+      
+      console.log('[Upload] Direct attach check:', directAttachCheck);
+      
+      let emailResult;
+      let sendMode;
+      let sendReason = null;
+
+      if (directAttachCheck.allowed) {
+        // 添付直送モード
+        console.log('[Upload] Sending file as attachment...');
+        
+        emailResult = await sendFileAsAttachment({
+          to: recipient,
+          fileName: file.fileName,
+          fileContent: file.fileContent,
+          mimeType: file.mimeType
+        });
+        
+        sendMode = emailResult.success ? 'attach' : 'blocked';
+        
+        if (!emailResult.success) {
+          sendReason = 'send_failed';
+        }
+        
+      } else {
+        // リンク送付モード（フォールバック含む）
+        console.log('[Upload] Sending download link (reason:', directAttachCheck.reason, ')');
+        
+        emailResult = await sendDownloadLinkEmail({
           to: recipient,
           downloadUrl: downloadUrl,
           otp: otp,
-          expiresAt: metadata.expiresAt
+          expiresAt: expiresAt
         });
         
-        console.log('[upload.js] Email send result:', emailSendResult);
+        sendMode = emailResult.success ? 'link' : 'blocked';
+        sendReason = directAttachCheck.reason;
         
-        emailResult = {
-          sent: true,
-          success: emailSendResult.success,
-          messageId: emailSendResult.messageId,
-          statusCode: emailSendResult.statusCode,
-          error: emailSendResult.error
-        };
-      } catch (emailError) {
-        console.error('[upload.js] Email sending error:', emailError);
-        emailResult = {
-          sent: true,
-          success: false,
-          error: emailError.message,
-          statusCode: null
-        };
+        if (!emailResult.success) {
+          sendReason = 'send_failed';
+        }
       }
-    } else {
-      console.log('[upload.js] ❌ Skipping email sending:', {
-        hasRecipient: !!recipient,
-        enableEmailSending: envConfig.enableEmailSending
+
+      // 監査ログ保存
+      await saveAuditLog({
+        event: 'file_send',
+        actor: req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown',
+        to: recipient,
+        mode: sendMode,
+        reason: sendReason,
+        fileId: fileId,
+        fileName: file.fileName,
+        fileSize: file.fileSize,
+        status: emailResult.success ? 'success' : 'failed'
       });
+
+      // 応答に送信情報を追加
+      response.email = {
+        sent: true,
+        success: emailResult.success,
+        mode: sendMode,
+        reason: sendReason,
+        messageId: emailResult.messageId || null,
+        statusCode: emailResult.statusCode || null,
+        error: emailResult.error || null
+      };
+
+      console.log('[Upload] Email processing complete:', response.email);
+    } else {
+      // メール送信なし
+      response.email = {
+        sent: false,
+        reason: !recipient ? 'no_recipient' : 'email_disabled'
+      };
+      
+      console.log('[Upload] Email not sent:', response.email.reason);
     }
 
-    // 一時ファイル削除
-    await fs.promises.unlink(file.filepath);
-
-    // レスポンス
-    return res.status(200).json({
-      success: true,
-      fileId,
-      downloadUrl,
-      otp,
-      fileName: metadata.fileName,
-      fileSize: metadata.fileSize,
-      expiresAt: metadata.expiresAt,
-      maxDownloads: MAX_DOWNLOADS,
-      email: emailResult,
-      _debug: {
-        environment: envConfig.environment,
-        emailSent: emailResult.sent,
-        emailSuccess: emailResult.success,
-        sandboxMode: envConfig.sandboxMode,
-        vercelUrl: process.env.VERCEL_URL
-      }
-    });
+    return res.status(200).json(response);
 
   } catch (error) {
-    console.error('Upload error:', error);
+    console.error('[Upload] Error:', error);
     return res.status(500).json({
-      error: 'File upload failed',
-      message: error.message,
-      environment: getEnvironmentConfig().environment
+      error: 'Upload failed',
+      details: error.message
     });
   }
+}
+
+/**
+ * multipart/form-data をパース
+ */
+async function parseMultipartFormData(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    
+    req.on('data', (chunk) => {
+      chunks.push(chunk);
+    });
+    
+    req.on('end', () => {
+      try {
+        const buffer = Buffer.concat(chunks);
+        const contentType = req.headers['content-type'] || '';
+        const boundary = contentType.split('boundary=')[1];
+        
+        if (!boundary) {
+          throw new Error('No boundary found in Content-Type');
+        }
+        
+        const parts = parseMultipart(buffer, boundary);
+        
+        let file = null;
+        const fields = {};
+        
+        for (const part of parts) {
+          if (part.filename) {
+            file = {
+              fileName: part.filename,
+              fileContent: part.data,
+              fileSize: part.data.length,
+              mimeType: part.contentType || 'application/octet-stream'
+            };
+          } else if (part.name) {
+            fields[part.name] = part.data.toString('utf-8');
+          }
+        }
+        
+        resolve({ file, fields });
+      } catch (error) {
+        reject(error);
+      }
+    });
+    
+    req.on('error', reject);
+  });
+}
+
+/**
+ * マルチパートデータをパース
+ */
+function parseMultipart(buffer, boundary) {
+  const parts = [];
+  const boundaryBuffer = Buffer.from(`--${boundary}`);
+  const endBoundaryBuffer = Buffer.from(`--${boundary}--`);
+  
+  let start = 0;
+  
+  while (true) {
+    const boundaryIndex = buffer.indexOf(boundaryBuffer, start);
+    
+    if (boundaryIndex === -1) break;
+    
+    const nextBoundaryIndex = buffer.indexOf(boundaryBuffer, boundaryIndex + boundaryBuffer.length);
+    const endBoundaryIndex = buffer.indexOf(endBoundaryBuffer, boundaryIndex);
+    
+    let end;
+    if (nextBoundaryIndex === -1 || (endBoundaryIndex !== -1 && endBoundaryIndex < nextBoundaryIndex)) {
+      end = endBoundaryIndex !== -1 ? endBoundaryIndex : buffer.length;
+    } else {
+      end = nextBoundaryIndex;
+    }
+    
+    if (end > boundaryIndex + boundaryBuffer.length) {
+      const partBuffer = buffer.slice(boundaryIndex + boundaryBuffer.length, end);
+      const part = parsePart(partBuffer);
+      if (part) {
+        parts.push(part);
+      }
+    }
+    
+    start = end;
+    
+    if (endBoundaryIndex !== -1 && endBoundaryIndex < start + boundaryBuffer.length) {
+      break;
+    }
+  }
+  
+  return parts;
+}
+
+/**
+ * 個別パートをパース
+ */
+function parsePart(buffer) {
+  const headerEnd = buffer.indexOf(Buffer.from('\r\n\r\n'));
+  
+  if (headerEnd === -1) return null;
+  
+  const headerBuffer = buffer.slice(0, headerEnd);
+  const dataBuffer = buffer.slice(headerEnd + 4);
+  
+  const headers = headerBuffer.toString('utf-8');
+  
+  const contentDisposition = headers.match(/Content-Disposition: (.+)/i);
+  if (!contentDisposition) return null;
+  
+  const nameMatch = contentDisposition[1].match(/name="([^"]+)"/);
+  const filenameMatch = contentDisposition[1].match(/filename="([^"]+)"/);
+  
+  const contentTypeMatch = headers.match(/Content-Type: (.+)/i);
+  
+  const trimmedData = dataBuffer.slice(0, dataBuffer.length - 2);
+  
+  return {
+    name: nameMatch ? nameMatch[1] : null,
+    filename: filenameMatch ? filenameMatch[1] : null,
+    contentType: contentTypeMatch ? contentTypeMatch[1].trim() : null,
+    data: trimmedData
+  };
 }
