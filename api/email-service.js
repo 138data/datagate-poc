@@ -1,134 +1,231 @@
+// api/email-service.js - 完全版（Part 1/1）
+
 import sgMail from '@sendgrid/mail';
 import { getEnvironmentConfig } from './environment.js';
 
 /**
- * SendGrid経由でダウンロードリンクを含むメールを送信
- * @param {Object} params - パラメータオブジェクト
+ * SendGridの初期化
+ */
+function initializeSendGrid() {
+  const config = getEnvironmentConfig();
+  
+  if (!config.sendgridApiKey) {
+    throw new Error('SENDGRID_API_KEY is not configured');
+  }
+  
+  sgMail.setApiKey(config.sendgridApiKey);
+}
+
+/**
+ * ダウンロードリンクとOTPをメール送信
+ * @param {object} params
  * @param {string} params.to - 送信先メールアドレス
- * @param {string} params.downloadUrl - ダウンロードページURL
- * @param {string} params.otp - ワンタイムパスワード
+ * @param {string} params.downloadUrl - ダウンロードURL
+ * @param {string} params.otp - OTP（6桁）
  * @param {string} params.expiresAt - 有効期限（ISO 8601形式）
- * @returns {Promise<Object>} 送信結果 { success: boolean, statusCode: number, messageId: string, error?: string }
+ * @returns {Promise<{success: boolean, messageId?: string, statusCode?: number, error?: string}>}
  */
 export async function sendDownloadLinkEmail({ to, downloadUrl, otp, expiresAt }) {
-  const envConfig = getEnvironmentConfig();
-
-  // 🔍 デバッグログ追加
-  console.log('[email-service] sendDownloadLinkEmail called with:', {
-    to,
-    downloadUrl: downloadUrl ? 'present' : 'missing',
-    otp: otp ? 'present' : 'missing',
-    expiresAt,
-    envConfig: {
-      enableEmailSending: envConfig.enableEmailSending,
-      sendgridApiKey: envConfig.sendgridApiKey ? 'present' : 'missing',
-      sendgridFromEmail: envConfig.sendgridFromEmail,
-      sendgridFromName: envConfig.sendgridFromName
-    }
-  });
-
-  // メール送信が無効な場合
-  if (!envConfig.enableEmailSending) {
-    console.log('[email-service] Email sending is disabled');
-    return {
-      success: false,
-      error: 'Email sending is disabled in environment configuration'
-    };
-  }
-
-  // SendGrid設定の検証
-  if (!envConfig.sendgridApiKey) {
-    console.error('[email-service] SENDGRID_API_KEY is not configured');
-    return {
-      success: false,
-      error: 'SENDGRID_API_KEY is not configured'
-    };
-  }
-
-  if (!envConfig.sendgridFromEmail) {
-    console.error('[email-service] SENDGRID_FROM_EMAIL is not configured');
-    return {
-      success: false,
-      error: 'SENDGRID_FROM_EMAIL is not configured'
-    };
-  }
-
   try {
-    // SendGrid APIキー設定
-    sgMail.setApiKey(envConfig.sendgridApiKey);
-
-    // 有効期限のフォーマット
+    initializeSendGrid();
+    
+    const config = getEnvironmentConfig();
+    
+    // 有効期限を日本時間で表示
     const expiresDate = new Date(expiresAt);
-    const formattedExpires = expiresDate.toLocaleString('ja-JP', {
+    const jstDate = new Intl.DateTimeFormat('ja-JP', {
+      timeZone: 'Asia/Tokyo',
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
-      timeZone: 'Asia/Tokyo'
-    });
-
-    // メール本文
-    const emailBody = `
+      hour12: false
+    }).format(expiresDate);
+    
+    const msg = {
+      to: to,
+      from: {
+        email: config.sendgridFromEmail,
+        name: config.sendgridFromName
+      },
+      subject: '【138DataGate】ファイルのダウンロードリンク',
+      text: `
 ファイルのダウンロードリンクをお送りします。
 
 ダウンロードURL:
 ${downloadUrl}
 
-ワンタイムパスワード: ${otp}
+ワンタイムパスワード（OTP）:
+${otp}
 
-有効期限: ${formattedExpires}（日本時間）
+有効期限: ${jstDate}（日本時間）
 
-※ このリンクは最大3回までダウンロード可能です。
-※ 有効期限を過ぎるとダウンロードできなくなります。
+※このリンクは7日間有効です。
+※OTPは6桁の数字です。ダウンロードページで入力してください。
+※このメールに心当たりがない場合は、送信者にお問い合わせください。
 
 ---
-138DataGate - セキュアファイル転送サービス
-    `.trim();
+138DataGate - 安全なファイル受け渡しシステム
+      `.trim(),
+      html: `
+<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+  <h2 style="color: #333;">ファイルのダウンロードリンク</h2>
+  <p>ファイルのダウンロードリンクをお送りします。</p>
+  
+  <div style="background: #f5f5f5; padding: 20px; margin: 20px 0; border-radius: 5px;">
+    <p><strong>ダウンロードURL:</strong></p>
+    <p><a href="${downloadUrl}" style="color: #0066cc; word-break: break-all;">${downloadUrl}</a></p>
+    
+    <p style="margin-top: 20px;"><strong>ワンタイムパスワード（OTP）:</strong></p>
+    <p style="font-size: 24px; font-weight: bold; color: #0066cc; letter-spacing: 3px;">${otp}</p>
+    
+    <p style="margin-top: 20px;"><strong>有効期限:</strong> ${jstDate}（日本時間）</p>
+  </div>
+  
+  <p style="color: #666; font-size: 14px;">
+    ※このリンクは7日間有効です。<br>
+    ※OTPは6桁の数字です。ダウンロードページで入力してください。<br>
+    ※このメールに心当たりがない場合は、送信者にお問い合わせください。
+  </p>
+  
+  <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+  <p style="color: #999; font-size: 12px; text-align: center;">
+    138DataGate - 安全なファイル受け渡しシステム
+  </p>
+</div>
+      `.trim()
+    };
+    
+    console.log('[EmailService] Sending download link email to:', to);
+    
+    const [response] = await sgMail.send(msg);
+    
+    console.log('[EmailService] Email sent successfully:', {
+      statusCode: response.statusCode,
+      messageId: response.headers['x-message-id']
+    });
+    
+    return {
+      success: true,
+      messageId: response.headers['x-message-id'],
+      statusCode: response.statusCode
+    };
+  } catch (error) {
+    console.error('[EmailService] Send failed:', error);
+    
+    if (error.response) {
+      console.error('[EmailService] SendGrid error details:', {
+        statusCode: error.response.statusCode,
+        body: error.response.body
+      });
+    }
+    
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
 
-    // メールメッセージ構築
+/**
+ * ファイルを添付してメール送信（添付直送モード）
+ * @param {object} params
+ * @param {string} params.to - 送信先メールアドレス
+ * @param {string} params.fileName - ファイル名（UTF-8）
+ * @param {Buffer} params.fileContent - ファイル内容（Buffer形式）
+ * @param {string} params.mimeType - MIMEタイプ（例: 'application/pdf'）
+ * @returns {Promise<{success: boolean, messageId?: string, statusCode?: number, error?: string}>}
+ */
+export async function sendFileAsAttachment({ to, fileName, fileContent, mimeType }) {
+  try {
+    initializeSendGrid();
+    
+    const config = getEnvironmentConfig();
+    
+    // Base64エンコード
+    const base64Content = fileContent.toString('base64');
+    
+    console.log('[EmailService] Sending file as attachment:', {
+      to: to,
+      fileName: fileName,
+      fileSize: fileContent.length,
+      mimeType: mimeType
+    });
+    
     const msg = {
       to: to,
       from: {
-        email: envConfig.sendgridFromEmail,
-        name: envConfig.sendgridFromName || '138DataGate'
+        email: config.sendgridFromEmail,
+        name: config.sendgridFromName
       },
-      subject: '【138DataGate】ファイルのダウンロードリンク',
-      text: emailBody,
-      html: emailBody.replace(/\n/g, '<br>')
+      subject: '【138DataGate】ファイル送信',
+      text: `
+ファイルを添付でお送りします。
+
+ファイル名: ${fileName}
+サイズ: ${(fileContent.length / 1024).toFixed(2)} KB
+
+※このメールに心当たりがない場合は、送信者にお問い合わせください。
+
+---
+138DataGate - 安全なファイル受け渡しシステム
+      `.trim(),
+      html: `
+<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+  <h2 style="color: #333;">ファイル送信</h2>
+  <p>ファイルを添付でお送りします。</p>
+  
+  <div style="background: #f5f5f5; padding: 20px; margin: 20px 0; border-radius: 5px;">
+    <p><strong>ファイル名:</strong> ${fileName}</p>
+    <p><strong>サイズ:</strong> ${(fileContent.length / 1024).toFixed(2)} KB</p>
+  </div>
+  
+  <p style="color: #666; font-size: 14px;">
+    ※このメールに心当たりがない場合は、送信者にお問い合わせください。
+  </p>
+  
+  <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+  <p style="color: #999; font-size: 12px; text-align: center;">
+    138DataGate - 安全なファイル受け渡しシステム
+  </p>
+</div>
+      `.trim(),
+      attachments: [
+        {
+          content: base64Content,
+          filename: fileName,
+          type: mimeType,
+          disposition: 'attachment'
+        }
+      ]
     };
-
-    console.log('[email-service] Attempting to send email via SendGrid');
-
-    // SendGrid経由でメール送信
+    
     const [response] = await sgMail.send(msg);
-
-    console.log('[email-service] SendGrid response:', {
+    
+    console.log('[EmailService] File sent as attachment successfully:', {
       statusCode: response.statusCode,
-      headers: response.headers
+      messageId: response.headers['x-message-id']
     });
-
+    
     return {
       success: true,
-      statusCode: response.statusCode,
-      messageId: response.headers['x-message-id'] || null
+      messageId: response.headers['x-message-id'],
+      statusCode: response.statusCode
     };
-
   } catch (error) {
-    console.error('[email-service] SendGrid error:', {
-      message: error.message,
-      code: error.code,
-      response: error.response ? {
+    console.error('[EmailService] Send attachment failed:', error);
+    
+    if (error.response) {
+      console.error('[EmailService] SendGrid error details:', {
         statusCode: error.response.statusCode,
         body: error.response.body
-      } : 'no response'
-    });
-
+      });
+    }
+    
     return {
       success: false,
-      error: error.message || 'Unknown error',
-      statusCode: error.code || null,
-      details: error.response ? error.response.body : null
+      error: error.message
     };
   }
 }
