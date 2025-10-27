@@ -142,7 +142,7 @@
 
         async function loadFileInfo() {
             try {
-                const response = await fetch(`/api/download?id=${encodeURIComponent(fileId)}`);
+                const response = await fetch(`/api/files/download?id=${encodeURIComponent(fileId)}`);
                 const data = await response.json();
 
                 if (data.success) {
@@ -195,7 +195,7 @@
             document.getElementById('message').style.display = 'none';
 
             try {
-                const response = await fetch(`/api/download?id=${encodeURIComponent(fileId)}`, {
+                const response = await fetch(`/api/files/download?id=${encodeURIComponent(fileId)}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ otp: otp })

@@ -35,7 +35,7 @@ export default async function handler(req, res) {
 
     // Vercel KVからメタデータ取得
     console.log('Fetching metadata from KV:', `file:${fileId}`);
-    const metadata = await kv.get(`file:${fileId}`);
+    const metadata = await kv.get(`file:${fileId}:meta`);
 
     if (!metadata) {
       console.error('Error: File not found in KV');
@@ -94,7 +94,7 @@ export default async function handler(req, res) {
 
     // Vercel KVからファイルデータ取得
     console.log('Fetching file data from KV:', `filedata:${fileId}`);
-    const base64Data = await kv.get(`filedata:${fileId}`);
+    const base64Data = await kv.get(`file:${fileId}:data`);
 
     if (!base64Data) {
       console.error('Error: File data not found in KV');
