@@ -1,7 +1,7 @@
 // api/audit-log.js - 完全版（Part 1/1）
 
 import { kv } from '@vercel/kv';
-import { randomUUID } from 'crypto';
+import { randomBytes } from 'crypto';
 
 /**
  * 監査ログをKVに保存
@@ -20,7 +20,7 @@ import { randomUUID } from 'crypto';
 export async function saveAuditLog(logEntry) {
   try {
     const timestamp = new Date().toISOString();
-    const logId = `audit:${Date.now()}:${randomUUID()}`;
+    const logId = `audit:${Date.now()}:${randomBytes(16).toString("hex")}`;
     
     const fullLogEntry = {
       ...logEntry,
