@@ -86,7 +86,7 @@ const kvClient = {
 // 138DataGate - 日次KPI取得API
 
 import kv from '@vercel/kv';
-import { verifyToken } from '../../lib/guard.js';
+import { verifyToken } from './guard.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -187,3 +187,4 @@ export default async function handler(req, res) {
     });
   }
 }
+

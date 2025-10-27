@@ -3,7 +3,7 @@ import formidable from 'formidable';
 import crypto from 'crypto';
 import { kv } from '@vercel/kv';
 import { sendDownloadLinkEmail } from './email-service.js';
-import { getEnvironmentConfig } from '../../lib/environment.js';
+import { getEnvironmentConfig } from './environment.js';
 
 // 定数
 const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE || '52428800'); // 50MB
@@ -199,4 +199,5 @@ export default async function handler(req, res) {
     });
   }
 }
+
 
