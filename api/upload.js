@@ -1,264 +1,201 @@
-// api/upload.js
 // ファイルアップロードAPI - メール送信機能統合版
+import formidable from 'formidable';
+import crypto from 'crypto';
+import { kv } from '@vercel/kv';
+import { sendDownloadEmail } from '../../lib/email-service.js';
+import { getEnvironmentConfig } from '../../lib/environment.js';
 
-const formidable = require('formidable');
-const crypto = require('crypto');
-const { kv } = require('@vercel/kv');
-const { isProduction, isPreview, isDevelopment, isEmailEnabled, isSandboxMode, getEnvironmentInfo } = require('../lib/environment');
-const { sendDownloadLinkEmail } = require('../lib/email-service');
-
-// 定数定義
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+// 定数
+const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE || '52428800'); // 50MB
 const FILE_TTL_SECONDS = 7 * 24 * 60 * 60; // 7日間
+const MAX_DOWNLOADS = 3;
 const OTP_LENGTH = 6;
-const MAX_DOWNLOAD_ATTEMPTS = 3;
 
-// 暗号化設定
-const ALGORITHM = 'aes-256-gcm';
-const KEY_DERIVATION_ITERATIONS = 100000;
-const SALT_LENGTH = 32;
-const IV_LENGTH = 16;
-const AUTH_TAG_LENGTH = 16;
+// 暗号化キー（環境変数から取得）
+const ENCRYPTION_KEY = process.env.FILE_ENCRYPT_KEY;
 
-// OTP生成（6桁の数字）
-function generateOTP() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+if (!ENCRYPTION_KEY || ENCRYPTION_KEY.length !== 64) {
+  throw new Error('FILE_ENCRYPT_KEY must be a 64-character hex string');
 }
 
-// ファイルID生成
-function generateFileId() {
-  return crypto.randomBytes(16).toString('hex');
-}
-
-// PBKDF2によるキー導出
-function deriveKey(password, salt) {
-  return crypto.pbkdf2Sync(password, salt, KEY_DERIVATION_ITERATIONS, 32, 'sha256');
-}
-
-// AES-256-GCMによるファイル暗号化
+/**
+ * ファイルを暗号化（AES-256-GCM）
+ */
 function encryptFile(buffer, password) {
-  const salt = crypto.randomBytes(SALT_LENGTH);
-  const key = deriveKey(password, salt);
-  const iv = crypto.randomBytes(IV_LENGTH);
+  const salt = crypto.randomBytes(16);
+  const key = crypto.pbkdf2Sync(password, salt, 100000, 32, 'sha256');
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
   
-  const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
-  const encrypted = Buffer.concat([cipher.update(buffer), cipher.final()]);
+  const encrypted = Buffer.concat([
+    cipher.update(buffer),
+    cipher.final()
+  ]);
+  
   const authTag = cipher.getAuthTag();
   
   return {
-    encrypted: Buffer.concat([salt, iv, authTag, encrypted]).toString('base64'),
-    salt: salt.toString('hex'),
-    iv: iv.toString('hex')
+    salt: salt.toString('base64'),
+    iv: iv.toString('base64'),
+    authTag: authTag.toString('base64'),
+    data: encrypted.toString('base64')
   };
 }
 
-// ダウンロードURL生成
-function generateDownloadUrl(fileId, baseUrl) {
-  // 環境に応じたベースURL
-  const url = baseUrl || process.env.BASE_URL || 'https://datagate-qbcypvice-138datas-projects.vercel.app';
-  return `${url}/download.html?id=${fileId}`;
+/**
+ * 数値OTPを生成（6桁）
+ */
+function generateNumericOTP() {
+  const otp = crypto.randomInt(0, 1000000).toString().padStart(OTP_LENGTH, '0');
+  return otp;
 }
 
-// メール送信処理（環境判定付き）
-async function sendEmailNotification(recipientEmail, downloadLink, otp) {
-  const envInfo = getEnvironmentInfo();
-  
-  // メール送信が無効な環境の場合はスキップ
-  if (!isEmailEnabled()) {
-    console.log('[Email] Email sending is disabled in this environment');
-    return {
-      success: false,
-      skipped: true,
-      reason: 'Email sending disabled',
-      environment: envInfo.environment
-    };
-  }
-  
-  // Sandboxモードの場合はシミュレート
-  if (isSandboxMode()) {
-    console.log('[Email] SANDBOX MODE - Simulating email send');
-    console.log(`[Email] To: ${recipientEmail}`);
-    console.log(`[Email] Link: ${downloadLink}`);
-    console.log(`[Email] OTP: ${otp}`);
-    
-    return {
-      success: true,
-      simulated: true,
-      environment: envInfo.environment
-    };
-  }
-  
-  // 実際にメール送信
-  try {
-    console.log(`[Email] Sending email to ${recipientEmail}`);
-    const result = await sendDownloadLinkEmail(recipientEmail, downloadLink, otp);
-    
-    if (result.success) {
-      console.log('[Email] Email sent successfully');
-    } else {
-      console.error('[Email] Email send failed:', result.error);
-    }
-    
-    return {
-      ...result,
-      environment: envInfo.environment
-    };
-    
-  } catch (error) {
-    console.error('[Email] Email send error:', error);
-    return {
-      success: false,
-      error: error.message,
-      environment: envInfo.environment
-    };
-  }
-}
-
-// メインハンドラー
 export default async function handler(req, res) {
-  // CORS設定
+  // CORS対応
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  
+
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
-  
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
-  
-  const envInfo = getEnvironmentInfo();
-  console.log(`[Upload] Environment: ${envInfo.environment}`);
-  console.log(`[Upload] Email Enabled: ${envInfo.emailEnabled}`);
-  console.log(`[Upload] Sandbox Mode: ${envInfo.sandboxMode}`);
-  
+
   try {
+    // 環境設定取得
+    const envConfig = getEnvironmentConfig();
+    
     // Formidableでファイルパース
     const form = formidable({
       maxFileSize: MAX_FILE_SIZE,
       keepExtensions: true,
-      multiples: false
     });
+
+    const [fields, files] = await form.parse(req);
     
-    const [fields, files] = await new Promise((resolve, reject) => {
-      form.parse(req, (err, fields, files) => {
-        if (err) reject(err);
-        else resolve([fields, files]);
+    const file = files.file?.[0];
+    const recipient = fields.recipient?.[0];
+
+    if (!file) {
+      return res.status(400).json({ 
+        error: 'No file uploaded',
+        environment: envConfig.environment 
       });
-    });
-    
-    // ファイル取得
-    const fileArray = files.file;
-    if (!fileArray || fileArray.length === 0) {
-      return res.status(400).json({ error: 'No file uploaded' });
     }
-    
-    const file = fileArray[0];
-    const fs = require('fs');
-    const fileBuffer = fs.readFileSync(file.filepath);
-    
-    // ファイル情報
-    const fileName = file.originalFilename || 'unknown';
-    const fileSize = file.size;
-    const mimeType = file.mimetype || 'application/octet-stream';
-    
-    console.log(`[Upload] File: ${fileName}, Size: ${fileSize} bytes`);
-    
-    // 受信者メールアドレス取得
-    const recipientArray = fields.recipient;
-    const recipientEmail = recipientArray ? recipientArray[0] : null;
-    
-    if (!recipientEmail) {
-      return res.status(400).json({ error: 'Recipient email is required' });
+
+    // recipientが指定されている場合はバリデーション
+    if (recipient && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) {
+      return res.status(400).json({ 
+        error: 'Invalid email address',
+        environment: envConfig.environment 
+      });
     }
-    
-    console.log(`[Upload] Recipient: ${recipientEmail}`);
-    
+
+    // ファイル読み込み
+    const fs = await import('fs');
+    const fileBuffer = await fs.promises.readFile(file.filepath);
+
     // ファイルID生成
-    const fileId = generateFileId();
+    const fileId = crypto.randomBytes(16).toString('hex');
     
-    // OTP生成
-    const otp = generateOTP();
-    
-    console.log(`[Upload] File ID: ${fileId}, OTP: ${otp}`);
-    
+    // OTP生成（数値6桁）
+    const otp = generateNumericOTP();
+
     // ファイル暗号化
-    const { encrypted } = encryptFile(fileBuffer, otp);
-    
-    // メタデータ作成
+    const encrypted = encryptFile(fileBuffer, ENCRYPTION_KEY);
+
+    // メタデータ
     const metadata = {
-      fileId,
-      fileName,
-      fileSize,
-      mimeType,
-      recipientEmail,
+      fileName: file.originalFilename || 'unnamed',
+      fileSize: file.size,
+      mimeType: file.mimetype || 'application/octet-stream',
       uploadedAt: new Date().toISOString(),
       expiresAt: new Date(Date.now() + FILE_TTL_SECONDS * 1000).toISOString(),
-      downloadAttempts: 0,
-      maxDownloadAttempts: MAX_DOWNLOAD_ATTEMPTS,
-      otpAttempts: 0,
-      maxOtpAttempts: 5,
-      lastOtpAttemptAt: null,
-      otpLocked: false,
-      otpLockedUntil: null
+      downloadCount: 0,
+      maxDownloads: MAX_DOWNLOADS,
+      otp: otp,
+      salt: encrypted.salt,
+      iv: encrypted.iv,
+      authTag: encrypted.authTag
     };
-    
+
     // KVに保存
-    const metaKey = `file:${fileId}:meta`;
-    const dataKey = `file:${fileId}:data`;
-    
-    await kv.set(metaKey, JSON.stringify(metadata), { ex: FILE_TTL_SECONDS });
-    await kv.set(dataKey, encrypted, { ex: FILE_TTL_SECONDS });
-    
-    console.log(`[Upload] File stored in KV with TTL: ${FILE_TTL_SECONDS}s`);
-    
+    await kv.set(`file:${fileId}:meta`, metadata, { ex: FILE_TTL_SECONDS });
+    await kv.set(`file:${fileId}:data`, encrypted.data, { ex: FILE_TTL_SECONDS });
+
     // ダウンロードURL生成
-    const downloadLink = generateDownloadUrl(fileId);
-    
-    // メール送信
-    const emailResult = await sendEmailNotification(recipientEmail, downloadLink, otp);
-    
-    // レスポンス作成
-    const response = {
+    const baseUrl = envConfig.baseUrl;
+    const downloadUrl = `${baseUrl}/download.html?id=${fileId}`;
+
+    // メール送信処理
+    let emailResult = {
+      sent: false,
+      success: false,
+      error: null,
+      statusCode: null
+    };
+
+    if (recipient && envConfig.enableEmailSending) {
+      try {
+        const emailSendResult = await sendDownloadEmail({
+          to: recipient,
+          downloadUrl: downloadUrl,
+          otp: otp,
+          fileName: metadata.fileName,
+          fileSize: metadata.fileSize,
+          expiresAt: metadata.expiresAt
+        });
+
+        emailResult = {
+          sent: true,
+          success: emailSendResult.success,
+          messageId: emailSendResult.messageId,
+          statusCode: emailSendResult.statusCode,
+          error: emailSendResult.error
+        };
+      } catch (emailError) {
+        console.error('Email sending error:', emailError);
+        emailResult = {
+          sent: true,
+          success: false,
+          error: emailError.message,
+          statusCode: null
+        };
+      }
+    }
+
+    // 一時ファイル削除
+    await fs.promises.unlink(file.filepath);
+
+    // レスポンス
+    return res.status(200).json({
       success: true,
       fileId,
-      fileName,
-      fileSize,
-      downloadLink,
-      expiresIn: `${FILE_TTL_SECONDS / 86400} days`,
-      email: {
-        sent: emailResult.success && !emailResult.skipped,
-        recipient: recipientEmail,
-        ...emailResult
+      downloadUrl,
+      otp,
+      fileName: metadata.fileName,
+      fileSize: metadata.fileSize,
+      expiresAt: metadata.expiresAt,
+      maxDownloads: MAX_DOWNLOADS,
+      email: emailResult,
+      _debug: {
+        environment: envConfig.environment,
+        emailSent: emailResult.sent,
+        emailSuccess: emailResult.success,
+        sandboxMode: envConfig.sandboxMode,
+        vercelUrl: process.env.VERCEL_URL
       }
-    };
-    
-    // 非本番環境の場合はデバッグ情報を追加
-    if (!isProduction()) {
-      response._debug = {
-        environment: envInfo,
-        otp,
-        fileId,
-        metadata: {
-          ...metadata,
-          // パスワード関連は除外
-        }
-      };
-    }
-    
-    console.log(`[Upload] Upload completed successfully`);
-    
-    return res.status(200).json(response);
-    
+    });
+
   } catch (error) {
-    console.error('[Upload] Error:', error);
-    
+    console.error('Upload error:', error);
     return res.status(500).json({
       error: 'File upload failed',
       message: error.message,
-      environment: envInfo.environment
+      environment: getEnvironmentConfig().environment
     });
   }
 }
