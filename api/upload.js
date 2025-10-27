@@ -140,15 +140,12 @@ export default async function handler(req, res) {
 
     if (recipient && envConfig.enableEmailSending) {
       try {
-        const emailSendResult = await sendDownloadLinkEmail({
-          to: recipient,
-          downloadUrl: downloadUrl,
-          otp: otp,
-          fileName: metadata.fileName,
-          fileSize: metadata.fileSize,
-          expiresAt: metadata.expiresAt
-        });
-
+const emailSendResult = await sendDownloadLinkEmail({
+  to: recipient,
+  downloadUrl: downloadUrl,
+  otp: otp,
+  expiresAt: metadata.expiresAt
+});
         emailResult = {
           sent: true,
           success: emailSendResult.success,
