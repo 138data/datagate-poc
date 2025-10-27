@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/lib/*": ["lib/*"],
+      "@/api/*": ["api/*"]
+    }
+  },
+  "exclude": ["node_modules", ".vercel"]
+}

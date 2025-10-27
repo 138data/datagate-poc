@@ -2,7 +2,7 @@
 import formidable from 'formidable';
 import crypto from 'crypto';
 import { kv } from '@vercel/kv';
-import { sendDownloadLinkEmail } from '../../lib/email-service.js';
+import { sendDownloadLinkEmail } from './email-service.js';
 import { getEnvironmentConfig } from '../../lib/environment.js';
 
 // 定数
@@ -199,3 +199,4 @@ export default async function handler(req, res) {
     });
   }
 }
+
