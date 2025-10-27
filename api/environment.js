@@ -65,7 +65,7 @@ export function getEnvironmentConfig() {
   const environment = getEnvironment();
   const sandboxMode = isSandboxMode();
   const enableEmailSending = isEmailEnabled();
-  
+
   // Base URLの決定
   let baseUrl;
   if (process.env.VERCEL_URL) {
@@ -83,7 +83,11 @@ export function getEnvironmentConfig() {
     sandboxMode,
     baseUrl,
     vercelUrl: process.env.VERCEL_URL || 'localhost:3000',
-    nodeEnv: process.env.NODE_ENV || 'development'
+    nodeEnv: process.env.NODE_ENV || 'development',
+    // 🔧 SendGrid 設定を追加
+    sendgridApiKey: process.env.SENDGRID_API_KEY,
+    sendgridFromEmail: process.env.SENDGRID_FROM_EMAIL,
+    sendgridFromName: process.env.SENDGRID_FROM_NAME || '138DataGate'
   };
 }
 

@@ -138,14 +138,29 @@ export default async function handler(req, res) {
       statusCode: null
     };
 
+    // 🔍 デバッグログ追加
+    console.log('[upload.js] Email sending check:', {
+      hasRecipient: !!recipient,
+      recipient: recipient,
+      enableEmailSending: envConfig.enableEmailSending,
+      hasSendgridApiKey: !!envConfig.sendgridApiKey,
+      hasSendgridFromEmail: !!envConfig.sendgridFromEmail,
+      sendgridFromEmail: envConfig.sendgridFromEmail,
+      environment: envConfig.environment
+    });
+
     if (recipient && envConfig.enableEmailSending) {
+      console.log('[upload.js] ✅ Entering email sending block');
       try {
-const emailSendResult = await sendDownloadLinkEmail({
-  to: recipient,
-  downloadUrl: downloadUrl,
-  otp: otp,
-  expiresAt: metadata.expiresAt
-});
+        const emailSendResult = await sendDownloadLinkEmail({
+          to: recipient,
+          downloadUrl: downloadUrl,
+          otp: otp,
+          expiresAt: metadata.expiresAt
+        });
+        
+        console.log('[upload.js] Email send result:', emailSendResult);
+        
         emailResult = {
           sent: true,
           success: emailSendResult.success,
@@ -154,7 +169,7 @@ const emailSendResult = await sendDownloadLinkEmail({
           error: emailSendResult.error
         };
       } catch (emailError) {
-        console.error('Email sending error:', emailError);
+        console.error('[upload.js] Email sending error:', emailError);
         emailResult = {
           sent: true,
           success: false,
@@ -162,6 +177,11 @@ const emailSendResult = await sendDownloadLinkEmail({
           statusCode: null
         };
       }
+    } else {
+      console.log('[upload.js] ❌ Skipping email sending:', {
+        hasRecipient: !!recipient,
+        enableEmailSending: envConfig.enableEmailSending
+      });
     }
 
     // 一時ファイル削除
@@ -196,5 +216,3 @@ const emailSendResult = await sendDownloadLinkEmail({
     });
   }
 }
-
-
