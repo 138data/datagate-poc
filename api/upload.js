@@ -1,12 +1,14 @@
-// api/upload.js - 完全版（busboy使用）
+// api/upload.js - 完全版（正しいインポートパス）
 
 import { kv } from '@vercel/kv';
 import { randomBytes } from 'crypto';
-import busboy from 'busboy';
-import { encryptFile, generateOTP } from '../lib/crypto.js';
-import { sendDownloadLinkEmail, sendFileAsAttachment } from './email-service.js';
-import { getEnvironmentConfig, canUseDirectAttach } from './environment.js';
-import { saveAuditLog } from './audit-log.js';
+import { encryptFile, generateOTP } from '../lib/encryption.js';
+import { sendDownloadLinkEmail, sendFileAsAttachment } from '../lib/email-service.js';
+import { getEnvironmentConfig, canUseDirectAttach } from '../lib/environment.js';
+import { saveAuditLog } from '../lib/audit-log.js';
+
+// busboy の動的インポート用
+let Busboy;
 
 export const config = {
   api: {
@@ -66,7 +68,7 @@ export default async function handler(req, res) {
 
     // ファイル暗号化
     console.log('[Upload] Encrypting file...');
-    const encryptedData = encryptFile(file.fileContent, fileId, otp);
+    const encryptedData = encryptFile(file.fileContent);
 
     // メタデータ
     const metadata = {
@@ -77,17 +79,20 @@ export default async function handler(req, res) {
       expiresAt: expiresAt,
       downloadCount: 0,
       maxDownloads: 3,
-      otp: otp
+      otp: otp,
+      salt: encryptedData.salt,
+      iv: encryptedData.iv,
+      authTag: encryptedData.authTag
     };
 
     // KVに保存
     console.log('[Upload] Saving to KV...');
     await kv.set(ile::meta, JSON.stringify(metadata), {
-      ex: 7 * 24 * 60 * 60 // 7日間
+      ex: 7 * 24 * 60 * 60
     });
 
-    await kv.set(ile::data, encryptedData.encryptedContent, {
-      ex: 7 * 24 * 60 * 60 // 7日間
+    await kv.set(ile::data, encryptedData.encryptedData, {
+      ex: 7 * 24 * 60 * 60
     });
 
     console.log('[Upload] File saved successfully:', fileId);
@@ -111,9 +116,7 @@ export default async function handler(req, res) {
     if (recipient && envConfig.enableEmailSending) {
       console.log('[Upload] Processing email send...');
 
-      // 添付直送判定
       const directAttachCheck = canUseDirectAttach(recipient, file.fileSize);
-
       console.log('[Upload] Direct attach check:', directAttachCheck);
 
       let emailResult;
@@ -121,42 +124,32 @@ export default async function handler(req, res) {
       let sendReason = null;
 
       if (directAttachCheck.allowed) {
-        // 添付直送モード
         console.log('[Upload] Sending file as attachment...');
-
         emailResult = await sendFileAsAttachment({
           to: recipient,
           fileName: file.fileName,
           fileContent: file.fileContent,
           mimeType: file.mimeType
         });
-
         sendMode = emailResult.success ? 'attach' : 'blocked';
-
         if (!emailResult.success) {
           sendReason = 'send_failed';
         }
-
       } else {
-        // リンク送付モード（フォールバック含む）
         console.log('[Upload] Sending download link (reason:', directAttachCheck.reason, ')');
-
         emailResult = await sendDownloadLinkEmail({
           to: recipient,
           downloadUrl: downloadUrl,
           otp: otp,
           expiresAt: expiresAt
         });
-
         sendMode = emailResult.success ? 'link' : 'blocked';
         sendReason = directAttachCheck.reason;
-
         if (!emailResult.success) {
           sendReason = 'send_failed';
         }
       }
 
-      // 監査ログ保存
       await saveAuditLog({
         event: 'file_send',
         actor: req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown',
@@ -169,7 +162,6 @@ export default async function handler(req, res) {
         status: emailResult.success ? 'success' : 'failed'
       });
 
-      // 応答に送信情報を追加
       response.email = {
         sent: true,
         success: emailResult.success,
@@ -182,12 +174,10 @@ export default async function handler(req, res) {
 
       console.log('[Upload] Email processing complete:', response.email);
     } else {
-      // メール送信なし
       response.email = {
         sent: false,
         reason: !recipient ? 'no_recipient' : 'email_disabled'
       };
-
       console.log('[Upload] Email not sent:', response.email.reason);
     }
 
@@ -204,11 +194,16 @@ export default async function handler(req, res) {
 }
 
 /**
- * multipart/form-data をパース（busboy使用）
+ * multipart/form-data をパース（busboy動的インポート対応）
  */
 async function parseMultipartFormData(req) {
+  if (!Busboy) {
+    const busboyModule = await import('busboy');
+    Busboy = busboyModule.default || busboyModule;
+  }
+
   return new Promise((resolve, reject) => {
-    const bb = busboy({ headers: req.headers });
+    const bb = Busboy({ headers: req.headers });
     const fields = {};
     let file = null;
 
@@ -224,14 +219,12 @@ async function parseMultipartFormData(req) {
 
       fileStream.on('end', () => {
         const fileBuffer = Buffer.concat(chunks);
-        
         file = {
           fileName: filename,
           fileContent: fileBuffer,
           fileSize: fileBuffer.length,
           mimeType: mimeType || 'application/octet-stream'
         };
-
         console.log('[Parse] File received:', {
           fileName: file.fileName,
           fileSize: file.fileSize,
@@ -260,7 +253,6 @@ async function parseMultipartFormData(req) {
       reject(error);
     });
 
-    // リクエストストリームをbusboyにパイプ
     req.pipe(bb);
   });
 }
