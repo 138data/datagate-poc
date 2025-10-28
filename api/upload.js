@@ -107,8 +107,7 @@ export default async function handler(req, res) {
     let emailReason = null;
     let shouldAttach = false;
 
-    if (canUseDirectAttach(recipientDomain)) {
-      // サイズチェック
+    if (canUseDirectAttach(recipient)) {      // サイズチェック
       if (fileSize <= DIRECT_ATTACH_MAX_SIZE) {
         shouldAttach = true;
         emailMode = 'attach';
