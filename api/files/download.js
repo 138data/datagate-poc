@@ -257,13 +257,21 @@ async function handleDownloadFile(req, res) {
     dataLength: encryptedDataObj.data?.length
   });
 
-  // ファイルを復号化
+// ファイルを復号化
   let decryptedBuffer;
   try {
-    decryptedBuffer = decryptFile(encryptedDataObj);
+    // encryptedDataをBufferに変換
+    const encryptedBuffer = Buffer.from(encryptedDataObj.data, 'base64');
+    
+    // 4つの引数を個別に渡す
+    decryptedBuffer = decryptFile(
+      encryptedBuffer,
+      encryptedDataObj.salt,
+      encryptedDataObj.iv,
+      encryptedDataObj.authTag
+    );
     console.log('File decrypted successfully, size:', decryptedBuffer.length);
-  } catch (decryptError) {
-    console.error('Decryption error:', decryptError.message);
+  } catch (decryptError) {    console.error('Decryption error:', decryptError.message);
     
     // 監査ログ記録（失敗）
     await saveAuditLog({
