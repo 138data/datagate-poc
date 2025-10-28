@@ -5,10 +5,8 @@ import { sendDownloadLinkEmail, sendFileAsAttachment } from './email-service.js'
 
 export default async function handler(req, res) {
   try {
-    // Step 1: 環境関数のテスト
     const directAttachCheck = canUseDirectAttach('datagate@138io.com', 1024);
     
-    // Step 2: 監査ログのテスト（KV書き込み）
     await saveAuditLog({
       event: 'test',
       actor: 'test',
