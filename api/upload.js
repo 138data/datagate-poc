@@ -1,7 +1,8 @@
-// api/upload.js - 完全版（Part 1/2）
+// api/upload.js - 完全版（busboy使用）
 
 import { kv } from '@vercel/kv';
 import { randomBytes } from 'crypto';
+import busboy from 'busboy';
 import { encryptFile, generateOTP } from '../lib/crypto.js';
 import { sendDownloadLinkEmail, sendFileAsAttachment } from './email-service.js';
 import { getEnvironmentConfig, canUseDirectAttach } from './environment.js';
@@ -37,9 +38,9 @@ export default async function handler(req, res) {
     console.log('[Upload] Email enabled:', envConfig.enableEmailSending);
     console.log('[Upload] Direct attach enabled:', envConfig.enableDirectAttach);
 
-    // multipart/form-data のパース
+    // multipart/form-data のパース（busboy使用）
     const formData = await parseMultipartFormData(req);
-    
+
     if (!formData.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
@@ -56,10 +57,10 @@ export default async function handler(req, res) {
 
     // ファイルID生成
     const fileId = randomBytes(16).toString('hex');
-    
+
     // OTP生成（6桁数値）
     const otp = generateOTP();
-    
+
     // 有効期限（7日後）
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
@@ -81,19 +82,19 @@ export default async function handler(req, res) {
 
     // KVに保存
     console.log('[Upload] Saving to KV...');
-    await kv.set(`file:${fileId}:meta`, JSON.stringify(metadata), {
+    await kv.set(ile::meta, JSON.stringify(metadata), {
       ex: 7 * 24 * 60 * 60 // 7日間
     });
 
-    await kv.set(`file:${fileId}:data`, encryptedData.encryptedContent, {
+    await kv.set(ile::data, encryptedData.encryptedContent, {
       ex: 7 * 24 * 60 * 60 // 7日間
     });
 
     console.log('[Upload] File saved successfully:', fileId);
 
     // ダウンロードURL生成
-    const baseUrl = `https://${req.headers.host}`;
-    const downloadUrl = `${baseUrl}/download.html?id=${fileId}`;
+    const baseUrl = https://;
+    const downloadUrl = ${baseUrl}/download.html?id=;
 
     // 応答の基本構造
     const response = {
@@ -109,12 +110,12 @@ export default async function handler(req, res) {
     // メール送信処理
     if (recipient && envConfig.enableEmailSending) {
       console.log('[Upload] Processing email send...');
-      
+
       // 添付直送判定
       const directAttachCheck = canUseDirectAttach(recipient, file.fileSize);
-      
+
       console.log('[Upload] Direct attach check:', directAttachCheck);
-      
+
       let emailResult;
       let sendMode;
       let sendReason = null;
@@ -122,34 +123,34 @@ export default async function handler(req, res) {
       if (directAttachCheck.allowed) {
         // 添付直送モード
         console.log('[Upload] Sending file as attachment...');
-        
+
         emailResult = await sendFileAsAttachment({
           to: recipient,
           fileName: file.fileName,
           fileContent: file.fileContent,
           mimeType: file.mimeType
         });
-        
+
         sendMode = emailResult.success ? 'attach' : 'blocked';
-        
+
         if (!emailResult.success) {
           sendReason = 'send_failed';
         }
-        
+
       } else {
         // リンク送付モード（フォールバック含む）
         console.log('[Upload] Sending download link (reason:', directAttachCheck.reason, ')');
-        
+
         emailResult = await sendDownloadLinkEmail({
           to: recipient,
           downloadUrl: downloadUrl,
           otp: otp,
           expiresAt: expiresAt
         });
-        
+
         sendMode = emailResult.success ? 'link' : 'blocked';
         sendReason = directAttachCheck.reason;
-        
+
         if (!emailResult.success) {
           sendReason = 'send_failed';
         }
@@ -186,7 +187,7 @@ export default async function handler(req, res) {
         sent: false,
         reason: !recipient ? 'no_recipient' : 'email_disabled'
       };
-      
+
       console.log('[Upload] Email not sent:', response.email.reason);
     }
 
@@ -196,130 +197,70 @@ export default async function handler(req, res) {
     console.error('[Upload] Error:', error);
     return res.status(500).json({
       error: 'Upload failed',
-      details: error.message
+      details: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 }
 
 /**
- * multipart/form-data をパース
+ * multipart/form-data をパース（busboy使用）
  */
 async function parseMultipartFormData(req) {
   return new Promise((resolve, reject) => {
-    const chunks = [];
-    
-    req.on('data', (chunk) => {
-      chunks.push(chunk);
-    });
-    
-    req.on('end', () => {
-      try {
-        const buffer = Buffer.concat(chunks);
-        const contentType = req.headers['content-type'] || '';
-        const boundary = contentType.split('boundary=')[1];
+    const bb = busboy({ headers: req.headers });
+    const fields = {};
+    let file = null;
+
+    bb.on('file', (fieldname, fileStream, info) => {
+      const { filename, encoding, mimeType } = info;
+      const chunks = [];
+
+      console.log('[Parse] File field detected:', { fieldname, filename, mimeType });
+
+      fileStream.on('data', (chunk) => {
+        chunks.push(chunk);
+      });
+
+      fileStream.on('end', () => {
+        const fileBuffer = Buffer.concat(chunks);
         
-        if (!boundary) {
-          throw new Error('No boundary found in Content-Type');
-        }
-        
-        const parts = parseMultipart(buffer, boundary);
-        
-        let file = null;
-        const fields = {};
-        
-        for (const part of parts) {
-          if (part.filename) {
-            file = {
-              fileName: part.filename,
-              fileContent: part.data,
-              fileSize: part.data.length,
-              mimeType: part.contentType || 'application/octet-stream'
-            };
-          } else if (part.name) {
-            fields[part.name] = part.data.toString('utf-8');
-          }
-        }
-        
-        resolve({ file, fields });
-      } catch (error) {
+        file = {
+          fileName: filename,
+          fileContent: fileBuffer,
+          fileSize: fileBuffer.length,
+          mimeType: mimeType || 'application/octet-stream'
+        };
+
+        console.log('[Parse] File received:', {
+          fileName: file.fileName,
+          fileSize: file.fileSize,
+          mimeType: file.mimeType
+        });
+      });
+
+      fileStream.on('error', (error) => {
+        console.error('[Parse] File stream error:', error);
         reject(error);
-      }
+      });
     });
-    
-    req.on('error', reject);
+
+    bb.on('field', (fieldname, value) => {
+      fields[fieldname] = value;
+      console.log('[Parse] Field received:', { fieldname, value });
+    });
+
+    bb.on('finish', () => {
+      console.log('[Parse] Parsing complete');
+      resolve({ file, fields });
+    });
+
+    bb.on('error', (error) => {
+      console.error('[Parse] Busboy error:', error);
+      reject(error);
+    });
+
+    // リクエストストリームをbusboyにパイプ
+    req.pipe(bb);
   });
-}
-
-/**
- * マルチパートデータをパース
- */
-function parseMultipart(buffer, boundary) {
-  const parts = [];
-  const boundaryBuffer = Buffer.from(`--${boundary}`);
-  const endBoundaryBuffer = Buffer.from(`--${boundary}--`);
-  
-  let start = 0;
-  
-  while (true) {
-    const boundaryIndex = buffer.indexOf(boundaryBuffer, start);
-    
-    if (boundaryIndex === -1) break;
-    
-    const nextBoundaryIndex = buffer.indexOf(boundaryBuffer, boundaryIndex + boundaryBuffer.length);
-    const endBoundaryIndex = buffer.indexOf(endBoundaryBuffer, boundaryIndex);
-    
-    let end;
-    if (nextBoundaryIndex === -1 || (endBoundaryIndex !== -1 && endBoundaryIndex < nextBoundaryIndex)) {
-      end = endBoundaryIndex !== -1 ? endBoundaryIndex : buffer.length;
-    } else {
-      end = nextBoundaryIndex;
-    }
-    
-    if (end > boundaryIndex + boundaryBuffer.length) {
-      const partBuffer = buffer.slice(boundaryIndex + boundaryBuffer.length, end);
-      const part = parsePart(partBuffer);
-      if (part) {
-        parts.push(part);
-      }
-    }
-    
-    start = end;
-    
-    if (endBoundaryIndex !== -1 && endBoundaryIndex < start + boundaryBuffer.length) {
-      break;
-    }
-  }
-  
-  return parts;
-}
-
-/**
- * 個別パートをパース
- */
-function parsePart(buffer) {
-  const headerEnd = buffer.indexOf(Buffer.from('\r\n\r\n'));
-  
-  if (headerEnd === -1) return null;
-  
-  const headerBuffer = buffer.slice(0, headerEnd);
-  const dataBuffer = buffer.slice(headerEnd + 4);
-  
-  const headers = headerBuffer.toString('utf-8');
-  
-  const contentDisposition = headers.match(/Content-Disposition: (.+)/i);
-  if (!contentDisposition) return null;
-  
-  const nameMatch = contentDisposition[1].match(/name="([^"]+)"/);
-  const filenameMatch = contentDisposition[1].match(/filename="([^"]+)"/);
-  
-  const contentTypeMatch = headers.match(/Content-Type: (.+)/i);
-  
-  const trimmedData = dataBuffer.slice(0, dataBuffer.length - 2);
-  
-  return {
-    name: nameMatch ? nameMatch[1] : null,
-    filename: filenameMatch ? filenameMatch[1] : null,
-    contentType: contentTypeMatch ? contentTypeMatch[1].trim() : null,
-    data: trimmedData
-  };
 }
