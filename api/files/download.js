@@ -70,7 +70,7 @@ export default async function handler(request) {
     }
 
     try {
-      const metadataJson = await kv.get(`file:${fileId}:meta`);
+      const metadataJson = await kv.get((`file:${fileId}:meta`);
 
       if (!metadataJson) {
         return new Response(
@@ -132,7 +132,7 @@ export default async function handler(request) {
         }
 
         // メタデータ取得
-        const metadataJson = await kv.get(`file:${fileId}:meta`);
+        const metadataJson = await kv.get((`file:${fileId}:meta`);
 
         if (!metadataJson) {
           return new Response(
@@ -194,7 +194,7 @@ export default async function handler(request) {
       }
 
       // メタデータ取得
-      const metadataJson = await kv.get(`file:${fileId}:meta`);
+      const metadataJson = await kv.get((`file:${fileId}:meta`);
 
       if (!metadataJson) {
         return new Response(
@@ -259,7 +259,7 @@ export default async function handler(request) {
       }
 
       // 暗号化データ取得
-      const encryptedDataJson = await kv.get(`file:${fileId}:data`);
+      const encryptedDataJson = await kv.get((`file:${fileId}:data`);
 
       if (!encryptedDataJson) {
         return new Response(
@@ -292,7 +292,7 @@ export default async function handler(request) {
 
       // ダウンロード回数をインクリメント
       metadata.downloadCount = currentDownloadCount + 1;
-      await kv.set(`file:${fileId}:meta`, JSON.stringify(metadata));
+      await kv.set((`file:${fileId}:meta`, JSON.stringify(metadata));
 
       // 監査ログ
       await saveAuditLog({
