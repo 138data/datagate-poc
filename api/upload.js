@@ -152,7 +152,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       success: true,
       fileId,
-      otp,
+      // otp は削除（セキュリティ上の理由）
       email: {
         sent: emailResult.sent,
         success: emailResult.success,

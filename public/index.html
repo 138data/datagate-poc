@@ -1,370 +1,652 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DataGate - セキュアファイル転送</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            margin: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
-        .container {
-            background: white;
-            padding: 40px;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            width: 100%;
-            max-width: 500px;
-        }
-        h1 { text-align: center; color: #333; margin-bottom: 30px; }
-        .file-input-wrapper {
-            border: 2px dashed #cbd5e0;
-            padding: 30px;
-            text-align: center;
-            margin-bottom: 20px;
-            cursor: pointer;
-            background: #f9f9f9;
-            border-radius: 10px;
-        }
-        .file-input-wrapper:hover { background: #f0f0f0; }
-        #fileInput { /* display:none; -> overlay化により無効 */ }
-        #fileName { margin-top: 10px; color: #667eea; font-weight: bold; }
-        input[type="email"] {
-            width: 100%;
-            padding: 12px;
-            margin-bottom: 20px;
-            border: 1px solid #cbd5e0;
-            border-radius: 8px;
-            font-size: 16px;
-            box-sizing: border-box;
-        }
-        button {
-            width: 100%;
-            padding: 14px;
-            background: #667eea;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-        }
-        button:hover:not(:disabled) { background: #5a67d8; }
-        button:disabled { background: #cbd5e0; cursor: not-allowed; }
-        #loading { display: none; text-align: center; margin: 20px 0; color: #667eea; }
-        #result {
-            display: none;
-            margin-top: 20px;
-            padding: 20px;
-            border-radius: 8px;
-        }
-        .success {
-            background: #d4edda;
-            border: 1px solid #c3e6cb;
-            color: #155724;
-        }
-        .error {
-            background: #f8d7da;
-            border: 1px solid #f5c6cb;
-            color: #721c24;
-        }
-        .otp-display {
-            background: #fff3cd;
-            padding: 20px;
-            margin: 15px 0;
-            border-radius: 8px;
-            text-align: center;
-        }
-        .otp-code {
-            font-size: 36px;
-            font-weight: bold;
-            color: #e74c3c;
-            letter-spacing: 8px;
-        }
-        .link-box {
-            background: white;
-            padding: 15px;
-            border-radius: 5px;
-            word-break: break-all;
-            margin: 10px 0;
-            border: 1px solid #ddd;
-            font-family: monospace;
-        }
-        .download-link {
-            display: inline-block;
-            background: #48bb78;
-            color: white;
-            padding: 12px 24px;
-            text-decoration: none;
-            border-radius: 8px;
-            margin: 10px 0;
-            font-weight: 600;
-            transition: all 0.3s;
-        }
-        .download-link:hover {
-            background: #38a169;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(72, 187, 120, 0.4);
-        }
-        .copy-btn {
-            background: #4299e1;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            margin-top: 10px;
-        }
-        .copy-btn:hover {
-            background: #3182ce;
-        }
-            
-        /* === File input overlay: click reliability & a11y === */
-        .file-input-wrapper { position: relative; overflow: hidden; }
-        #fileInput {
-            position: absolute;
-            inset: 0;           /* top:0; right:0; bottom:0; left:0; と同等 */
-            width: 100%;
-            height: 100%;
-            opacity: 0;         /* 見えないがクリックは拾う */
-            cursor: pointer;
-        }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ファイルアップロード - 138DataGate</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      max-width: 600px;
+      width: 100%;
+      padding: 40px;
+    }
+
+    h1 {
+      font-size: 32px;
+      color: #333;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #666;
+      font-size: 16px;
+      margin-bottom: 40px;
+    }
+
+    .upload-area {
+      border: 3px dashed #ddd;
+      border-radius: 12px;
+      padding: 60px 20px;
+      text-align: center;
+      transition: all 0.3s;
+      cursor: pointer;
+      background: #fafafa;
+      margin-bottom: 30px;
+    }
+
+    .upload-area:hover {
+      border-color: #667eea;
+      background: #f5f7ff;
+    }
+
+    .upload-area.dragover {
+      border-color: #667eea;
+      background: #e8edff;
+      transform: scale(1.02);
+    }
+
+    .upload-icon {
+      font-size: 64px;
+      margin-bottom: 20px;
+    }
+
+    .upload-text {
+      font-size: 18px;
+      color: #333;
+      margin-bottom: 10px;
+      font-weight: 500;
+    }
+
+    .upload-hint {
+      font-size: 14px;
+      color: #999;
+    }
+
+    #file-input {
+      display: none;
+    }
+
+    .selected-file {
+      display: none;
+      background: #f5f5f5;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .selected-file.show {
+      display: block;
+    }
+
+    .file-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .file-info {
+      display: flex;
+      align-items: center;
+      flex: 1;
+    }
+
+    .file-icon {
+      font-size: 32px;
+      margin-right: 15px;
+    }
+
+    .file-details {
+      flex: 1;
+    }
+
+    .file-name {
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 4px;
+      word-break: break-word;
+    }
+
+    .file-size {
+      font-size: 14px;
+      color: #666;
+    }
+
+    .remove-btn {
+      background: #f44336;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 16px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.3s;
+    }
+
+    .remove-btn:hover {
+      background: #d32f2f;
+    }
+
+    .form-group {
+      margin-bottom: 25px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: #333;
+      font-weight: 500;
+      font-size: 14px;
+    }
+
+    input[type="email"] {
+      width: 100%;
+      padding: 14px 18px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 16px;
+      transition: all 0.3s;
+    }
+
+    input[type="email"]:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .helper-text {
+      font-size: 13px;
+      color: #666;
+      margin-top: 8px;
+      line-height: 1.5;
+    }
+
+    .upload-btn {
+      width: 100%;
+      padding: 16px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 18px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .upload-btn:hover {
+      background: #5568d3;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    .upload-btn:active {
+      transform: translateY(0);
+    }
+
+    .upload-btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .progress-section {
+      display: none;
+      margin-top: 25px;
+    }
+
+    .progress-section.show {
+      display: block;
+    }
+
+    .progress-bar-container {
+      width: 100%;
+      height: 8px;
+      background: #e0e0e0;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 15px;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+      width: 0%;
+      transition: width 0.3s;
+    }
+
+    .progress-text {
+      text-align: center;
+      color: #666;
+      font-size: 14px;
+    }
+
+    .result-section {
+      display: none;
+      text-align: center;
+      padding: 30px 20px;
+      background: #f5f5f5;
+      border-radius: 8px;
+      margin-top: 25px;
+    }
+
+    .result-section.show {
+      display: block;
+    }
+
+    .result-icon {
+      font-size: 64px;
+      margin-bottom: 20px;
+    }
+
+    .result-title {
+      font-size: 24px;
+      color: #4caf50;
+      margin-bottom: 15px;
+      font-weight: 600;
+    }
+
+    .result-message {
+      font-size: 16px;
+      color: #666;
+      margin-bottom: 25px;
+      line-height: 1.6;
+    }
+
+    .download-link {
+      display: inline-block;
+      padding: 12px 30px;
+      background: white;
+      color: #667eea;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: 600;
+      border: 2px solid #667eea;
+      transition: all 0.3s;
+      margin-bottom: 20px;
+    }
+
+    .download-link:hover {
+      background: #667eea;
+      color: white;
+    }
+
+    .reset-btn {
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 30px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+
+    .reset-btn:hover {
+      background: #5568d3;
+    }
+
+    .error-message {
+      display: none;
+      background: #ffebee;
+      color: #c62828;
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 20px;
+      border-left: 4px solid #c62828;
+    }
+
+    .error-message.show {
+      display: block;
+    }
+
+    .info-box {
+      background: #e3f2fd;
+      border-left: 4px solid #2196f3;
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 30px;
+    }
+
+    .info-box-title {
+      font-weight: 600;
+      color: #1565c0;
+      margin-bottom: 10px;
+      font-size: 14px;
+    }
+
+    .info-box-content {
+      font-size: 13px;
+      color: #333;
+      line-height: 1.6;
+    }
+
+    .info-box-content ul {
+      margin: 10px 0;
+      padding-left: 20px;
+    }
+
+    .info-box-content li {
+      margin-bottom: 6px;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 40px;
+      padding-top: 30px;
+      border-top: 1px solid #e0e0e0;
+      color: #666;
+      font-size: 13px;
+    }
+
+    @media (max-width: 600px) {
+      .container {
+        padding: 30px 20px;
+      }
+
+      h1 {
+        font-size: 28px;
+      }
+
+      .subtitle {
+        font-size: 14px;
+      }
+
+      .upload-area {
+        padding: 40px 15px;
+      }
+
+      .upload-icon {
+        font-size: 48px;
+      }
+
+      .upload-text {
+        font-size: 16px;
+      }
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>🔐 DataGate</h1>
-        
-        <div class="file-input-wrapper" id="fileWrapper" class="file-input-wrapper" tabindex="0" role="button" aria-label="ファイルを選択">
-            📁 ファイルを選択
-            <div id="fileName"></div>
-            <input type="file" id="fileInput" />
-        </div>
-        
-        <input type="email" id="emailInput" placeholder="受信者のメールアドレス" required />
-        
-        <button id="uploadBtn">ファイルをアップロード</button>
-        
-        <div id="loading">⏳ アップロード中...</div>
-        
-        <div id="result"></div>
+  <div class="container">
+    <h1>🚀 ファイル送信</h1>
+    <p class="subtitle">セキュアなファイル受け渡しシステム</p>
+
+    <div class="upload-area" id="upload-area">
+      <div class="upload-icon">📎</div>
+      <div class="upload-text">ファイルをドラッグ＆ドロップ</div>
+      <div class="upload-hint">または クリックして選択</div>
+      <input type="file" id="file-input">
     </div>
 
-    <script>
-document.addEventListener('DOMContentLoaded', () => {
-  // セレクタヘルパ（$ を使わない）
-  const qs  = (sel) => document.querySelector(sel);
-  const pick = (sels) => sels.map((s) => qs(s)).find(Boolean);
+    <div class="selected-file" id="selected-file">
+      <div class="file-item">
+        <div class="file-info">
+          <div class="file-icon">📄</div>
+          <div class="file-details">
+            <div class="file-name" id="file-name"></div>
+            <div class="file-size" id="file-size"></div>
+          </div>
+        </div>
+        <button class="remove-btn" id="remove-btn">削除</button>
+      </div>
+    </div>
 
-  const fileWrapper = pick(['#fileWrapper', '.file-input-wrapper']);
-  const fileInput   = pick(['#fileInput', 'input[type="file"]']);
-  const fileNameEl  = pick(['#fileName', '.file-name', '#selectedFileName']);
-  const emailInput  = pick(['#emailInput', 'input[type="email"]', 'input[name="recipientEmail"]']);
-  const uploadBtn   = pick(['#uploadBtn', '#uploadButton', 'button[type="submit"]']);
-  const loading     = pick(['#loading', '.loading']);
-  const result      = pick(['#result', '.result']);
+    <form id="upload-form">
+      <div class="form-group">
+        <label for="recipient">📧 送信先メールアドレス</label>
+        <input 
+          type="email" 
+          id="recipient" 
+          name="recipient" 
+          placeholder="例: recipient@example.com"
+          required
+          autocomplete="email"
+        >
+        <p class="helper-text">
+          ファイルのダウンロードリンクを送信します。<br>
+          受信者は2段階認証（メールアドレス確認 + 認証コード）でダウンロードします。
+        </p>
+      </div>
 
-  const getSafeLink = (data) => {
-    const fid = (data && (data.fileId || data.id)) || '';
-    if (data && data.downloadLink) return String(data.downloadLink);
-    if (fid) return location.origin + '/download.html?id=' + fid;
-    return '';
-  };
+      <button type="submit" class="upload-btn" id="upload-btn" disabled>
+        📤 送信
+      </button>
+    </form>
 
-  // ファイルピッカー（クリック/Enter/Space）
-  const openPicker = (e) => { if (e && e.preventDefault) e.preventDefault(); if (fileInput && fileInput.click) fileInput.click(); };
-  if (fileWrapper) {
-    fileWrapper.addEventListener('click', openPicker);
-    fileWrapper.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') openPicker(e);
+    <div class="progress-section" id="progress-section">
+      <div class="progress-bar-container">
+        <div class="progress-bar" id="progress-bar"></div>
+      </div>
+      <div class="progress-text" id="progress-text">アップロード中...</div>
+    </div>
+
+    <div class="result-section" id="result-section">
+      <div class="result-icon">✅</div>
+      <div class="result-title">送信完了！</div>
+      <div class="result-message" id="result-message">
+        ファイルを送信しました。<br>
+        受信者には2段階認証でセキュアにダウンロードするための<br>
+        リンクがメールで送信されました。
+      </div>
+      <a href="#" class="download-link" id="download-link" target="_blank" style="display: none;">
+        🔗 ダウンロードページを開く
+      </a>
+      <button class="reset-btn" id="reset-btn">別のファイルを送信</button>
+    </div>
+
+    <div class="error-message" id="error-message"></div>
+
+    <div class="info-box">
+      <div class="info-box-title">🔒 セキュリティについて</div>
+      <div class="info-box-content">
+        <ul>
+          <li><strong>AES-256-GCM暗号化</strong>でファイルを保護</li>
+          <li><strong>2段階認証</strong>: メールアドレス確認 + 6桁の認証コード</li>
+          <li><strong>7日間</strong>で自動削除（最大3回ダウンロード可能）</li>
+          <li>認証コードはダウンロード時にメールで送信されます</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p><strong>Powered by 138DataGate</strong></p>
+      <p>セキュアなファイル受け渡しシステム</p>
+    </div>
+  </div>
+
+  <script>
+    const uploadArea = document.getElementById('upload-area');
+    const fileInput = document.getElementById('file-input');
+    const selectedFile = document.getElementById('selected-file');
+    const fileName = document.getElementById('file-name');
+    const fileSize = document.getElementById('file-size');
+    const removeBtn = document.getElementById('remove-btn');
+    const uploadForm = document.getElementById('upload-form');
+    const uploadBtn = document.getElementById('upload-btn');
+    const progressSection = document.getElementById('progress-section');
+    const progressBar = document.getElementById('progress-bar');
+    const progressText = document.getElementById('progress-text');
+    const resultSection = document.getElementById('result-section');
+    const resultMessage = document.getElementById('result-message');
+    const downloadLink = document.getElementById('download-link');
+    const resetBtn = document.getElementById('reset-btn');
+    const errorMessage = document.getElementById('error-message');
+
+    let selectedFileObj = null;
+
+    function formatFileSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+
+    uploadArea.addEventListener('click', () => {
+      fileInput.click();
     });
-  }
 
-  // ファイル名表示
-  if (fileInput) {
     fileInput.addEventListener('change', (e) => {
-      const f = e && e.target && e.target.files && e.target.files[0];
-      if (fileNameEl) fileNameEl.textContent = f ? f.name : '';
+      handleFileSelect(e.target.files[0]);
     });
-  }
 
-  // 送信
-  if (uploadBtn) {
-    uploadBtn.addEventListener('click', async (e) => {
-      if (e && e.preventDefault) e.preventDefault();
+    uploadArea.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploadArea.classList.add('dragover');
+    });
+
+    uploadArea.addEventListener('dragleave', () => {
+      uploadArea.classList.remove('dragover');
+    });
+
+    uploadArea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadArea.classList.remove('dragover');
+      handleFileSelect(e.dataTransfer.files[0]);
+    });
+
+    function handleFileSelect(file) {
+      if (!file) return;
+
+      selectedFileObj = file;
+      fileName.textContent = file.name;
+      fileSize.textContent = formatFileSize(file.size);
+      selectedFile.classList.add('show');
+      uploadBtn.disabled = false;
+      errorMessage.classList.remove('show');
+    }
+
+    removeBtn.addEventListener('click', () => {
+      selectedFileObj = null;
+      fileInput.value = '';
+      selectedFile.classList.remove('show');
+      uploadBtn.disabled = true;
+    });
+
+    uploadForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      if (!selectedFileObj) {
+        showError('ファイルを選択してください');
+        return;
+      }
+
+      const recipient = document.getElementById('recipient').value;
+
       try {
-        const f = fileInput && fileInput.files && fileInput.files[0];
-        if (!f) { alert('ファイルを選択してください'); return; }
-        const email = ((emailInput && emailInput.value) || '').trim();
-        if (!email || !email.includes('@')) { alert('有効なメールアドレスを入力してください'); return; }
+        uploadBtn.disabled = true;
+        progressSection.classList.add('show');
+        progressBar.style.width = '0%';
+        progressText.textContent = 'アップロード中...';
+        errorMessage.classList.remove('show');
 
-        if (uploadBtn) uploadBtn.disabled = true;
-        if (loading) loading.style.display = 'block';
-        if (result) result.style.display = 'none';
+        const formData = new FormData();
+        formData.append('file', selectedFileObj);
+        formData.append('recipient', recipient);
 
-        const fd = new FormData();
-        fd.append('file', f);
-        fd.append('recipientEmail', email);
+        const xhr = new XMLHttpRequest();
 
-        const resp = await fetch('/api/upload', { method:'POST', body: fd });
-        const data = await resp.json().catch(() => ({}));
-
-        if (data && data.success) {
-          const safeLink = getSafeLink(data);
-          if (result) {
-            result.className = 'success';
-            result.innerHTML = ''
-              + '<h3>✅ アップロード成功！</h3>'
-              + '<p>' + (data.message || 'ファイルがアップロードされました') + '</p>'
-              + '<p><strong>ダウンロードリンク:</strong></p>'
-              + '<a href="' + safeLink + '" target="_blank" class="download-link">📥 ダウンロードページを開く</a>'
-              + '<div class="link-box">'
-              +   safeLink
-              +   '<button class="copy-btn" onclick="navigator.clipboard.writeText(\'' + safeLink + '\').then(()=>alert(\'リンクをコピーしました！\'))">📋 リンクをコピー</button>'
-              + '</div>'
-              + '<button onclick="location.reload()" style="margin-top:20px;">新しいファイルをアップロード</button>';
-            result.style.display = 'block';
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable) {
+            const percentComplete = (e.loaded / e.total) * 100;
+            progressBar.style.width = percentComplete + '%';
+            progressText.textContent = `アップロード中... ${Math.round(percentComplete)}%`;
           }
-        } else {
-          throw new Error((data && data.error) || 'アップロードに失敗しました');
-        }
-      } catch (err) {
-        console.error(err);
-        if (result) {
-          result.className = 'error';
-          result.innerHTML = '<h3>❌ エラー</h3><p>' + (err && err.message ? err.message : String(err)) + '</p>';
-          result.style.display = 'block';
-        }
-      } finally {
-        if (uploadBtn) uploadBtn.disabled = false;
-        if (loading) loading.style.display = 'none';
+        });
+
+        xhr.addEventListener('load', () => {
+          if (xhr.status === 200) {
+            const data = JSON.parse(xhr.responseText);
+            
+            if (data.success) {
+              progressText.textContent = '送信完了！';
+              progressBar.style.width = '100%';
+
+              setTimeout(() => {
+                progressSection.classList.remove('show');
+                resultSection.classList.add('show');
+
+                const dlUrl = `${window.location.origin}/download.html?id=${data.fileId}`;
+                downloadLink.href = dlUrl;
+                downloadLink.style.display = 'inline-block';
+
+                let message = 'ファイルを送信しました。<br><br>';
+                message += '<strong>受信者の操作手順:</strong><br>';
+                message += '1. メールに届いたリンクをクリック<br>';
+                message += '2. メールアドレスを入力して認証コードを取得<br>';
+                message += '3. 認証コード（6桁）を入力してダウンロード';
+                
+                if (data.email && data.email.mode === 'attach') {
+                  message += '<br><br><strong>📎 ファイルは直接メールに添付されています</strong>';
+                }
+
+                resultMessage.innerHTML = message;
+              }, 500);
+            } else {
+              throw new Error(data.error || 'アップロードに失敗しました');
+            }
+          } else {
+            let errorMsg = 'アップロードに失敗しました';
+            try {
+              const data = JSON.parse(xhr.responseText);
+              errorMsg = data.error || errorMsg;
+            } catch (e) {
+              // JSON解析失敗
+            }
+            throw new Error(errorMsg);
+          }
+        });
+
+        xhr.addEventListener('error', () => {
+          throw new Error('ネットワークエラーが発生しました');
+        });
+
+        xhr.open('POST', '/api/upload');
+        xhr.send(formData);
+
+      } catch (error) {
+        showError(error.message);
+        progressSection.classList.remove('show');
+        uploadBtn.disabled = false;
       }
     });
-  }
-});
-</script>
-<!-- ===== DataGate Safe Picker (isolated) ===== -->
-<div id="dg-safe-picker" style="margin-top:24px; padding:16px; border:1px solid #e5e7eb; border-radius:12px;">
-  <h3 style="margin:0 0 8px;">🛟 セーフ・ファイルアップロード（暫定UI）</h3>
 
-  <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-    <button id="dg-pickBtn" type="button">📁 ファイルを選択</button>
-    <span>選択中: <strong id="dg-fileName">未選択</strong></span>
-    <input id="dg-fileInput" type="file" style="position:absolute; left:-9999px;" />
-  </div>
+    resetBtn.addEventListener('click', () => {
+      resultSection.classList.remove('show');
+      selectedFile.classList.remove('show');
+      uploadForm.reset();
+      fileInput.value = '';
+      selectedFileObj = null;
+      uploadBtn.disabled = true;
+      errorMessage.classList.remove('show');
+    });
 
-  <div style="margin-top:12px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-    <input id="dg-emailInput" type="email" placeholder="送信先メールアドレス" style="min-width:260px; padding:6px 10px;" />
-    <button id="dg-uploadBtn" type="button">⬆ ファイルをアップロード</button>
-    <span id="dg-loading" style="display:none;">⏳ アップロード中…</span>
-  </div>
-
-  <div id="dg-result" style="display:none; margin-top:12px; padding:12px; border-radius:8px;"></div>
-</div>
-
-<script>
-(function(){
-  // 要素
-  var pickBtn    = document.getElementById("dg-pickBtn");
-  var fileInput  = document.getElementById("dg-fileInput");
-  var fileNameEl = document.getElementById("dg-fileName");
-  var emailInput = document.getElementById("dg-emailInput");
-  var uploadBtn  = document.getElementById("dg-uploadBtn");
-  var loadingEl  = document.getElementById("dg-loading");
-  var resultEl   = document.getElementById("dg-result");
-
-  // 安全リンク生成
-  function safeLinkFrom(data){
-    var fid = (data && (data.fileId || data.id)) || "";
-    if (data && data.downloadLink) return String(data.downloadLink);
-    if (fid) return (location.origin + "/download.html?id=" + fid);
-    return "";
-  }
-
-  // ファイル選択（labelではなくbutton→input.clickだが、ユーザ操作起点なのでOK）
-  if (pickBtn) pickBtn.addEventListener("click", function(e){
-    e && e.preventDefault && e.preventDefault();
-    fileInput && fileInput.click && fileInput.click();
-  });
-
-  // ファイル名表示
-  if (fileInput) fileInput.addEventListener("change", function(e){
-    var f = e && e.target && e.target.files && e.target.files[0];
-    fileNameEl.textContent = f ? f.name : "未選択";
-  });
-
-  // アップロード
-  if (uploadBtn) uploadBtn.addEventListener("click", function(e){
-    e && e.preventDefault && e.preventDefault();
-
-    var f = fileInput && fileInput.files && fileInput.files[0];
-    if (!f) { alert("ファイルを選択してください"); return; }
-
-    var email = (emailInput && emailInput.value || "").trim();
-    if (!email || email.indexOf("@") === -1) { alert("有効なメールアドレスを入力してください"); return; }
-
-    uploadBtn.disabled = true;
-    loadingEl.style.display = "inline";
-    resultEl.style.display = "none";
-    resultEl.className = "";
-    resultEl.innerHTML = "";
-
-    var fd = new FormData();
-    fd.append("file", f);
-    fd.append("recipientEmail", email);
-
-    fetch("/api/upload", { method:"POST", body: fd })
-      .then(function(resp){ return resp.json(); })
-      .then(function(data){
-        if (data && data.success){
-          var link = safeLinkFrom(data);
-          resultEl.className = "success";
-          resultEl.style.border = "1px solid #10b981";
-          resultEl.style.background = "#ecfdf5";
-          resultEl.innerHTML =
-            "<div style='font-weight:600; margin-bottom:6px;'>✅ アップロード成功！</div>"
-            + "<div>" + (data.message || "ファイルがアップロードされました") + "</div>"
-            + "<div style='margin-top:8px;'><strong>ダウンロードリンク:</strong></div>"
-            + "<div style='display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:4px;'>"
-            +   "<a href='" + link + "' target='_blank'>📥 ダウンロードページを開く</a>"
-            +   "<button type='button' onclick=\"navigator.clipboard.writeText('" + link + "').then(()=>alert('リンクをコピーしました！'))\">📋 コピー</button>"
-            + "</div>";
-          resultEl.style.display = "block";
-        } else {
-          var msg = (data && data.error) || "アップロードに失敗しました";
-          throw new Error(msg);
-        }
-      })
-      .catch(function(err){
-        resultEl.className = "error";
-        resultEl.style.border = "1px solid #ef4444";
-        resultEl.style.background = "#fef2f2";
-        resultEl.innerHTML =
-          "<div style='font-weight:600; margin-bottom:6px;'>❌ エラー</div>"
-          + "<div>" + (err && err.message ? err.message : String(err)) + "</div>";
-        resultEl.style.display = "block";
-      })
-      .finally(function(){
-        uploadBtn.disabled = false;
-        loadingEl.style.display = "none";
-      });
-  });
-})();
-</script>
-<!-- ===== /DataGate Safe Picker ===== -->
+    function showError(message) {
+      errorMessage.textContent = message;
+      errorMessage.classList.add('show');
+      setTimeout(() => {
+        errorMessage.classList.remove('show');
+      }, 5000);
+    }
+  </script>
 </body>
 </html>
-
-
-
-
-
-

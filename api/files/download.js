@@ -1,339 +1,371 @@
-// api/files/download.js
 import { kv } from '@vercel/kv';
 import { decryptFile } from '../../lib/encryption.js';
+import { sendOTPEmail, sendDownloadNotificationEmail } from '../../lib/email-service.js';
 import { saveAuditLog } from '../../lib/audit-log.js';
 
 /**
- * ダウンロードエンドポイント
- * GET: ファイル情報取得（OTP不要）
- * POST: OTP検証 + ファイルダウンロード（回数制限あり）
+ * ダウンロードAPIエンドポイント
+ * 
+ * GET /api/files/download?id={fileId}
+ *   - ファイル情報取得（OTPなしで取得可能）
+ * 
+ * POST /api/files/download/request-otp
+ *   - メールアドレス確認 + OTP送信
+ *   - Body: { fileId: string, email: string }
+ * 
+ * POST /api/files/download
+ *   - OTP検証 + ファイルダウンロード + 開封通知送信
+ *   - Body: { fileId: string, otp: string }
  */
-export default async function handler(req, res) {
-  try {
-    console.log('=== Download Request Started ===');
-    console.log('Method:', req.method);
-    console.log('Query:', req.query);
-    console.log('Body:', req.body);
+export default async function handler(request) {
+  const headers = {
+    'Content-Type': 'application/json',
+    'Cache-Control': 'no-store, no-cache, must-revalidate',
+  };
 
-    // GET: ファイル情報取得（OTP不要）
-    if (req.method === 'GET') {
-      return await handleGetFileInfo(req, res);
+  // CORSヘッダー
+  if (request.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        ...headers,
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      },
+    });
+  }
+
+  const url = new URL(request.url);
+  const pathname = url.pathname;
+
+  // GET: ファイル情報取得
+  if (request.method === 'GET') {
+    const fileId = url.searchParams.get('id');
+
+    if (!fileId) {
+      return new Response(
+        JSON.stringify({ success: false, message: 'ファイルIDが指定されていません' }),
+        { status: 400, headers }
+      );
     }
 
-    // POST: OTP検証 + ダウンロード
-    if (req.method === 'POST') {
-      return await handleDownloadFile(req, res);
+    try {
+      const metadataJson = await kv.get(`file:${fileId}:meta`);
+
+      if (!metadataJson) {
+        return new Response(
+          JSON.stringify({ success: false, message: 'ファイルが見つかりません' }),
+          { status: 404, headers }
+        );
+      }
+
+      const metadata = typeof metadataJson === 'string' ? JSON.parse(metadataJson) : metadataJson;
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          fileName: metadata.fileName,
+          fileSize: metadata.fileSize,
+          uploadedAt: metadata.uploadedAt,
+          expiresAt: metadata.expiresAt,
+          downloadCount: metadata.downloadCount || 0,
+          maxDownloads: metadata.maxDownloads || 3,
+        }),
+        { status: 200, headers }
+      );
+    } catch (error) {
+      console.error('Get file info error:', error);
+      return new Response(
+        JSON.stringify({ success: false, message: 'ファイル情報の取得に失敗しました' }),
+        { status: 500, headers }
+      );
     }
-
-    // それ以外のメソッドは405
-    return res.status(405).json({
-      success: false,
-      error: 'Method Not Allowed'
-    });
-
-  } catch (error) {
-    console.error('=== Download Error ===');
-    console.error('Error:', error.message);
-    console.error('Stack:', error.stack);
-
-    return res.status(500).json({
-      success: false,
-      error: 'ダウンロード処理中にエラーが発生しました',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-}
-
-/**
- * GET: ファイル情報取得（OTP不要）
- */
-async function handleGetFileInfo(req, res) {
-  const fileId = req.query.id;
-
-  // fileId検証
-  if (!fileId) {
-    console.error('Error: fileId is missing');
-    return res.status(400).json({
-      success: false,
-      error: 'ファイルIDが指定されていません'
-    });
   }
 
-  // Vercel KVからメタデータ取得
-  console.log('Fetching metadata from KV:', `file:${fileId}:meta`);
-  const metadataJson = await kv.get(`file:${fileId}:meta`);
+  // POST: OTP送信リクエスト or ダウンロード
+  if (request.method === 'POST') {
+    try {
+      const body = await request.json();
 
-  if (!metadataJson) {
-    console.error('Error: File not found in KV');
-    return res.status(404).json({
-      success: false,
-      error: 'ファイルが見つかりません'
-    });
+      // OTP送信リクエスト（/api/files/download/request-otp）
+      if (pathname.includes('/request-otp')) {
+        const { fileId, email } = body;
+
+        if (!fileId || !email) {
+          return new Response(
+            JSON.stringify({ success: false, message: 'fileId と email が必要です' }),
+            { status: 400, headers }
+          );
+        }
+
+        // メタデータ取得
+        const metadataJson = await kv.get(`file:${fileId}:meta`);
+
+        if (!metadataJson) {
+          return new Response(
+            JSON.stringify({ success: false, message: 'ファイルが見つかりません' }),
+            { status: 404, headers }
+          );
+        }
+
+        const metadata = typeof metadataJson === 'string' ? JSON.parse(metadataJson) : metadataJson;
+
+        // メールアドレス確認
+        const recipientEmail = (metadata.recipient || '').toLowerCase();
+        const inputEmail = email.toLowerCase();
+
+        if (recipientEmail !== inputEmail) {
+          // 監査ログ: メールアドレス不一致
+          await saveAuditLog({
+            event: 'email_mismatch',
+            fileId,
+            actor: inputEmail,
+            to: recipientEmail,
+            status: 'rejected',
+          });
+
+          return new Response(
+            JSON.stringify({ success: false, message: 'メールアドレスが一致しません' }),
+            { status: 403, headers }
+          );
+        }
+
+        // OTPをメール送信
+        const otpResult = await sendOTPEmail({
+          to: recipientEmail,
+          fileName: metadata.fileName,
+          otp: metadata.otp,
+        });
+
+        if (!otpResult.success) {
+          return new Response(
+            JSON.stringify({ success: false, message: 'OTPの送信に失敗しました' }),
+            { status: 500, headers }
+          );
+        }
+
+        // 監査ログ: OTP送信成功
+        await saveAuditLog({
+          event: 'otp_sent',
+          fileId,
+          actor: recipientEmail,
+          to: recipientEmail,
+          status: 'success',
+        });
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: 'OTPをメールで送信しました',
+          }),
+          { status: 200, headers }
+        );
+      }
+
+      // ダウンロードリクエスト（/api/files/download）
+      const { fileId, otp } = body;
+
+      if (!fileId || !otp) {
+        return new Response(
+          JSON.stringify({ success: false, message: 'fileId と otp が必要です' }),
+          { status: 400, headers }
+        );
+      }
+
+      // メタデータ取得
+      const metadataJson = await kv.get(`file:${fileId}:meta`);
+
+      if (!metadataJson) {
+        return new Response(
+          JSON.stringify({ success: false, message: 'ファイルが見つかりません' }),
+          { status: 404, headers }
+        );
+      }
+
+      const metadata = typeof metadataJson === 'string' ? JSON.parse(metadataJson) : metadataJson;
+
+      // OTP検証
+      if (metadata.otp !== otp) {
+        // 監査ログ: OTP不一致
+        await saveAuditLog({
+          event: 'download_failed',
+          fileId,
+          actor: 'unknown',
+          to: metadata.recipient,
+          status: 'invalid_otp',
+        });
+
+        return new Response(
+          JSON.stringify({ success: false, message: 'OTPが正しくありません' }),
+          { status: 401, headers }
+        );
+      }
+
+      // ダウンロード回数チェック
+      const downloadCount = metadata.downloadCount || 0;
+      const maxDownloads = metadata.maxDownloads || 3;
+
+      if (downloadCount >= maxDownloads) {
+        // 監査ログ: 回数制限超過
+        await saveAuditLog({
+          event: 'download_failed',
+          fileId,
+          actor: metadata.recipient,
+          to: metadata.recipient,
+          status: 'max_downloads_exceeded',
+        });
+
+        return new Response(
+          JSON.stringify({ success: false, message: 'ダウンロード回数の上限に達しました' }),
+          { status: 403, headers }
+        );
+      }
+
+      // 有効期限チェック
+      const expiresAt = new Date(metadata.expiresAt);
+      const now = new Date();
+
+      if (expiresAt < now) {
+        // 監査ログ: 期限切れ
+        await saveAuditLog({
+          event: 'download_failed',
+          fileId,
+          actor: metadata.recipient,
+          to: metadata.recipient,
+          status: 'expired',
+        });
+
+        return new Response(
+          JSON.stringify({ success: false, message: 'ファイルの有効期限が切れています' }),
+          { status: 410, headers }
+        );
+      }
+
+      // 暗号化データ取得
+      const encryptedDataJson = await kv.get(`file:${fileId}:data`);
+
+      if (!encryptedDataJson) {
+        return new Response(
+          JSON.stringify({ success: false, message: 'ファイルデータが見つかりません' }),
+          { status: 404, headers }
+        );
+      }
+
+      const encryptedDataObj = typeof encryptedDataJson === 'string' ? JSON.parse(encryptedDataJson) : encryptedDataJson;
+
+      // 復号化
+      let decryptedBuffer;
+      try {
+        const encryptedBuffer = Buffer.from(encryptedDataObj.data, 'base64');
+        decryptedBuffer = decryptFile(
+          encryptedBuffer,
+          encryptedDataObj.salt,
+          encryptedDataObj.iv,
+          encryptedDataObj.authTag
+        );
+      } catch (decryptError) {
+        console.error('Decryption error:', decryptError);
+        return new Response(
+          JSON.stringify({ success: false, message: 'ファイルの復号化に失敗しました' }),
+          { status: 500, headers }
+        );
+      }
+
+      // ダウンロード回数を更新
+      metadata.downloadCount = downloadCount + 1;
+      const ttlSeconds = Math.floor((expiresAt - now) / 1000);
+      await kv.set(`file:${fileId}:meta`, JSON.stringify(metadata), { ex: ttlSeconds });
+
+      // 【開封通知機能】
+      try {
+        const notifyConfig = await kv.get('config:notify').catch(() => null);
+        const notifyEnabled = notifyConfig?.enabled === true;
+        const isFirstOnly = (notifyConfig?.mode || 'first') === 'first';
+        const notifyTo = metadata.senderNotifyEmail || notifyConfig?.fallbackEmail;
+
+        if (notifyEnabled && notifyTo) {
+          const alreadyNotified = !!metadata.firstDownloadNotifiedAt;
+
+          // 初回のみ or 毎回通知
+          if (!isFirstOnly || !alreadyNotified) {
+            // 受信者ドメインを抽出
+            const recipientDomain = metadata.recipient.split('@')[1] || 'unknown';
+
+            // 日本時間でフォーマット（JST = UTC+9）
+            const downloadedAtUTC = new Date();
+            const downloadedAtJST = new Date(downloadedAtUTC.getTime() + 9 * 60 * 60 * 1000);
+            const formattedDate = downloadedAtJST.toISOString().replace('T', ' ').substring(0, 19) + ' (JST)';
+
+            // 開封通知メール送信
+            await sendDownloadNotificationEmail({
+              to: notifyTo,
+              fileName: metadata.fileName,
+              downloadedAt: formattedDate,
+              downloadCount: metadata.downloadCount,
+              maxDownloads: metadata.maxDownloads,
+              recipientDomain: `@${recipientDomain}`,
+            });
+
+            // メタデータ更新
+            if (!metadata.firstDownloadNotifiedAt) {
+              metadata.firstDownloadNotifiedAt = downloadedAtUTC.toISOString();
+            }
+            metadata.notifyCount = (metadata.notifyCount || 0) + 1;
+            await kv.set(`file:${fileId}:meta`, JSON.stringify(metadata), { ex: ttlSeconds });
+
+            // 監査ログ: 開封通知送信
+            await saveAuditLog({
+              event: 'open_notified',
+              fileId,
+              actor: metadata.recipient,
+              to: notifyTo,
+              status: 'success',
+            });
+          }
+        }
+      } catch (notifyError) {
+        // 開封通知の失敗はダウンロードを阻害しない（ベストエフォート）
+        console.error('Download notification error:', notifyError);
+      }
+
+      // 監査ログ: ダウンロード成功
+      await saveAuditLog({
+        event: 'download',
+        fileId,
+        actor: metadata.recipient,
+        to: metadata.recipient,
+        size: metadata.fileSize,
+        status: 'success',
+      });
+
+      // ファイルを返す
+      const fileName = metadata.fileName;
+      const encodedFileName = encodeURIComponent(fileName);
+      const disposition = `attachment; filename="${fileName}"; filename*=UTF-8''${encodedFileName}`;
+
+      return new Response(decryptedBuffer, {
+        status: 200,
+        headers: {
+          'Content-Type': metadata.mimeType || 'application/octet-stream',
+          'Content-Disposition': disposition,
+          'Content-Length': decryptedBuffer.length.toString(),
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
+        },
+      });
+
+    } catch (error) {
+      console.error('Download error:', error);
+      return new Response(
+        JSON.stringify({ success: false, message: 'ダウンロード処理中にエラーが発生しました' }),
+        { status: 500, headers }
+      );
+    }
   }
 
-  // メタデータをパース（JSON文字列の場合）
-  const metadata = typeof metadataJson === 'string' 
-    ? JSON.parse(metadataJson) 
-    : metadataJson;
-
-  console.log('Metadata found:', metadata);
-
-  // 有効期限チェック
-  const now = new Date();
-  const expiresAt = new Date(metadata.expiresAt);
-
-  if (now > expiresAt) {
-    console.error('Error: File expired');
-    return res.status(410).json({
-      success: false,
-      error: 'ファイルの有効期限が切れています'
-    });
-  }
-
-  // ファイル情報を返す（OTPは含めない）
-  return res.status(200).json({
-    success: true,
-    fileName: metadata.fileName,
-    fileSize: metadata.size,
-    uploadedAt: metadata.uploadedAt,
-    expiresAt: metadata.expiresAt,
-    downloadCount: metadata.downloadCount || 0,
-    maxDownloads: metadata.maxDownloads || 3
-  });
-}
-
-/**
- * POST: OTP検証 + ファイルダウンロード
- */
-async function handleDownloadFile(req, res) {
-  const body = req.body || {};
-  const fileId = body.fileId || body.id || req.query.id;
-  const otp = body.otp || req.query.otp;
-
-  console.log('Parsed parameters:', { fileId, otp });
-
-  // パラメータ検証
-  if (!fileId) {
-    console.error('Error: fileId is missing');
-    return res.status(400).json({
-      success: false,
-      error: 'ファイルIDが指定されていません'
-    });
-  }
-
-  if (!otp) {
-    console.error('Error: OTP is missing');
-    return res.status(400).json({
-      success: false,
-      error: 'OTPが指定されていません'
-    });
-  }
-
-  // Vercel KVからメタデータ取得
-  console.log('Fetching metadata from KV:', `file:${fileId}:meta`);
-  const metadataJson = await kv.get(`file:${fileId}:meta`);
-
-  if (!metadataJson) {
-    console.error('Error: File not found in KV');
-    
-    // 監査ログ記録（失敗）
-    await saveAuditLog({
-      event: 'download_failed',
-      fileId,
-      reason: 'file_not_found',
-      timestamp: new Date().toISOString()
-    });
-
-    return res.status(404).json({
-      success: false,
-      error: 'ファイルが見つかりません'
-    });
-  }
-
-  // メタデータをパース
-  const metadata = typeof metadataJson === 'string' 
-    ? JSON.parse(metadataJson) 
-    : metadataJson;
-
-  console.log('Metadata found:', metadata);
-
-  // 有効期限チェック
-  const now = new Date();
-  const expiresAt = new Date(metadata.expiresAt);
-
-  if (now > expiresAt) {
-    console.error('Error: File expired');
-    
-    // 監査ログ記録（失敗）
-    await saveAuditLog({
-      event: 'download_failed',
-      fileId,
-      fileName: metadata.fileName,
-      reason: 'expired',
-      timestamp: new Date().toISOString()
-    });
-
-    return res.status(410).json({
-      success: false,
-      error: 'ファイルの有効期限が切れています'
-    });
-  }
-
-  // OTP検証
-  if (otp !== metadata.otp) {
-    console.error('Error: Invalid OTP');
-    
-    // 監査ログ記録（失敗）
-    await saveAuditLog({
-      event: 'download_failed',
-      fileId,
-      fileName: metadata.fileName,
-      reason: 'invalid_otp',
-      timestamp: new Date().toISOString()
-    });
-
-    return res.status(401).json({
-      success: false,
-      error: 'OTPが正しくありません'
-    });
-  }
-
-  console.log('OTP verified successfully');
-
-  // ダウンロード回数チェック
-  const downloadCount = metadata.downloadCount || 0;
-  const maxDownloads = metadata.maxDownloads || 3;
-
-  if (downloadCount >= maxDownloads) {
-    console.error('Error: Max downloads exceeded');
-    
-    // 監査ログ記録（失敗）
-    await saveAuditLog({
-      event: 'download_failed',
-      fileId,
-      fileName: metadata.fileName,
-      reason: 'max_downloads_exceeded',
-      downloadCount,
-      maxDownloads,
-      timestamp: new Date().toISOString()
-    });
-
-    return res.status(403).json({
-      success: false,
-      error: `ダウンロード回数の上限（${maxDownloads}回）に達しています`
-    });
-  }
-
-  // Vercel KVから暗号化ファイルデータ取得
-  console.log('Fetching encrypted file data from KV:', `file:${fileId}:data`);
-  const encryptedData = await kv.get(`file:${fileId}:data`);
-
-  if (!encryptedData) {
-    console.error('Error: File data not found in KV');
-    
-    // 監査ログ記録（失敗）
-    await saveAuditLog({
-      event: 'download_failed',
-      fileId,
-      fileName: metadata.fileName,
-      reason: 'data_not_found',
-      timestamp: new Date().toISOString()
-    });
-
-    return res.status(404).json({
-      success: false,
-      error: 'ファイルデータが見つかりません'
-    });
-  }
-
-  // 暗号化データをパース
-  const encryptedDataObj = typeof encryptedData === 'string'
-    ? JSON.parse(encryptedData)
-    : encryptedData;
-
-  console.log('Encrypted data found:', {
-    hasIv: !!encryptedDataObj.iv,
-    hasAuthTag: !!encryptedDataObj.authTag,
-    dataLength: encryptedDataObj.data?.length
-  });
-
-// ファイルを復号化
-  let decryptedBuffer;
-  try {
-    // encryptedDataをBufferに変換
-    const encryptedBuffer = Buffer.from(encryptedDataObj.data, 'base64');
-    
-    // 4つの引数を個別に渡す
-    decryptedBuffer = decryptFile(
-      encryptedBuffer,
-      encryptedDataObj.salt,
-      encryptedDataObj.iv,
-      encryptedDataObj.authTag
-    );
-    console.log('File decrypted successfully, size:', decryptedBuffer.length);
-  } catch (decryptError) {    console.error('Decryption error:', decryptError.message);
-    
-    // 監査ログ記録（失敗）
-    await saveAuditLog({
-      event: 'download_failed',
-      fileId,
-      fileName: metadata.fileName,
-      reason: 'decryption_error',
-      error: decryptError.message,
-      timestamp: new Date().toISOString()
-    });
-
-    return res.status(500).json({
-      success: false,
-      error: 'ファイルの復号化に失敗しました'
-    });
-  }
-
-  // ダウンロード回数をインクリメント
-  const newDownloadCount = downloadCount + 1;
-  metadata.downloadCount = newDownloadCount;
-  metadata.lastDownloadedAt = new Date().toISOString();
-
-  // メタデータを更新（TTLは維持）
-  const ttl = Math.floor((expiresAt - now) / 1000); // 残りのTTL（秒）
-  if (ttl > 0) {
-    await kv.set(
-      `file:${fileId}:meta`,
-      JSON.stringify(metadata),
-      { ex: ttl }
-    );
-    console.log('Download count updated:', newDownloadCount);
-  }
-
-  // 監査ログ記録（成功）
-  await saveAuditLog({
-    event: 'download_success',
-    fileId,
-    fileName: metadata.fileName,
-    fileSize: metadata.size,
-    downloadCount: newDownloadCount,
-    maxDownloads,
-    timestamp: new Date().toISOString()
-  });
-
-  // レスポンス返却（RFC5987形式でファイル名エンコード）
-  const encodedFileName = encodeRFC5987(metadata.fileName);
-  
-  res.setHeader('Content-Type', 'application/octet-stream');
-  res.setHeader('Content-Disposition', `attachment; filename="file.bin"; filename*=UTF-8''${encodedFileName}`);
-  res.setHeader('Content-Length', decryptedBuffer.length);
-
-  console.log('=== Download Response Sent ===');
-  return res.status(200).send(decryptedBuffer);
-}
-
-/**
- * RFC5987形式のファイル名エンコード
- * 例: "日本語.txt" → "%E6%97%A5%E6%9C%AC%E8%AA%9E.txt"
- */
-function encodeRFC5987(fileName) {
-  return encodeURIComponent(fileName)
-    .replace(/['()]/g, escape)
-    .replace(/\*/g, '%2A')
-    .replace(/%(?:7C|60|5E)/g, unescape);
+  // その他のメソッドは拒否
+  return new Response(
+    JSON.stringify({ success: false, message: 'Method not allowed' }),
+    { status: 405, headers }
+  );
 }
