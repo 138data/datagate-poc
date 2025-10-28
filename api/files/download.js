@@ -15,7 +15,7 @@
 import { kv } from '@vercel/kv';
 import { decryptFile } from '../../lib/encryption.js';
 import { saveAuditLog } from '../../lib/audit-log.js';
-import { sendOTPEmail, sendFileOpenedNotification } from '../../lib/email-service.js';
+import { sendOTPEmail, sendDownloadNotificationEmail } from '../../lib/email-service.js';
 
 /**
  * メールアドレスのマスク処理
@@ -305,11 +305,13 @@ export default async function handler(request) {
       });
 
       // 開封通知メール送信（バックグラウンド）
-      sendFileOpenedNotification({
-        fileId,
+      sendDownloadNotificationEmail({
+        to: metadata.recipient,
         fileName: metadata.fileName,
-        recipient: metadata.recipient,
-        downloadedAt: new Date().toISOString()
+        downloadedAt: new Date().toISOString(),
+        downloadCount: metadata.downloadCount,
+        maxDownloads: metadata.maxDownloads || 3,
+        recipientDomain: metadata.recipient.split('@')[1] || metadata.recipient
       }).catch(err => {
         console.error('Failed to send opened notification:', err);
       });
