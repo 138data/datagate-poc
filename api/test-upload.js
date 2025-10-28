@@ -1,28 +1,26 @@
-﻿export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
-
+// api/test-upload.js
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
   try {
-    // 基本的なテスト
+    // KV接続テスト
+    const { kv } = await import('@vercel/kv');
+    
+    // SendGrid設定テスト
+    const sendgridApiKey = process.env.SENDGRID_API_KEY;
+    
     res.status(200).json({
       success: true,
-      message: 'Test upload API is working',
-      fileId: 'test-12345',
-      otp: 'abc123',
-      timestamp: new Date().toISOString()
+      tests: {
+        kvAvailable: typeof kv !== 'undefined',
+        sendgridConfigured: !!sendgridApiKey,
+        method: req.method,
+        contentType: req.headers['content-type']
+      }
     });
   } catch (error) {
-    console.error('Test upload error:', error);
     res.status(500).json({
       success: false,
-      error: error.message
+      error: error.message,
+      stack: error.stack
     });
   }
 }
