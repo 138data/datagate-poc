@@ -79,8 +79,25 @@ export default async function handler(req, res) {
 
     // KVに保存（7日TTL）
     const ttlSeconds = 7 * 24 * 60 * 60;
-    await kv.set(`file:${fileId}:meta`, JSON.stringify(metadata), { ex: ttlSeconds });
-    await kv.set(`file:${fileId}:data`, encryptedData.toString('base64'), { ex: ttlSeconds });
+    
+    // メタデータを保存
+    await kv.set(
+      `file:${fileId}:meta`, 
+      JSON.stringify(metadata), 
+      { ex: ttlSeconds }
+    );
+    
+    // 暗号化データを保存
+    await kv.set(
+      `file:${fileId}:data`, 
+      JSON.stringify({
+        data: encryptedData.encryptedData.toString('base64'),
+        salt: encryptedData.salt,
+        iv: encryptedData.iv,
+        authTag: encryptedData.authTag
+      }), 
+      { ex: ttlSeconds }
+    );
 
     // 受信者ドメインを抽出
     const recipientDomain = recipient.split('@')[1]?.toLowerCase() || '';
