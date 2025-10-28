@@ -1,13 +1,8 @@
-import { kv } from '@vercel/kv';
-import { decryptFile } from '../../lib/encryption.js';
-import { sendOTPEmail, sendDownloadNotificationEmail } from '../../lib/email-service.js';
-import { saveAuditLog } from '../../lib/audit-log.js';
-
 /**
- * ダウンロードAPIエンドポイント
+ * ファイルダウンロードAPI
  * 
  * GET /api/files/download?id={fileId}
- *   - ファイル情報取得（OTPなしで取得可能）
+ *   - ファイル情報取得（OTP不要）
  * 
  * POST /api/files/download/request-otp
  *   - メールアドレス確認 + OTP送信
@@ -17,6 +12,30 @@ import { saveAuditLog } from '../../lib/audit-log.js';
  *   - OTP検証 + ファイルダウンロード + 開封通知送信
  *   - Body: { fileId: string, otp: string }
  */
+import { kv } from '@vercel/kv';
+import { decryptFile } from '../../lib/encryption.js';
+import { saveAuditLog } from '../../lib/audit-log.js';
+import { sendOTPEmail, sendFileOpenedNotification } from '../../lib/email-service.js';
+
+/**
+ * メールアドレスのマスク処理
+ * 例: datagate@138io.com → d***@138io.com
+ */
+function maskEmail(email) {
+  if (!email || !email.includes('@')) {
+    return '***';
+  }
+  
+  const [localPart, domain] = email.split('@');
+  
+  // ローカル部分の最初の1文字のみ表示
+  const masked = localPart.length > 0 
+    ? localPart[0] + '***'
+    : '***';
+  
+  return `${masked}@${domain}`;
+}
+
 export default async function handler(request) {
   const headers = {
     'Content-Type': 'application/json',
@@ -62,6 +81,18 @@ export default async function handler(request) {
 
       const metadata = typeof metadataJson === 'string' ? JSON.parse(metadataJson) : metadataJson;
 
+      // 失効チェック
+      if (metadata.revokedAt) {
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            message: 'このファイルは送信者により失効されました',
+            revokedAt: metadata.revokedAt
+          }),
+          { status: 403, headers }
+        );
+      }
+
       return new Response(
         JSON.stringify({
           success: true,
@@ -71,24 +102,25 @@ export default async function handler(request) {
           expiresAt: metadata.expiresAt,
           downloadCount: metadata.downloadCount || 0,
           maxDownloads: metadata.maxDownloads || 3,
+          maskedEmail: maskEmail(metadata.recipient)  // マスク表示追加
         }),
         { status: 200, headers }
       );
     } catch (error) {
-      console.error('Get file info error:', error);
+      console.error('Error fetching file metadata:', error);
       return new Response(
-        JSON.stringify({ success: false, message: 'ファイル情報の取得に失敗しました' }),
+        JSON.stringify({ success: false, message: 'サーバーエラーが発生しました' }),
         { status: 500, headers }
       );
     }
   }
 
-  // POST: OTP送信リクエスト or ダウンロード
+  // POST: OTP送信またはダウンロード
   if (request.method === 'POST') {
     try {
       const body = await request.json();
 
-      // OTP送信リクエスト（/api/files/download/request-otp）
+      // POST /api/files/download/request-otp
       if (pathname.includes('/request-otp')) {
         const { fileId, email } = body;
 
@@ -111,59 +143,47 @@ export default async function handler(request) {
 
         const metadata = typeof metadataJson === 'string' ? JSON.parse(metadataJson) : metadataJson;
 
-        // メールアドレス確認
-        const recipientEmail = (metadata.recipient || '').toLowerCase();
-        const inputEmail = email.toLowerCase();
+        // 失効チェック
+        if (metadata.revokedAt) {
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              message: 'このファイルは送信者により失効されました' 
+            }),
+            { status: 403, headers }
+          );
+        }
 
-        if (recipientEmail !== inputEmail) {
-          // 監査ログ: メールアドレス不一致
-          await saveAuditLog({
-            event: 'email_mismatch',
-            fileId,
-            actor: inputEmail,
-            to: recipientEmail,
-            status: 'rejected',
-          });
-
+        // メールアドレス確認（大文字小文字無視）
+        if (email.toLowerCase() !== metadata.recipient.toLowerCase()) {
           return new Response(
             JSON.stringify({ success: false, message: 'メールアドレスが一致しません' }),
             { status: 403, headers }
           );
         }
 
-        // OTPをメール送信
-        const otpResult = await sendOTPEmail({
-          to: recipientEmail,
+        // OTP送信
+        const result = await sendOTPEmail({
+          to: metadata.recipient,
+          fileId,
           fileName: metadata.fileName,
-          otp: metadata.otp,
+          otp: metadata.otp
         });
 
-        if (!otpResult.success) {
+        if (result.success) {
           return new Response(
-            JSON.stringify({ success: false, message: 'OTPの送信に失敗しました' }),
+            JSON.stringify({ success: true, message: '認証コードを送信しました' }),
+            { status: 200, headers }
+          );
+        } else {
+          return new Response(
+            JSON.stringify({ success: false, message: '認証コードの送信に失敗しました' }),
             { status: 500, headers }
           );
         }
-
-        // 監査ログ: OTP送信成功
-        await saveAuditLog({
-          event: 'otp_sent',
-          fileId,
-          actor: recipientEmail,
-          to: recipientEmail,
-          status: 'success',
-        });
-
-        return new Response(
-          JSON.stringify({
-            success: true,
-            message: 'OTPをメールで送信しました',
-          }),
-          { status: 200, headers }
-        );
       }
 
-      // ダウンロードリクエスト（/api/files/download）
+      // POST /api/files/download（OTP検証 + ダウンロード）
       const { fileId, otp } = body;
 
       if (!fileId || !otp) {
@@ -185,60 +205,56 @@ export default async function handler(request) {
 
       const metadata = typeof metadataJson === 'string' ? JSON.parse(metadataJson) : metadataJson;
 
-      // OTP検証
-      if (metadata.otp !== otp) {
-        // 監査ログ: OTP不一致
-        await saveAuditLog({
-          event: 'download_failed',
-          fileId,
-          actor: 'unknown',
-          to: metadata.recipient,
-          status: 'invalid_otp',
-        });
-
+      // 失効チェック
+      if (metadata.revokedAt) {
         return new Response(
-          JSON.stringify({ success: false, message: 'OTPが正しくありません' }),
-          { status: 401, headers }
-        );
-      }
-
-      // ダウンロード回数チェック
-      const downloadCount = metadata.downloadCount || 0;
-      const maxDownloads = metadata.maxDownloads || 3;
-
-      if (downloadCount >= maxDownloads) {
-        // 監査ログ: 回数制限超過
-        await saveAuditLog({
-          event: 'download_failed',
-          fileId,
-          actor: metadata.recipient,
-          to: metadata.recipient,
-          status: 'max_downloads_exceeded',
-        });
-
-        return new Response(
-          JSON.stringify({ success: false, message: 'ダウンロード回数の上限に達しました' }),
+          JSON.stringify({ 
+            success: false, 
+            message: 'このファイルは送信者により失効されました' 
+          }),
           { status: 403, headers }
         );
       }
 
-      // 有効期限チェック
-      const expiresAt = new Date(metadata.expiresAt);
-      const now = new Date();
-
-      if (expiresAt < now) {
-        // 監査ログ: 期限切れ
+      // OTP検証
+      if (metadata.otp !== otp) {
+        // 監査ログ
         await saveAuditLog({
           event: 'download_failed',
           fileId,
-          actor: metadata.recipient,
-          to: metadata.recipient,
-          status: 'expired',
+          fileName: metadata.fileName,
+          recipient: metadata.recipient,
+          reason: 'invalid_otp',
+          size: metadata.fileSize,
         });
 
         return new Response(
-          JSON.stringify({ success: false, message: 'ファイルの有効期限が切れています' }),
-          { status: 410, headers }
+          JSON.stringify({ success: false, message: '認証コードが正しくありません' }),
+          { status: 401, headers }
+        );
+      }
+
+      // ダウンロード回数制限チェック
+      const currentDownloadCount = metadata.downloadCount || 0;
+      const maxDownloads = metadata.maxDownloads || 3;
+
+      if (currentDownloadCount >= maxDownloads) {
+        // 監査ログ
+        await saveAuditLog({
+          event: 'download_failed',
+          fileId,
+          fileName: metadata.fileName,
+          recipient: metadata.recipient,
+          reason: 'max_downloads_exceeded',
+          size: metadata.fileSize,
+        });
+
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            message: 'ダウンロード回数の上限に達しました' 
+          }),
+          { status: 403, headers }
         );
       }
 
@@ -247,12 +263,14 @@ export default async function handler(request) {
 
       if (!encryptedDataJson) {
         return new Response(
-          JSON.stringify({ success: false, message: 'ファイルデータが見つかりません' }),
+          JSON.stringify({ success: false, message: '暗号化データが見つかりません' }),
           { status: 404, headers }
         );
       }
 
-      const encryptedDataObj = typeof encryptedDataJson === 'string' ? JSON.parse(encryptedDataJson) : encryptedDataJson;
+      const encryptedDataObj = typeof encryptedDataJson === 'string'
+        ? JSON.parse(encryptedDataJson)
+        : encryptedDataJson;
 
       // 復号化
       let decryptedBuffer;
@@ -264,108 +282,64 @@ export default async function handler(request) {
           encryptedDataObj.iv,
           encryptedDataObj.authTag
         );
-      } catch (decryptError) {
-        console.error('Decryption error:', decryptError);
+      } catch (error) {
+        console.error('Decryption failed:', error);
         return new Response(
-          JSON.stringify({ success: false, message: 'ファイルの復号化に失敗しました' }),
+          JSON.stringify({ success: false, message: '復号化に失敗しました' }),
           { status: 500, headers }
         );
       }
 
-      // ダウンロード回数を更新
-      metadata.downloadCount = downloadCount + 1;
-      const ttlSeconds = Math.floor((expiresAt - now) / 1000);
-      await kv.set(`file:${fileId}:meta`, JSON.stringify(metadata), { ex: ttlSeconds });
+      // ダウンロード回数をインクリメント
+      metadata.downloadCount = currentDownloadCount + 1;
+      await kv.set(`file:${fileId}:meta`, JSON.stringify(metadata));
 
-      // 【開封通知機能】
-      try {
-        const notifyConfig = await kv.get('config:notify').catch(() => null);
-        const notifyEnabled = notifyConfig?.enabled === true;
-        const isFirstOnly = (notifyConfig?.mode || 'first') === 'first';
-        const notifyTo = metadata.senderNotifyEmail || notifyConfig?.fallbackEmail;
-
-        if (notifyEnabled && notifyTo) {
-          const alreadyNotified = !!metadata.firstDownloadNotifiedAt;
-
-          // 初回のみ or 毎回通知
-          if (!isFirstOnly || !alreadyNotified) {
-            // 受信者ドメインを抽出
-            const recipientDomain = metadata.recipient.split('@')[1] || 'unknown';
-
-            // 日本時間でフォーマット（JST = UTC+9）
-            const downloadedAtUTC = new Date();
-            const downloadedAtJST = new Date(downloadedAtUTC.getTime() + 9 * 60 * 60 * 1000);
-            const formattedDate = downloadedAtJST.toISOString().replace('T', ' ').substring(0, 19) + ' (JST)';
-
-            // 開封通知メール送信
-            await sendDownloadNotificationEmail({
-              to: notifyTo,
-              fileName: metadata.fileName,
-              downloadedAt: formattedDate,
-              downloadCount: metadata.downloadCount,
-              maxDownloads: metadata.maxDownloads,
-              recipientDomain: `@${recipientDomain}`,
-            });
-
-            // メタデータ更新
-            if (!metadata.firstDownloadNotifiedAt) {
-              metadata.firstDownloadNotifiedAt = downloadedAtUTC.toISOString();
-            }
-            metadata.notifyCount = (metadata.notifyCount || 0) + 1;
-            await kv.set(`file:${fileId}:meta`, JSON.stringify(metadata), { ex: ttlSeconds });
-
-            // 監査ログ: 開封通知送信
-            await saveAuditLog({
-              event: 'open_notified',
-              fileId,
-              actor: metadata.recipient,
-              to: notifyTo,
-              status: 'success',
-            });
-          }
-        }
-      } catch (notifyError) {
-        // 開封通知の失敗はダウンロードを阻害しない（ベストエフォート）
-        console.error('Download notification error:', notifyError);
-      }
-
-      // 監査ログ: ダウンロード成功
+      // 監査ログ
       await saveAuditLog({
-        event: 'download',
+        event: 'download_success',
         fileId,
-        actor: metadata.recipient,
-        to: metadata.recipient,
+        fileName: metadata.fileName,
+        recipient: metadata.recipient,
         size: metadata.fileSize,
-        status: 'success',
+        downloadCount: metadata.downloadCount,
       });
 
-      // ファイルを返す
-      const fileName = metadata.fileName;
-      const encodedFileName = encodeURIComponent(fileName);
-      const disposition = `attachment; filename="${fileName}"; filename*=UTF-8''${encodedFileName}`;
+      // 開封通知メール送信（バックグラウンド）
+      sendFileOpenedNotification({
+        fileId,
+        fileName: metadata.fileName,
+        recipient: metadata.recipient,
+        downloadedAt: new Date().toISOString()
+      }).catch(err => {
+        console.error('Failed to send opened notification:', err);
+      });
 
+      // ファイル名のエンコーディング（RFC 5987）
+      const encodedFileName = encodeURIComponent(metadata.fileName)
+        .replace(/'/g, '%27');
+
+      // ファイルダウンロード
       return new Response(decryptedBuffer, {
         status: 200,
         headers: {
-          'Content-Type': metadata.mimeType || 'application/octet-stream',
-          'Content-Disposition': disposition,
+          'Content-Type': 'application/octet-stream',
+          'Content-Disposition': `attachment; filename="file.txt"; filename*=UTF-8''${encodedFileName}`,
           'Content-Length': decryptedBuffer.length.toString(),
           'Cache-Control': 'no-store, no-cache, must-revalidate',
         },
       });
-
     } catch (error) {
-      console.error('Download error:', error);
+      console.error('Error in download handler:', error);
       return new Response(
-        JSON.stringify({ success: false, message: 'ダウンロード処理中にエラーが発生しました' }),
+        JSON.stringify({ success: false, message: 'サーバーエラーが発生しました' }),
         { status: 500, headers }
       );
     }
   }
 
-  // その他のメソッドは拒否
+  // 未対応メソッド
   return new Response(
-    JSON.stringify({ success: false, message: 'Method not allowed' }),
+    JSON.stringify({ success: false, message: 'メソッドがサポートされていません' }),
     { status: 405, headers }
   );
 }

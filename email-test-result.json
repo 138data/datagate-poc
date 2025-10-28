@@ -1,0 +1,16 @@
+{
+  "success": true,
+  "fileId": "06c6ab0ac527e6b0ea26c07e4de287d7",
+  "downloadUrl": "https://datagate-ep7y79gqu-138datas-projects.vercel.app/download.html?id=06c6ab0ac527e6b0ea26c07e4de287d7",
+  "otp": "188830",
+  "fileName": "test-preview.txt",
+  "fileSize": 36,
+  "expiresAt": "2025-11-03T00:48:56.014Z",
+  "maxDownloads": 3,
+  "_debug": {
+    "environment": "preview",
+    "emailSent": false,
+    "sandboxMode": true,
+    "vercelUrl": "datagate-ep7y79gqu-138datas-projects.vercel.app"
+  }
+}

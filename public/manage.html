@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ファイル管理 - 138DataGate</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      padding: 40px;
+      max-width: 600px;
+      width: 100%;
+    }
+
+    h1 {
+      color: #667eea;
+      font-size: 28px;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+
+    .subtitle {
+      color: #666;
+      font-size: 14px;
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .file-info {
+      background: #f8f9fa;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 25px;
+    }
+
+    .file-info-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid #e9ecef;
+    }
+
+    .file-info-item:last-child {
+      border-bottom: none;
+    }
+
+    .file-info-label {
+      color: #666;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .file-info-value {
+      color: #333;
+      font-size: 14px;
+      font-weight: 600;
+      text-align: right;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .status-active {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .status-revoked {
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    .warning-box {
+      background: #fff3cd;
+      border: 2px solid #ffc107;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 25px;
+    }
+
+    .warning-title {
+      color: #856404;
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .warning-text {
+      color: #856404;
+      font-size: 14px;
+      line-height: 1.6;
+      margin-bottom: 0;
+    }
+
+    .warning-list {
+      margin: 10px 0 0 20px;
+      color: #856404;
+      font-size: 14px;
+      line-height: 1.8;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 14px 24px;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-align: center;
+    }
+
+    .btn-danger {
+      background: linear-gradient(135deg, #f85032 0%, #e73827 100%);
+      color: white;
+    }
+
+    .btn-danger:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(248, 80, 50, 0.4);
+    }
+
+    .btn-danger:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-secondary {
+      background: #6c757d;
+      color: white;
+      margin-top: 10px;
+    }
+
+    .btn-secondary:hover {
+      background: #5a6268;
+    }
+
+    .message {
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 14px;
+      text-align: center;
+    }
+
+    .message-success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .message-error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
+    .spinner {
+      display: none;
+      width: 40px;
+      height: 40px;
+      margin: 20px auto;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .revoked-section {
+      display: none;
+      background: #f8d7da;
+      border-radius: 12px;
+      padding: 25px;
+      text-align: center;
+    }
+
+    .revoked-icon {
+      font-size: 64px;
+      margin-bottom: 15px;
+    }
+
+    .revoked-title {
+      color: #721c24;
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .revoked-text {
+      color: #721c24;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📋 ファイル管理</h1>
+    <p class="subtitle">送信者専用管理ページ</p>
+
+    <div id="loading-section">
+      <div class="spinner" id="spinner" style="display: block;"></div>
+      <p style="text-align: center; color: #666; font-size: 14px;">読み込み中...</p>
+    </div>
+
+    <div id="content-section" style="display: none;">
+      <div class="file-info" id="file-info">
+        <!-- JavaScript で動的に生成 -->
+      </div>
+
+      <div id="message"></div>
+
+      <div id="active-section">
+        <div class="warning-box">
+          <div class="warning-title">
+            ⚠️ ファイルを失効する前に
+          </div>
+          <div class="warning-text">
+            失効すると以下の影響があります:
+          </div>
+          <ul class="warning-list">
+            <li>受信者はファイルをダウンロードできなくなります</li>
+            <li>この操作は取り消せません</li>
+            <li>既にダウンロード済みのファイルは影響を受けません</li>
+          </ul>
+        </div>
+
+        <button id="revoke-btn" class="btn btn-danger">
+          🚫 ファイルを失効する
+        </button>
+
+        <button id="back-btn" class="btn btn-secondary" onclick="window.close()">
+          ← 閉じる
+        </button>
+      </div>
+
+      <div id="revoked-section" class="revoked-section">
+        <div class="revoked-icon">🚫</div>
+        <div class="revoked-title">このファイルは失効されています</div>
+        <div class="revoked-text">
+          受信者はこのファイルをダウンロードできません。<br>
+          失効日時: <span id="revoked-at"></span>
+        </div>
+        <button class="btn btn-secondary" style="margin-top: 20px;" onclick="window.close()">
+          ← 閉じる
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // URL パラメータから id と token を取得
+    const urlParams = new URLSearchParams(window.location.search);
+    const fileId = urlParams.get('id');
+    const token = urlParams.get('token');
+
+    if (!fileId || !token) {
+      alert('無効なリンクです');
+      window.close();
+    }
+
+    const loadingSection = document.getElementById('loading-section');
+    const contentSection = document.getElementById('content-section');
+    const fileInfoDiv = document.getElementById('file-info');
+    const message = document.getElementById('message');
+    const revokeBtn = document.getElementById('revoke-btn');
+    const activeSection = document.getElementById('active-section');
+    const revokedSection = document.getElementById('revoked-section');
+
+    // ファイル情報を取得
+    async function loadFileInfo() {
+      try {
+        const response = await fetch(`/api/files/download?id=${fileId}`);
+        const data = await response.json();
+
+        loadingSection.style.display = 'none';
+        contentSection.style.display = 'block';
+
+        if (!data.success) {
+          message.innerHTML = `<div class="message message-error">${data.message}</div>`;
+          return;
+        }
+
+        // ファイル情報を表示
+        const isRevoked = data.revokedAt !== undefined;
+        
+        fileInfoDiv.innerHTML = `
+          <div class="file-info-item">
+            <span class="file-info-label">ファイル名</span>
+            <span class="file-info-value">${data.fileName}</span>
+          </div>
+          <div class="file-info-item">
+            <span class="file-info-label">サイズ</span>
+            <span class="file-info-value">${formatFileSize(data.fileSize)}</span>
+          </div>
+          <div class="file-info-item">
+            <span class="file-info-label">アップロード日時</span>
+            <span class="file-info-value">${formatDate(data.uploadedAt)}</span>
+          </div>
+          <div class="file-info-item">
+            <span class="file-info-label">ダウンロード回数</span>
+            <span class="file-info-value">${data.downloadCount} / ${data.maxDownloads} 回</span>
+          </div>
+          <div class="file-info-item">
+            <span class="file-info-label">有効期限</span>
+            <span class="file-info-value">${formatDate(data.expiresAt)}</span>
+          </div>
+          <div class="file-info-item">
+            <span class="file-info-label">ステータス</span>
+            <span class="file-info-value">
+              ${isRevoked 
+                ? '<span class="status-badge status-revoked">失効済み</span>'
+                : '<span class="status-badge status-active">有効</span>'
+              }
+            </span>
+          </div>
+        `;
+
+        // 失効済みの場合
+        if (isRevoked) {
+          activeSection.style.display = 'none';
+          revokedSection.style.display = 'block';
+          document.getElementById('revoked-at').textContent = formatDate(data.revokedAt);
+        }
+      } catch (error) {
+        loadingSection.style.display = 'none';
+        contentSection.style.display = 'block';
+        message.innerHTML = '<div class="message message-error">ファイル情報の取得に失敗しました</div>';
+        console.error('Error loading file info:', error);
+      }
+    }
+
+    // ファイル失効
+    revokeBtn.addEventListener('click', async () => {
+      if (!confirm('本当にこのファイルを失効しますか？\n\nこの操作は取り消せません。')) {
+        return;
+      }
+
+      revokeBtn.disabled = true;
+      message.innerHTML = '';
+
+      try {
+        const response = await fetch('/api/files/revoke', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileId, token })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          message.innerHTML = '<div class="message message-success">✅ ファイルを失効しました</div>';
+          
+          // 画面を更新
+          setTimeout(() => {
+            location.reload();
+          }, 1500);
+        } else {
+          message.innerHTML = `<div class="message message-error">${data.message || '失効に失敗しました'}</div>`;
+          revokeBtn.disabled = false;
+        }
+      } catch (error) {
+        message.innerHTML = '<div class="message message-error">失効に失敗しました</div>';
+        revokeBtn.disabled = false;
+        console.error('Error revoking file:', error);
+      }
+    });
+
+    // ファイルサイズのフォーマット
+    function formatFileSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    // 日付のフォーマット
+    function formatDate(isoString) {
+      const date = new Date(isoString);
+      return date.toLocaleString('ja-JP', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+
+    // ページ読み込み時にファイル情報を取得
+    loadFileInfo();
+  </script>
+</body>
+</html>

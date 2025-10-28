@@ -1,0 +1,253 @@
+// api/files/download.js
+// Vercel KV対応版（GET/POST両対応）
+// GET: ファイル情報取得（OTP不要）
+// POST: ファイルダウンロード（OTP認証必須）
+
+import { kv } from '@vercel/kv';
+const crypto = require('crypto');
+
+// 環境変数チェック
+const FILE_ENCRYPT_KEY = process.env.FILE_ENCRYPT_KEY;
+
+if (!FILE_ENCRYPT_KEY) {
+    throw new Error('FILE_ENCRYPT_KEY is not set');
+}
+
+// 復号関数（文字列用）
+function decrypt(encryptedData, salt, iv, authTag) {
+    try {
+        const key = crypto.pbkdf2Sync(
+            FILE_ENCRYPT_KEY,
+            Buffer.from(salt, 'hex'),
+            100000,
+            32,
+            'sha256'
+        );
+
+        const decipher = crypto.createDecipheriv(
+            'aes-256-gcm',
+            key,
+            Buffer.from(iv, 'hex')
+        );
+
+        decipher.setAuthTag(Buffer.from(authTag, 'hex'));
+
+        const decrypted = Buffer.concat([
+            decipher.update(Buffer.from(encryptedData, 'hex')),
+            decipher.final()
+        ]);
+
+        return decrypted.toString('utf8');
+    } catch (error) {
+        console.error('Decryption error:', error);
+        throw new Error('復号に失敗しました');
+    }
+}
+
+// メインハンドラー
+export default async function handler(req, res) {
+    // CORS設定
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    // OPTIONSリクエスト（CORS preflight）
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+
+    try {
+        // ===================================
+        // GET: ファイル情報を取得（OTP不要）
+        // ===================================
+        if (req.method === 'GET') {
+            const { id } = req.query;
+
+            // ファイルIDチェック
+            if (!id) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'ファイルIDが指定されていません'
+                });
+            }
+
+            console.log('[GET] ファイル情報取得:', id);
+
+            // KVからファイルメタデータを取得
+            const fileData = await kv.get(`file:${id}`);
+
+            if (!fileData) {
+                console.error('[GET] ファイルが見つかりません:', id);
+                return res.status(404).json({
+                    success: false,
+                    error: 'ファイルが見つかりません'
+                });
+            }
+
+            // 有効期限チェック
+            const now = new Date();
+            const expiresAt = new Date(fileData.expiresAt);
+
+            if (now > expiresAt) {
+                console.error('[GET] ファイルの有効期限切れ:', id);
+                return res.status(410).json({
+                    success: false,
+                    error: 'ファイルの有効期限が切れています'
+                });
+            }
+
+            // ファイル名を復号
+            const fileName = decrypt(
+                fileData.encryptedFileName,
+                fileData.fileNameSalt,
+                fileData.fileNameIv,
+                fileData.fileNameAuthTag
+            );
+
+            console.log('[GET] ファイル情報取得成功:', fileName);
+
+            // ファイル情報を返す（ファイル本体は返さない）
+            return res.status(200).json({
+                success: true,
+                fileName: fileName,
+                size: fileData.size,
+                uploadedAt: fileData.uploadedAt,
+                expiresAt: fileData.expiresAt
+            });
+        }
+
+        // ===================================
+        // POST: ファイルをダウンロード（OTP認証必須）
+        // ===================================
+        if (req.method === 'POST') {
+            const { id, otp } = req.body;
+
+            // パラメータチェック
+            if (!id || !otp) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'ファイルIDとOTPが必要です'
+                });
+            }
+
+            // OTPバリデーション（6桁の数字）
+            if (!/^\d{6}$/.test(otp)) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'OTPは6桁の数字で入力してください'
+                });
+            }
+
+            console.log('[POST] ファイルダウンロード要求:', id);
+
+            // KVからファイルメタデータを取得
+            const fileData = await kv.get(`file:${id}`);
+
+            if (!fileData) {
+                console.error('[POST] ファイルが見つかりません:', id);
+                return res.status(404).json({
+                    success: false,
+                    error: 'ファイルが見つかりません'
+                });
+            }
+
+            // 有効期限チェック
+            const now = new Date();
+            const expiresAt = new Date(fileData.expiresAt);
+
+            if (now > expiresAt) {
+                console.error('[POST] ファイルの有効期限切れ:', id);
+                return res.status(410).json({
+                    success: false,
+                    error: 'ファイルの有効期限が切れています'
+                });
+            }
+
+            // OTP検証
+            if (fileData.otp !== otp) {
+                console.error('[POST] OTP認証失敗:', id);
+                return res.status(401).json({
+                    success: false,
+                    error: 'OTPが正しくありません'
+                });
+            }
+
+            console.log('[POST] OTP認証成功:', id);
+
+            // ファイル名を復号
+            const fileName = decrypt(
+                fileData.encryptedFileName,
+                fileData.fileNameSalt,
+                fileData.fileNameIv,
+                fileData.fileNameAuthTag
+            );
+
+            console.log('[POST] ファイル名復号:', fileName);
+
+            // KVから暗号化されたファイルデータを取得
+            const encryptedFileBuffer = await kv.get(`filedata:${id}`);
+
+            if (!encryptedFileBuffer) {
+                console.error('[POST] ファイルデータが見つかりません:', id);
+                return res.status(404).json({
+                    success: false,
+                    error: 'ファイルデータが見つかりません'
+                });
+            }
+
+            console.log('[POST] 暗号化ファイルデータ取得成功');
+
+            // 暗号化データをBufferに変換
+            const encryptedBuffer = Buffer.from(encryptedFileBuffer, 'base64');
+
+            // 復号用のキーを生成
+            const key = crypto.pbkdf2Sync(
+                FILE_ENCRYPT_KEY,
+                Buffer.from(fileData.fileSalt, 'hex'),
+                100000,
+                32,
+                'sha256'
+            );
+
+            // 復号
+            const decipher = crypto.createDecipheriv(
+                'aes-256-gcm',
+                key,
+                Buffer.from(fileData.fileIv, 'hex')
+            );
+
+            decipher.setAuthTag(Buffer.from(fileData.fileAuthTag, 'hex'));
+
+            const decrypted = Buffer.concat([
+                decipher.update(encryptedBuffer),
+                decipher.final()
+            ]);
+
+            console.log('[POST] ファイル復号成功:', decrypted.length, 'bytes');
+
+            // ファイルをレスポンスとして返す
+            res.setHeader('Content-Type', 'application/octet-stream');
+            res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(fileName)}"`);
+            res.setHeader('Content-Length', decrypted.length);
+
+            return res.status(200).send(decrypted);
+        }
+
+        // ===================================
+        // その他のメソッドは許可しない
+        // ===================================
+        console.error('[ERROR] Method not allowed:', req.method);
+        return res.status(405).json({
+            success: false,
+            error: 'Method not allowed'
+        });
+
+    } catch (error) {
+        console.error('Download handler error:', error);
+        return res.status(500).json({
+            success: false,
+            error: 'サーバーエラーが発生しました',
+            details: error.message
+        });
+    }
+}

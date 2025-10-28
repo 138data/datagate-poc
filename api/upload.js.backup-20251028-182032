@@ -1,5 +1,6 @@
 // api/upload.js - ファイルアップロードエンドポイント（ES Modules版）
 // Node組み込みの crypto を使用
+
 import crypto from 'crypto';
 import busboy from 'busboy';
 import { kv } from '@vercel/kv';
@@ -58,9 +59,6 @@ export default async function handler(req, res) {
     const fileId = crypto.randomUUID();
     const otp = generateOTP();
 
-    // 管理トークン生成（送信者専用）
-    const manageToken = crypto.randomBytes(32).toString('hex');
-
     // ファイルを暗号化
     const encryptedData = encryptFile(fileBuffer, FILE_ENCRYPT_KEY);
 
@@ -76,30 +74,28 @@ export default async function handler(req, res) {
       otp,
       downloadCount: 0,
       maxDownloads: 3,
-      recipient,
-      manageToken,
-      revokedAt: null
+      recipient
     };
 
     // KVに保存（7日TTL）
     const ttlSeconds = 7 * 24 * 60 * 60;
-
+    
     // メタデータを保存
     await kv.set(
-      `file:${fileId}:meta`,
-      JSON.stringify(metadata),
+      `file:${fileId}:meta`, 
+      JSON.stringify(metadata), 
       { ex: ttlSeconds }
     );
-
+    
     // 暗号化データを保存
     await kv.set(
-      `file:${fileId}:data`,
+      `file:${fileId}:data`, 
       JSON.stringify({
         data: encryptedData.encryptedData.toString('base64'),
         salt: encryptedData.salt,
         iv: encryptedData.iv,
         authTag: encryptedData.authTag
-      }),
+      }), 
       { ex: ttlSeconds }
     );
 
@@ -111,8 +107,7 @@ export default async function handler(req, res) {
     let emailReason = null;
     let shouldAttach = false;
 
-    if (canUseDirectAttach(recipient)) {
-      // サイズチェック
+    if (canUseDirectAttach(recipient)) {      // サイズチェック
       if (fileSize <= DIRECT_ATTACH_MAX_SIZE) {
         shouldAttach = true;
         emailMode = 'attach';
@@ -135,7 +130,7 @@ export default async function handler(req, res) {
       to: recipient,
       fileId,
       fileName,
-      otp: null, // OTPはメール本文に含めない
+      otp,
       shouldAttach,
       fileBuffer: shouldAttach ? fileBuffer : null
     });
@@ -153,14 +148,11 @@ export default async function handler(req, res) {
       timestamp: new Date().toISOString()
     }));
 
-    // ホスト名取得
-    const host = req.headers.host || 'datagate.138data.com';
-
     // レスポンス
     return res.status(200).json({
       success: true,
       fileId,
-      manageUrl: `https://${host}/manage.html?id=${fileId}&token=${manageToken}`,
+      // otp は削除（セキュリティ上の理由）
       email: {
         sent: emailResult.sent,
         success: emailResult.success,

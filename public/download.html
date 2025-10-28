@@ -12,7 +12,7 @@
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       min-height: 100vh;
       display: flex;
@@ -23,202 +23,150 @@
 
     .container {
       background: white;
-      border-radius: 12px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      padding: 40px;
       max-width: 500px;
       width: 100%;
-      padding: 40px;
     }
 
     h1 {
+      color: #667eea;
       font-size: 28px;
-      color: #333;
       margin-bottom: 10px;
       text-align: center;
     }
 
     .subtitle {
-      text-align: center;
       color: #666;
       font-size: 14px;
+      text-align: center;
       margin-bottom: 30px;
-    }
-
-    .steps {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 30px;
-      position: relative;
-    }
-
-    .steps::before {
-      content: '';
-      position: absolute;
-      top: 20px;
-      left: 25%;
-      width: 50%;
-      height: 2px;
-      background: #e0e0e0;
-      z-index: 0;
     }
 
     .step {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      position: relative;
-      z-index: 1;
-      flex: 1;
-    }
-
-    .step-circle {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background: #e0e0e0;
-      color: #999;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      font-size: 18px;
-      margin-bottom: 8px;
-      transition: all 0.3s;
-    }
-
-    .step.active .step-circle {
-      background: #667eea;
-      color: white;
-    }
-
-    .step.completed .step-circle {
-      background: #4caf50;
-      color: white;
-    }
-
-    .step-label {
-      font-size: 12px;
-      color: #999;
-      text-align: center;
-    }
-
-    .step.active .step-label {
-      color: #667eea;
-      font-weight: 600;
-    }
-
-    .step.completed .step-label {
-      color: #4caf50;
-    }
-
-    .form-section {
       display: none;
     }
 
-    .form-section.active {
+    .step.active {
       display: block;
     }
 
     .file-info {
-      background: #f5f5f5;
-      border-radius: 8px;
+      background: #f8f9fa;
+      border-radius: 12px;
       padding: 20px;
       margin-bottom: 25px;
     }
 
-    .file-info-row {
+    .file-info-item {
       display: flex;
       justify-content: space-between;
-      margin-bottom: 12px;
-      font-size: 14px;
+      padding: 8px 0;
+      border-bottom: 1px solid #e9ecef;
     }
 
-    .file-info-row:last-child {
-      margin-bottom: 0;
+    .file-info-item:last-child {
+      border-bottom: none;
     }
 
     .file-info-label {
       color: #666;
+      font-size: 13px;
       font-weight: 500;
     }
 
     .file-info-value {
       color: #333;
+      font-size: 14px;
       font-weight: 600;
     }
 
-    .form-group {
+    .masked-email {
+      background: #fff3cd;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .masked-email-label {
+      color: #856404;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 5px;
+    }
+
+    .masked-email-value {
+      color: #333;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+
+    .input-group {
       margin-bottom: 20px;
     }
 
-    label {
+    .input-group label {
       display: block;
-      margin-bottom: 8px;
       color: #333;
-      font-weight: 500;
       font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 8px;
     }
 
-    input[type="email"],
-    input[type="text"] {
+    .input-group input {
       width: 100%;
       padding: 12px 16px;
-      border: 2px solid #e0e0e0;
-      border-radius: 8px;
+      border: 2px solid #e9ecef;
+      border-radius: 10px;
       font-size: 16px;
-      transition: all 0.3s;
+      transition: all 0.3s ease;
     }
 
-    input[type="email"]:focus,
-    input[type="text"]:focus {
+    .input-group input:focus {
       outline: none;
       border-color: #667eea;
       box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
     }
 
-    .helper-text {
-      font-size: 12px;
-      color: #666;
-      margin-top: 6px;
-    }
-
     .btn {
       width: 100%;
-      padding: 14px;
-      background: #667eea;
-      color: white;
+      padding: 14px 24px;
       border: none;
-      border-radius: 8px;
+      border-radius: 10px;
       font-size: 16px;
       font-weight: 600;
       cursor: pointer;
-      transition: all 0.3s;
+      transition: all 0.3s ease;
+      text-align: center;
     }
 
-    .btn:hover {
-      background: #5568d3;
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .btn-primary:hover {
       transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+      box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
     }
 
-    .btn:active {
-      transform: translateY(0);
-    }
-
-    .btn:disabled {
-      background: #ccc;
+    .btn-primary:disabled {
+      opacity: 0.6;
       cursor: not-allowed;
       transform: none;
     }
 
-    .btn-back {
-      background: #f5f5f5;
-      color: #666;
-      margin-bottom: 10px;
+    .btn-success {
+      background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+      color: white;
     }
 
-    .btn-back:hover {
-      background: #e0e0e0;
+    .btn-success:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(17, 153, 142, 0.4);
     }
 
     .message {
@@ -226,49 +174,36 @@
       border-radius: 8px;
       margin-bottom: 20px;
       font-size: 14px;
-      display: none;
-    }
-
-    .message.show {
-      display: block;
-    }
-
-    .message.error {
-      background: #ffebee;
-      color: #c62828;
-      border-left: 4px solid #c62828;
-    }
-
-    .message.success {
-      background: #e8f5e9;
-      color: #2e7d32;
-      border-left: 4px solid #2e7d32;
-    }
-
-    .message.info {
-      background: #e3f2fd;
-      color: #1565c0;
-      border-left: 4px solid #1565c0;
-    }
-
-    .loading {
-      display: none;
       text-align: center;
-      padding: 20px;
     }
 
-    .loading.show {
-      display: block;
+    .message-success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .message-error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
+    .message-warning {
+      background: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeeba;
     }
 
     .spinner {
-      border: 3px solid #f3f3f3;
-      border-top: 3px solid #667eea;
-      border-radius: 50%;
+      display: none;
       width: 40px;
       height: 40px;
+      margin: 20px auto;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #667eea;
+      border-radius: 50%;
       animation: spin 1s linear infinite;
-      margin: 0 auto 15px;
     }
 
     @keyframes spin {
@@ -276,198 +211,165 @@
       100% { transform: rotate(360deg); }
     }
 
-    .footer {
-      text-align: center;
-      margin-top: 30px;
-      padding-top: 20px;
-      border-top: 1px solid #e0e0e0;
+    .help-text {
+      font-size: 13px;
       color: #666;
-      font-size: 12px;
+      margin-top: 10px;
+      line-height: 1.5;
     }
 
-    @media (max-width: 600px) {
-      .container {
-        padding: 30px 20px;
-      }
+    .progress-bar {
+      background: #e9ecef;
+      height: 4px;
+      border-radius: 2px;
+      margin-bottom: 30px;
+      overflow: hidden;
+    }
 
-      h1 {
-        font-size: 24px;
-      }
-
-      .steps {
-        margin-bottom: 20px;
-      }
-
-      .step-circle {
-        width: 35px;
-        height: 35px;
-        font-size: 16px;
-      }
-
-      .step-label {
-        font-size: 11px;
-      }
+    .progress-bar-fill {
+      background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+      height: 100%;
+      width: 0%;
+      transition: width 0.3s ease;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>🔒 ファイルダウンロード</h1>
-    <p class="subtitle">セキュアなファイル受け渡しシステム</p>
+    <h1>📥 ファイルダウンロード</h1>
+    <p class="subtitle">安全なファイル受け渡し</p>
 
-    <div class="steps">
-      <div class="step active" id="step1-indicator">
-        <div class="step-circle">1</div>
-        <div class="step-label">メール確認</div>
-      </div>
-      <div class="step" id="step2-indicator">
-        <div class="step-circle">2</div>
-        <div class="step-label">認証コード入力</div>
-      </div>
-      <div class="step" id="step3-indicator">
-        <div class="step-circle">3</div>
-        <div class="step-label">ダウンロード</div>
-      </div>
+    <div class="progress-bar">
+      <div class="progress-bar-fill" id="progress-fill"></div>
     </div>
 
-    <div id="message" class="message"></div>
+    <!-- Step 1: 宛先確認 + OTP送信 -->
+    <div class="step active" id="step1">
+      <div class="file-info" id="file-info-section" style="display: none;">
+        <div class="file-info-item">
+          <span class="file-info-label">ファイル名</span>
+          <span class="file-info-value" id="file-name">読み込み中...</span>
+        </div>
+        <div class="file-info-item">
+          <span class="file-info-label">サイズ</span>
+          <span class="file-info-value" id="file-size">-</span>
+        </div>
+        <div class="file-info-item">
+          <span class="file-info-label">有効期限</span>
+          <span class="file-info-value" id="expires-at">-</span>
+        </div>
+      </div>
 
-    <div id="loading" class="loading">
-      <div class="spinner"></div>
-      <p>処理中...</p>
+      <div class="masked-email">
+        <div class="masked-email-label">送信先</div>
+        <div class="masked-email-value" id="masked-email">読み込み中...</div>
+      </div>
+
+      <div id="message1"></div>
+
+      <button id="request-otp-btn" class="btn btn-primary" disabled>
+        📧 認証コードを送信
+      </button>
+
+      <p class="help-text">
+        上記のメールアドレス宛てに、6桁の認証コードを送信します。
+      </p>
     </div>
 
-    <div id="file-info" class="file-info" style="display: none;">
-      <div class="file-info-row">
-        <span class="file-info-label">📄 ファイル名:</span>
-        <span class="file-info-value" id="file-name">-</span>
+    <!-- Step 2: OTP入力 + ダウンロード -->
+    <div class="step" id="step2">
+      <div class="message message-success">
+        ✅ 認証コードを送信しました
       </div>
-      <div class="file-info-row">
-        <span class="file-info-label">📦 サイズ:</span>
-        <span class="file-info-value" id="file-size">-</span>
-      </div>
-      <div class="file-info-row">
-        <span class="file-info-label">📅 有効期限:</span>
-        <span class="file-info-value" id="expires-at">-</span>
-      </div>
-      <div class="file-info-row">
-        <span class="file-info-label">📥 ダウンロード回数:</span>
-        <span class="file-info-value" id="download-count">-</span>
-      </div>
-    </div>
 
-    <div id="step1-form" class="form-section active">
-      <div class="form-group">
-        <label for="email-input">📧 メールアドレス</label>
-        <input 
-          type="email" 
-          id="email-input" 
-          placeholder="例: user@example.com"
-          autocomplete="email"
-        >
-        <p class="helper-text">ファイル送信先のメールアドレスを入力してください。<br>認証コードを送信します。</p>
-      </div>
-      <button class="btn" id="request-otp-btn">認証コードを送信</button>
-    </div>
-
-    <div id="step2-form" class="form-section">
-      <div class="form-group">
-        <label for="otp-input">🔑 認証コード（6桁）</label>
+      <div class="input-group">
+        <label for="otp-input">認証コード（6桁）</label>
         <input 
           type="text" 
           id="otp-input" 
-          placeholder="例: 123456"
+          placeholder="例: 123456" 
           maxlength="6"
-          pattern="\d{6}"
-          autocomplete="one-time-code"
+          pattern="[0-9]{6}"
+          inputmode="numeric"
+          autocomplete="off"
         >
-        <p class="helper-text">メールに送信された6桁の認証コードを入力してください。</p>
       </div>
-      <button class="btn" id="download-btn">ダウンロード</button>
-      <button class="btn btn-back" id="back-to-step1-btn">メールアドレスを変更</button>
+
+      <div id="message2"></div>
+
+      <button id="download-btn" class="btn btn-success">
+        ⬇️ ダウンロード
+      </button>
+
+      <p class="help-text">
+        メールに届いた6桁の認証コードを入力してください。
+      </p>
     </div>
 
-    <div id="step3-form" class="form-section">
-      <div style="text-align: center; padding: 20px;">
-        <div style="font-size: 48px; margin-bottom: 20px;">✅</div>
-        <h2 style="color: #4caf50; margin-bottom: 10px;">ダウンロード完了</h2>
-        <p style="color: #666; margin-bottom: 20px;">ファイルのダウンロードが完了しました。</p>
-        <button class="btn" onclick="window.location.reload()">別のファイルをダウンロード</button>
-      </div>
-    </div>
-
-    <div class="footer">
-      <p>Powered by 138DataGate</p>
-      <p>セキュアなファイル受け渡しシステム</p>
-    </div>
+    <div class="spinner" id="spinner"></div>
   </div>
 
   <script>
+    // URL パラメータから fileId を取得
     const urlParams = new URLSearchParams(window.location.search);
     const fileId = urlParams.get('id');
 
-    const message = document.getElementById('message');
-    const loading = document.getElementById('loading');
-    const fileInfo = document.getElementById('file-info');
+    if (!fileId) {
+      alert('ファイルIDが指定されていません');
+      window.location.href = '/';
+    }
 
-    const step1Form = document.getElementById('step1-form');
-    const step2Form = document.getElementById('step2-form');
-    const step3Form = document.getElementById('step3-form');
-
-    const step1Indicator = document.getElementById('step1-indicator');
-    const step2Indicator = document.getElementById('step2-indicator');
-    const step3Indicator = document.getElementById('step3-indicator');
-
-    const emailInput = document.getElementById('email-input');
-    const otpInput = document.getElementById('otp-input');
+    const step1 = document.getElementById('step1');
+    const step2 = document.getElementById('step2');
+    const progressFill = document.getElementById('progress-fill');
     const requestOtpBtn = document.getElementById('request-otp-btn');
     const downloadBtn = document.getElementById('download-btn');
-    const backToStep1Btn = document.getElementById('back-to-step1-btn');
+    const otpInput = document.getElementById('otp-input');
+    const message1 = document.getElementById('message1');
+    const message2 = document.getElementById('message2');
+    const spinner = document.getElementById('spinner');
 
-    function goToStep(step) {
-      step1Form.classList.remove('active');
-      step2Form.classList.remove('active');
-      step3Form.classList.remove('active');
+    // ページ読み込み時にファイル情報を取得
+    async function loadFileInfo() {
+      try {
+        spinner.style.display = 'block';
 
-      step1Indicator.classList.remove('active', 'completed');
-      step2Indicator.classList.remove('active', 'completed');
-      step3Indicator.classList.remove('active', 'completed');
+        const response = await fetch(`/api/files/download?id=${fileId}`);
+        const data = await response.json();
 
-      if (step === 1) {
-        step1Form.classList.add('active');
-        step1Indicator.classList.add('active');
-      } else if (step === 2) {
-        step2Form.classList.add('active');
-        step1Indicator.classList.add('completed');
-        step2Indicator.classList.add('active');
-      } else if (step === 3) {
-        step3Form.classList.add('active');
-        step1Indicator.classList.add('completed');
-        step2Indicator.classList.add('completed');
-        step3Indicator.classList.add('active');
+        spinner.style.display = 'none';
+
+        if (!data.success) {
+          message1.innerHTML = `<div class="message message-error">${data.message}</div>`;
+          return;
+        }
+
+        // ファイル情報を表示
+        document.getElementById('file-name').textContent = data.fileName;
+        document.getElementById('file-size').textContent = formatFileSize(data.fileSize);
+        document.getElementById('expires-at').textContent = formatDate(data.expiresAt);
+        document.getElementById('file-info-section').style.display = 'block';
+
+        // マスク表示
+        document.getElementById('masked-email').textContent = data.maskedEmail;
+
+        // OTP送信ボタンを有効化
+        requestOtpBtn.disabled = false;
+      } catch (error) {
+        spinner.style.display = 'none';
+        message1.innerHTML = '<div class="message message-error">ファイル情報の取得に失敗しました</div>';
+        console.error('Error loading file info:', error);
       }
     }
 
-    function showMessage(text, type = 'info') {
-      message.textContent = text;
-      message.className = `message ${type} show`;
-      setTimeout(() => {
-        message.classList.remove('show');
-      }, 5000);
-    }
-
-    function showLoading(show) {
-      loading.className = show ? 'loading show' : 'loading';
-      requestOtpBtn.disabled = show;
-      downloadBtn.disabled = show;
-    }
-
+    // ファイルサイズのフォーマット
     function formatFileSize(bytes) {
       if (bytes < 1024) return bytes + ' B';
-      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
-      return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
     }
 
+    // 日付のフォーマット
     function formatDate(isoString) {
       const date = new Date(isoString);
       return date.toLocaleString('ja-JP', {
@@ -479,146 +381,110 @@
       });
     }
 
-    async function loadFileInfo() {
-      if (!fileId) {
-        showMessage('ファイルIDが指定されていません', 'error');
-        return;
-      }
-
-      try {
-        showLoading(true);
-        const response = await fetch(`/api/files/download?id=${fileId}`);
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.error || 'ファイル情報の取得に失敗しました');
-        }
-
-        document.getElementById('file-name').textContent = data.fileName;
-        document.getElementById('file-size').textContent = formatFileSize(data.fileSize);
-        document.getElementById('expires-at').textContent = formatDate(data.expiresAt);
-        document.getElementById('download-count').textContent = 
-          `${data.downloadCount} / ${data.maxDownloads}`;
-
-        fileInfo.style.display = 'block';
-      } catch (error) {
-        showMessage(error.message, 'error');
-      } finally {
-        showLoading(false);
-      }
-    }
-
+    // Step 1 → Step 2
     requestOtpBtn.addEventListener('click', async () => {
-      const email = emailInput.value.trim();
-
-      if (!email) {
-        showMessage('メールアドレスを入力してください', 'error');
-        return;
-      }
-
-      if (!email.includes('@')) {
-        showMessage('有効なメールアドレスを入力してください', 'error');
-        return;
-      }
+      requestOtpBtn.disabled = true;
+      spinner.style.display = 'block';
+      message1.innerHTML = '';
 
       try {
-        showLoading(true);
         const response = await fetch('/api/files/download/request-otp', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fileId, email })
+          body: JSON.stringify({ fileId })  // email は不要
         });
 
         const data = await response.json();
+        spinner.style.display = 'none';
 
-        if (!response.ok) {
-          throw new Error(data.error || '認証コードの送信に失敗しました');
+        if (data.success) {
+          // Step 2 に進む
+          step1.classList.remove('active');
+          step2.classList.add('active');
+          progressFill.style.width = '50%';
+        } else {
+          message1.innerHTML = `<div class="message message-error">${data.message}</div>`;
+          requestOtpBtn.disabled = false;
         }
-
-        showMessage('認証コードをメールに送信しました', 'success');
-        goToStep(2);
-        
-        setTimeout(() => otpInput.focus(), 100);
       } catch (error) {
-        showMessage(error.message, 'error');
-      } finally {
-        showLoading(false);
+        spinner.style.display = 'none';
+        message1.innerHTML = '<div class="message message-error">認証コードの送信に失敗しました</div>';
+        requestOtpBtn.disabled = false;
+        console.error('Error requesting OTP:', error);
       }
     });
 
+    // ダウンロード
     downloadBtn.addEventListener('click', async () => {
       const otp = otpInput.value.trim();
 
-      if (!otp) {
-        showMessage('認証コードを入力してください', 'error');
+      if (otp.length !== 6 || !/^\d{6}$/.test(otp)) {
+        message2.innerHTML = '<div class="message message-error">認証コードは6桁の数字で入力してください</div>';
         return;
       }
 
-      if (otp.length !== 6 || !/^\d+$/.test(otp)) {
-        showMessage('認証コードは6桁の数字です', 'error');
-        return;
-      }
+      downloadBtn.disabled = true;
+      spinner.style.display = 'block';
+      message2.innerHTML = '';
 
       try {
-        showLoading(true);
         const response = await fetch('/api/files/download', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ fileId, otp })
         });
 
-        if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.error || 'ダウンロードに失敗しました');
-        }
+        spinner.style.display = 'none';
 
-        const blob = await response.blob();
-        const contentDisposition = response.headers.get('Content-Disposition');
-        let fileName = 'download.bin';
+        if (response.ok) {
+          // ファイルダウンロード
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
 
-        if (contentDisposition) {
-          const fileNameMatch = contentDisposition.match(/filename\*=UTF-8''(.+)/);
-          if (fileNameMatch) {
-            fileName = decodeURIComponent(fileNameMatch[1]);
-          } else {
-            const simpleMatch = contentDisposition.match(/filename="(.+)"/);
-            if (simpleMatch) {
-              fileName = simpleMatch[1];
+          // Content-Disposition ヘッダーからファイル名を取得
+          const contentDisposition = response.headers.get('Content-Disposition');
+          let fileName = 'download.txt';
+          if (contentDisposition) {
+            const fileNameMatch = contentDisposition.match(/filename\*=UTF-8''(.+)/);
+            if (fileNameMatch) {
+              fileName = decodeURIComponent(fileNameMatch[1]);
             }
           }
+
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+
+          // 成功メッセージ
+          progressFill.style.width = '100%';
+          message2.innerHTML = '<div class="message message-success">✅ ダウンロードが完了しました</div>';
+          downloadBtn.textContent = '✅ ダウンロード完了';
+          downloadBtn.disabled = true;
+        } else {
+          const data = await response.json();
+          message2.innerHTML = `<div class="message message-error">${data.message}</div>`;
+          downloadBtn.disabled = false;
         }
-
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-
-        goToStep(3);
       } catch (error) {
-        showMessage(error.message, 'error');
-      } finally {
-        showLoading(false);
+        spinner.style.display = 'none';
+        message2.innerHTML = '<div class="message message-error">ダウンロードに失敗しました</div>';
+        downloadBtn.disabled = false;
+        console.error('Error downloading file:', error);
       }
     });
 
-    backToStep1Btn.addEventListener('click', () => {
-      goToStep(1);
-      otpInput.value = '';
-    });
-
-    emailInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') requestOtpBtn.click();
-    });
-
+    // OTP入力時にエンターキーでダウンロード
     otpInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') downloadBtn.click();
+      if (e.key === 'Enter') {
+        downloadBtn.click();
+      }
     });
 
+    // ページ読み込み時にファイル情報を取得
     loadFileInfo();
   </script>
 </body>
