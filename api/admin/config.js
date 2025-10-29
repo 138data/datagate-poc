@@ -9,39 +9,33 @@ import { authenticateRequest } from '../../lib/auth.js';
  *   - 設定を更新
  *   - Body: { enabled: boolean, mode: string, fallbackEmail: string }
  */
-export default async function handler(request) {
-  const headers = {
-    'Content-Type': 'application/json',
-    'Cache-Control': 'no-store, no-cache, must-revalidate',
-  };
+module.exports = async (req, res) => {
+  // CORS headers
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
 
   // OPTIONS リクエスト（プリフライト）
-  if (request.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 204,
-      headers: {
-        ...headers,
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      },
-    });
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    return res.status(204).end();
   }
 
   // 認証チェック
-  const authPayload = authenticateRequest(request);
+  const authPayload = authenticateRequest(req);
   if (!authPayload || authPayload.role !== 'admin') {
-    return new Response(
-      JSON.stringify({ success: false, message: 'Unauthorized' }),
-      { status: 401, headers }
-    );
+    return res.status(401).json({
+      success: false,
+      message: 'Unauthorized'
+    });
   }
 
   try {
     // GET: 設定取得
-    if (request.method === 'GET') {
+    if (req.method === 'GET') {
       const config = await kv.get('config:notify').catch(() => null);
-
+      
       // デフォルト設定
       const defaultConfig = {
         enabled: false,
@@ -49,40 +43,43 @@ export default async function handler(request) {
         fallbackEmail: process.env.SENDGRID_FROM_EMAIL || 'noreply@138data.com',
       };
 
-      return new Response(
-        JSON.stringify({
-          success: true,
-          config: config || defaultConfig,
-        }),
-        { status: 200, headers }
-      );
+      return res.status(200).json({
+        success: true,
+        config: config || defaultConfig,
+      });
     }
 
     // POST: 設定更新
-    if (request.method === 'POST') {
-      const body = await request.json();
+    if (req.method === 'POST') {
+      let body;
+      if (typeof req.body === 'string') {
+        body = JSON.parse(req.body);
+      } else {
+        body = req.body;
+      }
+
       const { enabled, mode, fallbackEmail } = body;
 
       // バリデーション
       if (typeof enabled !== 'boolean') {
-        return new Response(
-          JSON.stringify({ success: false, message: 'enabled must be a boolean' }),
-          { status: 400, headers }
-        );
+        return res.status(400).json({
+          success: false,
+          message: 'enabled must be a boolean'
+        });
       }
 
       if (mode && !['first', 'every'].includes(mode)) {
-        return new Response(
-          JSON.stringify({ success: false, message: 'mode must be "first" or "every"' }),
-          { status: 400, headers }
-        );
+        return res.status(400).json({
+          success: false,
+          message: 'mode must be "first" or "every"'
+        });
       }
 
       if (fallbackEmail && !fallbackEmail.includes('@')) {
-        return new Response(
-          JSON.stringify({ success: false, message: 'fallbackEmail must be a valid email' }),
-          { status: 400, headers }
-        );
+        return res.status(400).json({
+          success: false,
+          message: 'fallbackEmail must be a valid email'
+        });
       }
 
       // 設定を保存（TTLなし = 永続）
@@ -94,30 +91,24 @@ export default async function handler(request) {
 
       await kv.set('config:notify', JSON.stringify(newConfig));
 
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: 'Configuration updated',
-          config: newConfig,
-        }),
-        { status: 200, headers }
-      );
+      return res.status(200).json({
+        success: true,
+        message: 'Configuration updated',
+        config: newConfig,
+      });
     }
 
     // その他のメソッドは拒否
-    return new Response(
-      JSON.stringify({ success: false, message: 'Method not allowed' }),
-      { status: 405, headers }
-    );
+    return res.status(405).json({
+      success: false,
+      message: 'Method not allowed'
+    });
 
   } catch (error) {
     console.error('Admin config API error:', error);
-    return new Response(
-      JSON.stringify({
-        success: false,
-        message: 'Internal server error',
-      }),
-      { status: 500, headers }
-    );
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+    });
   }
-}
+};
