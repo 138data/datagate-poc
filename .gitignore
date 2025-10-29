@@ -45,3 +45,8 @@ npm-debug.log*
 check-storage.js
 api/test-mail.js
 .env*.local
+
+# API Keys
+SENDGRID_API_KEY.txt
+*.key
+*.secret
