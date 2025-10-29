@@ -1,11 +1,11 @@
 // api/upload.js - ファイルアップロードエンドポイント（ES Modules版）
 // Node組み込みの crypto を使用
-import crypto from 'crypto';
-import busboy from 'busboy';
-import { kv } from '@vercel/kv';
-import { encryptFile, generateOTP } from '../lib/encryption.js';
-import { sendEmail } from '../lib/email-service.js';
-import { canUseDirectAttach } from '../lib/environment.js';
+const crypto = require('crypto');
+const busboy = require('busboy');
+const { kv } = require('@vercel/kv');
+const { encryptFile, generateOTP } = require('../lib/encryption.js');
+const { sendEmail } = require('../lib/email-service.js');
+const { canUseDirectAttach } = require('../lib/environment.js');
 
 // 環境変数
 const FILE_ENCRYPT_KEY = process.env.FILE_ENCRYPT_KEY;
@@ -18,7 +18,7 @@ const ALLOWED_DIRECT_DOMAINS = (process.env.ALLOWED_DIRECT_DOMAINS || '')
   .filter(d => d.length > 0);
 
 // リクエスト処理
-export default async function handler(req, res) {
+module.exports = async (req, res) => {
   // CORS設定
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
