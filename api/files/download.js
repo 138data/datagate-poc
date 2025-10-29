@@ -153,10 +153,10 @@ module.exports = async (req, res) => {
       );
 
       // ダウンロード回数更新
-      metadata.downloadCount = downloadCount + 1;
-      await kv.set(`file:${fileId}:meta`, JSON.stringify(metadata), {
-        ex: 7 * 24 * 60 * 60
-      });
+        metadata.downloadCount = downloadCount + 1;
+        await kv.set('file:' + fileId + ':meta', JSON.stringify(metadata), {
+          ex: 7 * 24 * 60 * 60
+        });
 
       // 監査ログ
       await saveAuditLog({
