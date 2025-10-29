@@ -1,220 +1,102 @@
 import kv from '@vercel/kv';
-import { decryptFile, verifyOTP } from '../../lib/encryption.js';
-import { saveAuditLog } from '../../lib/audit-log.js';
 
-function maskEmail(email) {
-  if (!email || !email.includes('@')) return '***@***.***';
-  const [localPart, domain] = email.split('@');
-  if (!domain) return '***@***.***';
-  const masked = localPart.length > 0 ? localPart[0] + '***' : '***';
-  return `${masked}@${domain}`;
-}
+const maskEmail = (mail) => {
+  if (!mail || !mail.includes('@')) return '';
+  const [l, d] = mail.split('@');
+  const lm = l.length <= 2 ? l[0] + '*' : l[0] + '***' + l.slice(-1);
+  const [d1, ...rest] = d.split('.');
+  const dm = (d1.length <= 2 ? d1[0] + '*' : d1[0] + '***') + (rest.length ? '.' + rest.join('.') : '');
+  return \@\;
+};
+
+const safeParseMeta = (metaVal) => {
+  if (!metaVal) return null;
+  // v2: object をそのまま返す / v1: string を JSON.parse
+  if (typeof metaVal === 'string') {
+    try { return JSON.parse(metaVal); } catch { return null; }
+  }
+  if (typeof metaVal === 'object') return metaVal;
+  return null;
+};
 
 export default async function handler(request) {
-  console.log('[DEBUG] Handler start');
-  console.log('[DEBUG] Method:', request.method);
-  console.log('[DEBUG] URL:', request.url);
-  
   const headers = {
-    'Content-Type': 'application/json',
+    'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store, no-cache, must-revalidate',
-    'Access-Control-Allow-Origin': '*'
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type'
   };
 
-  // レスポンス送信済みフラグ
+  // OPTIONS
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { status: 200, headers });
+  }
+
   let responded = false;
-  
-  const sendResponse = (status, body) => {
+  const send = (code, body) => {
     if (responded) {
-      console.log('[WARNING] Response already sent, ignoring');
+      console.log('[WARNING] Response already sent');
       return;
     }
     responded = true;
-    console.log('[DEBUG] Sending response:', status);
-    return new Response(JSON.stringify(body), { status, headers });
+    console.log('[DEBUG] Sending response:', code, body);
+    return new Response(JSON.stringify(body), { status: code, headers });
   };
 
   try {
-    let fileId = null;
-    
-    // GET の場合
+    // URL パラメータから id を取得
+    const urlParts = request.url.split('?');
+    let id = null;
+    if (urlParts.length > 1) {
+      const params = new URLSearchParams(urlParts[1]);
+      id = params.get('id');
+    }
+
+    if (!id) {
+      return send(400, { success: false, error: 'File ID is required' });
+    }
+
     if (request.method === 'GET') {
-      console.log('[DEBUG] GET handler - parsing URL');
+      console.log('[DEBUG] GET handler - fetching metadata for:', id);
+
+      // メタデータ取得
+      const metaRaw = await kv.get(\ile:\:meta\);
+      console.log('[DEBUG] metaRaw type:', typeof metaRaw);
       
-      // request.url からクエリパラメータを直接抽出
-      const urlParts = request.url.split('?');
-      if (urlParts.length > 1) {
-        const queryString = urlParts[1];
-        const params = new URLSearchParams(queryString);
-        fileId = params.get('id');
-        console.log('[DEBUG] fileId from query:', fileId);
-      }
+      const meta = safeParseMeta(metaRaw);
       
-      if (!fileId) {
-        console.log('[ERROR] No fileId in query');
-        return sendResponse(400, { error: 'ファイルIDが指定されていません' });
+      if (!meta) {
+        return send(404, { success: false, error: 'File not found', availableTest: true });
       }
 
-      console.log('[DEBUG] Fetching metadata for fileId:', fileId);
-      const metadataJson = await kv.get('file:' + fileId + ':meta');
-      
-      if (!metadataJson) {
-        console.log('[ERROR] Metadata not found for fileId:', fileId);
-        return sendResponse(404, { error: 'ファイルが見つかりません' });
-      }
-
-      console.log('[DEBUG] Metadata found, parsing JSON');
-      
-      let metadata;
-      try {
-        metadata = typeof metadataJson === 'string' ? JSON.parse(metadataJson) : metadataJson;
-        console.log('[DEBUG] Metadata parsed successfully');
-      } catch (err) {
-        console.log('[ERROR] Failed to parse metadata:', err.message);
-        return sendResponse(500, { error: 'メタデータの解析に失敗しました' });
-      }
+      console.log('[DEBUG] Metadata parsed:', meta);
 
       // 失効チェック
-      if (metadata.revokedAt) {
-        console.log('[ERROR] File revoked at:', metadata.revokedAt);
-        return sendResponse(403, { error: 'このファイルは失効されています' });
+      if (meta.revokedAt) {
+        return send(403, { success: false, error: 'File has been revoked' });
       }
 
-      console.log('[DEBUG] Building response');
-      
-      // レスポンスオブジェクトを構築
-      const responseData = {
+      // マスク済みメールアドレス
+      const masked = maskEmail(meta.recipientEmail || meta.recipient || '');
+
+      // レスポンス
+      return send(200, {
         success: true,
-        maskedEmail: maskEmail(metadata.recipient || metadata.recipientEmail || ''),
-        fileName: metadata.fileName || 'unknown',
-        fileSize: metadata.fileSize || 0,
-        downloadCount: metadata.downloadCount || 0,
-        maxDownloads: metadata.maxDownloads || 3,
-        uploadedAt: metadata.uploadedAt || '',
-        expiresAt: metadata.expiresAt || ''
-      };
-      
-      console.log('[DEBUG] Response data:', JSON.stringify(responseData));
-      return sendResponse(200, responseData);
-    }
-
-    // POST の場合
-    if (request.method === 'POST') {
-      console.log('[DEBUG] POST handler');
-      const body = await request.json();
-      const { fileId: postFileId, otp } = body;
-
-      if (!postFileId || !otp) {
-        console.log('[ERROR] Missing fileId or otp in POST body');
-        return sendResponse(400, { error: 'ファイルIDまたはOTPが指定されていません' });
-      }
-
-      console.log('[DEBUG] Fetching metadata for POST');
-      const metadataJson = await kv.get('file:' + postFileId + ':meta');
-      
-      if (!metadataJson) {
-        console.log('[ERROR] Metadata not found for POST');
-        return sendResponse(404, { error: 'ファイルが見つかりません' });
-      }
-
-      const metadata = typeof metadataJson === 'string' ? JSON.parse(metadataJson) : metadataJson;
-
-      // 失効チェック
-      if (metadata.revokedAt) {
-        console.log('[ERROR] File revoked (POST)');
-        return sendResponse(403, { error: 'このファイルは失効されています' });
-      }
-
-      // ダウンロード回数制限チェック
-      const maxDownloads = metadata.maxDownloads || 3;
-      const currentDownloadCount = metadata.downloadCount || 0;
-
-      if (currentDownloadCount >= maxDownloads) {
-        console.log('[ERROR] Download limit exceeded');
-        await saveAuditLog({
-          event: 'download_failed',
-          fileId: postFileId,
-          fileName: metadata.fileName,
-          actor: metadata.recipient,
-          reason: 'limit_exceeded'
-        });
-
-        return sendResponse(403, { error: 'ダウンロード回数の上限に達しました' });
-      }
-
-      // OTP検証
-      console.log('[DEBUG] Verifying OTP');
-      if (!verifyOTP(otp, metadata.otp)) {
-        console.log('[ERROR] OTP verification failed');
-        await saveAuditLog({
-          event: 'download_failed',
-          fileId: postFileId,
-          fileName: metadata.fileName,
-          actor: metadata.recipient,
-          reason: 'invalid_otp'
-        });
-
-        return sendResponse(401, { error: '認証コードが正しくありません' });
-      }
-
-      console.log('[DEBUG] OTP verified, fetching encrypted data');
-      
-      // 暗号化データ取得
-      const encryptedDataJson = await kv.get('file:' + postFileId + ':data');
-      
-      if (!encryptedDataJson) {
-        console.log('[ERROR] Encrypted data not found');
-        return sendResponse(404, { error: '暗号化データが見つかりません' });
-      }
-
-      console.log('[DEBUG] Decrypting file');
-      const encryptedDataObj = typeof encryptedDataJson === 'string' ? JSON.parse(encryptedDataJson) : encryptedDataJson;
-      const encryptedBuffer = Buffer.from(encryptedDataObj.data, 'base64');
-      
-      const decryptedBuffer = decryptFile(
-        encryptedBuffer,
-        encryptedDataObj.salt,
-        encryptedDataObj.iv,
-        encryptedDataObj.authTag
-      );
-
-      // ダウンロード回数をインクリメント
-      console.log('[DEBUG] Incrementing download count');
-      metadata.downloadCount = currentDownloadCount + 1;
-      await kv.set('file:' + postFileId + ':meta', JSON.stringify(metadata));
-
-      // 監査ログ
-      console.log('[DEBUG] Saving audit log');
-      await saveAuditLog({
-        event: 'download_success',
-        fileId: postFileId,
-        fileName: metadata.fileName,
-        actor: metadata.recipient,
-        downloadCount: metadata.downloadCount
-      });
-
-      console.log('[DEBUG] Returning file');
-      // RFC5987形式のファイル名エンコーディング
-      const encodedFileName = encodeURIComponent(metadata.fileName);
-      
-      return new Response(decryptedBuffer, {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/octet-stream',
-          'Content-Disposition': `attachment; filename="${metadata.fileName}"; filename*=UTF-8''${encodedFileName}`,
-          'Content-Length': decryptedBuffer.length.toString(),
-          'Cache-Control': 'no-store, no-cache, must-revalidate'
-        }
+        maskedEmail: masked,
+        fileName: meta.fileName || 'unknown',
+        fileSize: meta.fileSize || 0,
+        downloadCount: meta.downloadCount || 0,
+        maxDownloads: meta.maxDownloads ?? 3,
+        remainingDownloads: (meta.maxDownloads ?? 3) - (meta.downloadCount || 0)
       });
     }
 
-    // 未対応のメソッド
-    console.log('[ERROR] Unsupported method:', request.method);
-    return sendResponse(405, { error: 'サポートされていないメソッドです' });
+    // POST は後で実装
+    return send(405, { success: false, error: 'Method not allowed' });
 
-  } catch (error) {
-    console.error('[ERROR] Unexpected error:', error.message);
-    console.error('[ERROR] Stack:', error.stack);
-    return sendResponse(500, { error: 'サーバーエラーが発生しました', details: error.message });
+  } catch (e) {
+    console.error('[files/download GET] fatal:', e);
+    return send(500, { success: false, error: e.message || 'Internal error' });
   }
 }
