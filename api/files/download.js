@@ -57,6 +57,7 @@ module.exports = async (req, res) => {
 
       // レスポンス
       return res.status(200).json({
+        success: true,
         fileName: metadata.fileName,
         fileSize: metadata.fileSize,
         uploadedAt: metadata.uploadedAt,
