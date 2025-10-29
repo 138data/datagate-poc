@@ -1,6 +1,6 @@
 /**
  * OTP送信API（Vercelルーティング対応版）
- * 
+ *
  * POST /api/files/download/request-otp
  *   - fileId のみで metadata.recipient 宛てに OTP を送信
  *   - Body: { fileId: string }  ← email は不要
@@ -16,74 +16,70 @@ function maskEmail(email) {
   if (!email || !email.includes('@')) {
     return '***';
   }
-  
   const [localPart, domain] = email.split('@');
-  
-  // ローカル部分の最初の1文字のみ表示
-  const masked = localPart.length > 0 
-    ? localPart[0] + '***'
-    : '***';
-  
+  const masked = localPart.length > 0 ? localPart[0] + '***' : '***';
   return `${masked}@${domain}`;
 }
 
-export default async function handler(request) {
-  const headers = {
-    'Content-Type': 'application/json',
-    'Cache-Control': 'no-store, no-cache, must-revalidate',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-  };
+module.exports = async (req, res) => {
+  // CORS headers
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   // CORS プリフライト
-  if (request.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers });
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
   }
 
   // POST のみ許可
-  if (request.method !== 'POST') {
-    return new Response(
-      JSON.stringify({ success: false, message: 'POST メソッドのみ許可されています' }),
-      { status: 405, headers }
-    );
+  if (req.method !== 'POST') {
+    return res.status(405).json({
+      success: false,
+      message: 'POST メソッドのみ許可されています'
+    });
   }
 
   try {
-    const body = await request.json();
+    let body;
+    if (typeof req.body === 'string') {
+      body = JSON.parse(req.body);
+    } else {
+      body = req.body;
+    }
+
     const { fileId } = body;
 
     // fileId のみ必須（email は不要）
     if (!fileId) {
-      return new Response(
-        JSON.stringify({ success: false, message: 'fileId が必要です' }),
-        { status: 400, headers }
-      );
+      return res.status(400).json({
+        success: false,
+        message: 'fileId が必要です'
+      });
     }
 
     // メタデータ取得
     const metadataJson = await kv.get(`file:${fileId}:meta`);
-
+    
     if (!metadataJson) {
-      return new Response(
-        JSON.stringify({ success: false, message: 'ファイルが見つかりません' }),
-        { status: 404, headers }
-      );
+      return res.status(404).json({
+        success: false,
+        message: 'ファイルが見つかりません'
+      });
     }
 
-    const metadata = typeof metadataJson === 'string' 
-      ? JSON.parse(metadataJson) 
+    const metadata = typeof metadataJson === 'string'
+      ? JSON.parse(metadataJson)
       : metadataJson;
 
     // 失効チェック
     if (metadata.revokedAt) {
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'このファイルは送信者により失効されました' 
-        }),
-        { status: 403, headers }
-      );
+      return res.status(403).json({
+        success: false,
+        message: 'このファイルは送信者により失効されました'
+      });
     }
 
     // metadata.recipient 宛てに OTP 送信
@@ -95,31 +91,23 @@ export default async function handler(request) {
     });
 
     if (result.success) {
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: '認証コードを送信しました',
-          maskedEmail: maskEmail(metadata.recipient)
-        }),
-        { status: 200, headers }
-      );
+      return res.status(200).json({
+        success: true,
+        message: '認証コードを送信しました',
+        maskedEmail: maskEmail(metadata.recipient)
+      });
     } else {
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: '認証コードの送信に失敗しました' 
-        }),
-        { status: 500, headers }
-      );
+      return res.status(500).json({
+        success: false,
+        message: '認証コードの送信に失敗しました'
+      });
     }
+
   } catch (error) {
     console.error('Error in request-otp handler:', error);
-    return new Response(
-      JSON.stringify({ 
-        success: false, 
-        message: 'サーバーエラーが発生しました' 
-      }),
-      { status: 500, headers }
-    );
+    return res.status(500).json({
+      success: false,
+      message: 'サーバーエラーが発生しました'
+    });
   }
-}
+};
