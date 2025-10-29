@@ -3,7 +3,7 @@ import { decryptFile, verifyOTP } from '../../lib/encryption.js';
 import { saveAuditLog } from '../../lib/audit-log.js';
 
 function maskEmail(email) {
-  if (!email) return '***@***.***';
+  if (!email || !email.includes('@')) return '***@***.***';
   const [localPart, domain] = email.split('@');
   if (!domain) return '***@***.***';
   const masked = localPart.length > 0 ? localPart[0] + '***' : '***';
@@ -21,13 +21,23 @@ export default async function handler(request) {
     'Access-Control-Allow-Origin': '*'
   };
 
+  // レスポンス送信済みフラグ
+  let responded = false;
+  
+  const sendResponse = (status, body) => {
+    if (responded) {
+      console.log('[WARNING] Response already sent, ignoring');
+      return;
+    }
+    responded = true;
+    console.log('[DEBUG] Sending response:', status);
+    return new Response(JSON.stringify(body), { status, headers });
+  };
+
   try {
-    // URL パース処理を try-catch で囲む
-    console.log('[DEBUG] Starting URL parse');
-    
     let fileId = null;
     
-    // GET の場合、クエリパラメータから fileId を取得
+    // GET の場合
     if (request.method === 'GET') {
       console.log('[DEBUG] GET handler - parsing URL');
       
@@ -42,10 +52,7 @@ export default async function handler(request) {
       
       if (!fileId) {
         console.log('[ERROR] No fileId in query');
-        return new Response(
-          JSON.stringify({ error: 'ファイルIDが指定されていません' }),
-          { status: 400, headers }
-        );
+        return sendResponse(400, { error: 'ファイルIDが指定されていません' });
       }
 
       console.log('[DEBUG] Fetching metadata for fileId:', fileId);
@@ -53,34 +60,42 @@ export default async function handler(request) {
       
       if (!metadataJson) {
         console.log('[ERROR] Metadata not found for fileId:', fileId);
-        return new Response(
-          JSON.stringify({ error: 'ファイルが見つかりません' }),
-          { status: 404, headers }
-        );
+        return sendResponse(404, { error: 'ファイルが見つかりません' });
       }
 
       console.log('[DEBUG] Metadata found, parsing JSON');
-      const metadata = JSON.parse(metadataJson);
+      
+      let metadata;
+      try {
+        metadata = typeof metadataJson === 'string' ? JSON.parse(metadataJson) : metadataJson;
+        console.log('[DEBUG] Metadata parsed successfully');
+      } catch (err) {
+        console.log('[ERROR] Failed to parse metadata:', err.message);
+        return sendResponse(500, { error: 'メタデータの解析に失敗しました' });
+      }
 
       // 失効チェック
       if (metadata.revokedAt) {
         console.log('[ERROR] File revoked at:', metadata.revokedAt);
-        return new Response(
-          JSON.stringify({ error: 'このファイルは失効されています' }),
-          { status: 403, headers }
-        );
+        return sendResponse(403, { error: 'このファイルは失効されています' });
       }
 
       console.log('[DEBUG] Building response');
-      return new Response(JSON.stringify({
-        fileName: metadata.fileName,
-        fileSize: metadata.fileSize,
-        uploadedAt: metadata.uploadedAt,
-        expiresAt: metadata.expiresAt,
+      
+      // レスポンスオブジェクトを構築
+      const responseData = {
+        success: true,
+        maskedEmail: maskEmail(metadata.recipient || metadata.recipientEmail || ''),
+        fileName: metadata.fileName || 'unknown',
+        fileSize: metadata.fileSize || 0,
         downloadCount: metadata.downloadCount || 0,
         maxDownloads: metadata.maxDownloads || 3,
-        maskedEmail: maskEmail(metadata.recipient)
-      }), { status: 200, headers });
+        uploadedAt: metadata.uploadedAt || '',
+        expiresAt: metadata.expiresAt || ''
+      };
+      
+      console.log('[DEBUG] Response data:', JSON.stringify(responseData));
+      return sendResponse(200, responseData);
     }
 
     // POST の場合
@@ -91,10 +106,7 @@ export default async function handler(request) {
 
       if (!postFileId || !otp) {
         console.log('[ERROR] Missing fileId or otp in POST body');
-        return new Response(
-          JSON.stringify({ error: 'ファイルIDまたはOTPが指定されていません' }),
-          { status: 400, headers }
-        );
+        return sendResponse(400, { error: 'ファイルIDまたはOTPが指定されていません' });
       }
 
       console.log('[DEBUG] Fetching metadata for POST');
@@ -102,21 +114,15 @@ export default async function handler(request) {
       
       if (!metadataJson) {
         console.log('[ERROR] Metadata not found for POST');
-        return new Response(
-          JSON.stringify({ error: 'ファイルが見つかりません' }),
-          { status: 404, headers }
-        );
+        return sendResponse(404, { error: 'ファイルが見つかりません' });
       }
 
-      const metadata = JSON.parse(metadataJson);
+      const metadata = typeof metadataJson === 'string' ? JSON.parse(metadataJson) : metadataJson;
 
       // 失効チェック
       if (metadata.revokedAt) {
         console.log('[ERROR] File revoked (POST)');
-        return new Response(
-          JSON.stringify({ error: 'このファイルは失効されています' }),
-          { status: 403, headers }
-        );
+        return sendResponse(403, { error: 'このファイルは失効されています' });
       }
 
       // ダウンロード回数制限チェック
@@ -133,10 +139,7 @@ export default async function handler(request) {
           reason: 'limit_exceeded'
         });
 
-        return new Response(
-          JSON.stringify({ error: 'ダウンロード回数の上限に達しました' }),
-          { status: 403, headers }
-        );
+        return sendResponse(403, { error: 'ダウンロード回数の上限に達しました' });
       }
 
       // OTP検証
@@ -151,10 +154,7 @@ export default async function handler(request) {
           reason: 'invalid_otp'
         });
 
-        return new Response(
-          JSON.stringify({ error: '認証コードが正しくありません' }),
-          { status: 401, headers }
-        );
+        return sendResponse(401, { error: '認証コードが正しくありません' });
       }
 
       console.log('[DEBUG] OTP verified, fetching encrypted data');
@@ -164,14 +164,11 @@ export default async function handler(request) {
       
       if (!encryptedDataJson) {
         console.log('[ERROR] Encrypted data not found');
-        return new Response(
-          JSON.stringify({ error: '暗号化データが見つかりません' }),
-          { status: 404, headers }
-        );
+        return sendResponse(404, { error: '暗号化データが見つかりません' });
       }
 
       console.log('[DEBUG] Decrypting file');
-      const encryptedDataObj = JSON.parse(encryptedDataJson);
+      const encryptedDataObj = typeof encryptedDataJson === 'string' ? JSON.parse(encryptedDataJson) : encryptedDataJson;
       const encryptedBuffer = Buffer.from(encryptedDataObj.data, 'base64');
       
       const decryptedBuffer = decryptFile(
@@ -213,17 +210,11 @@ export default async function handler(request) {
 
     // 未対応のメソッド
     console.log('[ERROR] Unsupported method:', request.method);
-    return new Response(
-      JSON.stringify({ error: 'サポートされていないメソッドです' }),
-      { status: 405, headers }
-    );
+    return sendResponse(405, { error: 'サポートされていないメソッドです' });
 
   } catch (error) {
     console.error('[ERROR] Unexpected error:', error.message);
     console.error('[ERROR] Stack:', error.stack);
-    return new Response(
-      JSON.stringify({ error: 'サーバーエラーが発生しました', details: error.message }),
-      { status: 500, headers }
-    );
+    return sendResponse(500, { error: 'サーバーエラーが発生しました', details: error.message });
   }
 }
