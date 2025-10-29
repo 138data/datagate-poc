@@ -159,6 +159,7 @@ export default async function handler(req, res) {
     // レスポンス
     return res.status(200).json({
       success: true,
+      otp,
       fileId,
       manageUrl: `https://${host}/manage.html?id=${fileId}&token=${manageToken}`,
       email: {
