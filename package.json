@@ -1,21 +1,10 @@
 {
   "name": "datagate-poc",
   "version": "1.0.0",
-  "description": "138DataGate - PPAP離脱ソフト",
-  "main": "server.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "vercel dev",
-    "deploy": "vercel --prod"
+  "type": "module",
+  "engines": {
+    "node": "20.x"
   },
-  "keywords": [
-    "file-transfer",
-    "ppap",
-    "security",
-    "encryption"
-  ],
-  "author": "138Data",
-  "license": "ISC",
   "dependencies": {
     "@sendgrid/mail": "^8.1.6",
     "@vercel/kv": "^2.0.0",
@@ -28,9 +17,5 @@
     "multer": "^1.4.5-lts.1",
     "nodemailer": "^6.9.16",
     "uuid": "^8.3.2"
-  },
-  "engines": {
-    "node": ">=18.0.0"
-  },
-  "type": "module"
+  }
 }
