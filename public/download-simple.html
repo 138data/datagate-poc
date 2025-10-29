@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ファイルダウンロード（シンプル版） - 138DataGate</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      border-radius: 12px;
+      padding: 40px;
+      max-width: 500px;
+      width: 100%;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+    h1 {
+      margin: 0 0 30px 0;
+      font-size: 24px;
+      text-align: center;
+      color: #333;
+    }
+    .info {
+      background: #f5f7fa;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    .info p {
+      margin: 5px 0;
+      color: #555;
+    }
+    button {
+      width: 100%;
+      padding: 15px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    button:hover {
+      background: #5568d3;
+    }
+    .error {
+      background: #fee;
+      color: #c33;
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 20px;
+    }
+    .success {
+      background: #efe;
+      color: #393;
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📥 ファイルダウンロード</h1>
+    
+    <div class="info">
+      <p><strong>ファイル名:</strong> <span id="fileName">読み込み中...</span></p>
+      <p><strong>サイズ:</strong> <span id="fileSize">-</span></p>
+      <p><strong>ダウンロード回数:</strong> <span id="downloadCount">-</span> / <span id="maxDownloads">-</span></p>
+    </div>
+    
+    <button id="testApiBtn">🔍 API接続テスト</button>
+    <button id="downloadBtn" style="display:none;">⬇️ ダウンロード（OTPなし）</button>
+    
+    <div id="message"></div>
+  </div>
+
+  <script>
+    console.log('[DEBUG] Script loaded');
+    
+    // URLパラメータからfileIdを取得
+    const urlParams = new URLSearchParams(window.location.search);
+    const fileId = urlParams.get('id');
+    
+    console.log('[DEBUG] fileId:', fileId);
+    
+    if (!fileId) {
+      document.getElementById('message').innerHTML = '<div class="error">エラー: ファイルIDが指定されていません</div>';
+    }
+    
+    // API接続テスト
+    document.getElementById('testApiBtn').addEventListener('click', async () => {
+      console.log('[DEBUG] Test API button clicked');
+      
+      try {
+        const url = `/api/files/download?id=${fileId}`;
+        console.log('[DEBUG] Fetching:', url);
+        
+        const response = await fetch(url);
+        console.log('[DEBUG] Response status:', response.status);
+        
+        const data = await response.json();
+        console.log('[DEBUG] Response data:', data);
+        
+        // ファイル情報を表示
+        document.getElementById('fileName').textContent = data.fileName || '-';
+        document.getElementById('fileSize').textContent = data.fileSize ? `${data.fileSize} Bytes` : '-';
+        document.getElementById('downloadCount').textContent = data.downloadCount || '0';
+        document.getElementById('maxDownloads').textContent = data.maxDownloads || '3';
+        
+        document.getElementById('message').innerHTML = '<div class="success">✅ API接続成功！</div>';
+        document.getElementById('downloadBtn').style.display = 'block';
+        
+      } catch (error) {
+        console.error('[ERROR]', error);
+        document.getElementById('message').innerHTML = `<div class="error">❌ エラー: ${error.message}</div>`;
+      }
+    });
+    
+    // ダウンロードボタン（OTPなしバージョン - テスト用）
+    document.getElementById('downloadBtn').addEventListener('click', () => {
+      alert('この機能は開発中です。OTP検証が必要です。');
+    });
+  </script>
+</body>
+</html>
