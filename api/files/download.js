@@ -6,7 +6,7 @@ const maskEmail = (mail) => {
   const lm = l.length <= 2 ? l[0] + '*' : l[0] + '***' + l.slice(-1);
   const [d1, ...rest] = d.split('.');
   const dm = (d1.length <= 2 ? d1[0] + '*' : d1[0] + '***') + (rest.length ? '.' + rest.join('.') : '');
-  return \@\;
+  return `${lm}@${dm}`;
 };
 
 const safeParseMeta = (metaVal) => {
@@ -61,7 +61,7 @@ export default async function handler(request) {
       console.log('[DEBUG] GET handler - fetching metadata for:', id);
 
       // メタデータ取得
-      const metaRaw = await kv.get(\ile:\:meta\);
+      const metaRaw = await kv.get(`file:${id}:meta`);
       console.log('[DEBUG] metaRaw type:', typeof metaRaw);
       
       const meta = safeParseMeta(metaRaw);
