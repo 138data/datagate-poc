@@ -1,0 +1,14 @@
+{
+  "success": true,
+  "fileId": "4faff3c3-b081-4f85-bc0e-f61152050a83",
+  "otp": "338485",
+  "manageUrl": "https://datagate-79adfvzqk-138datas-projects.vercel.app/manage.html?id=4faff3c3-b081-4f85-bc0e-f61152050a83&token=8ba2a0a25758ce1b9300e43e87833ad3b1602c546b10d22d89672db8c444d849",
+  "blobUrl": "https://mmwywscgxrdaa2mc.public.blob.vercel-storage.com/file%3A4faff3c3-b081-4f85-bc0e-f61152050a83%3Adata",
+  "downloadUrl": "https://mmwywscgxrdaa2mc.public.blob.vercel-storage.com/file%3A4faff3c3-b081-4f85-bc0e-f61152050a83%3Adata?download=1",
+  "email": {
+    "sent": false,
+    "success": false,
+    "mode": "link",
+    "reason": "email_disabled"
+  }
+}

@@ -3,482 +3,392 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ファイルアップロード - 138DataGate</title>
+  <title>138DataGate - セキュアファイル送信</title>
   <style>
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
     }
-
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', sans-serif;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       min-height: 100vh;
       display: flex;
-      justify-content: center;
       align-items: center;
+      justify-content: center;
       padding: 20px;
     }
-
     .container {
       background: white;
-      border-radius: 20px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-      padding: 40px;
+      border-radius: 16px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
       max-width: 500px;
       width: 100%;
+      padding: 40px;
     }
-
     h1 {
       color: #667eea;
-      font-size: 28px;
       margin-bottom: 10px;
-      text-align: center;
+      font-size: 28px;
     }
-
     .subtitle {
       color: #666;
-      font-size: 14px;
-      text-align: center;
       margin-bottom: 30px;
+      font-size: 14px;
     }
-
-    .input-group {
+    .form-group {
       margin-bottom: 20px;
     }
-
-    .input-group label {
+    label {
       display: block;
-      color: #333;
-      font-size: 14px;
-      font-weight: 600;
       margin-bottom: 8px;
+      color: #333;
+      font-weight: 500;
     }
-
-    .input-group input[type="email"],
-    .input-group input[type="file"] {
+    input[type="email"],
+    input[type="file"] {
       width: 100%;
-      padding: 12px 16px;
-      border: 2px solid #e9ecef;
-      border-radius: 10px;
-      font-size: 16px;
-      transition: all 0.3s ease;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: border-color 0.3s;
     }
-
-    .input-group input[type="email"]:focus {
+    input[type="email"]:focus,
+    input[type="file"]:focus {
       outline: none;
       border-color: #667eea;
-      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
     }
-
-    .file-drop-zone {
-      border: 3px dashed #d1d8e0;
-      border-radius: 15px;
-      padding: 40px 20px;
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      margin-bottom: 20px;
-    }
-
-    .file-drop-zone:hover {
-      border-color: #667eea;
-      background: #f8f9fa;
-    }
-
-    .file-drop-zone.dragover {
-      border-color: #667eea;
-      background: #e8ebf9;
-    }
-
-    .file-drop-icon {
-      font-size: 48px;
-      margin-bottom: 10px;
-    }
-
-    .file-drop-text {
-      color: #666;
-      font-size: 16px;
-      margin-bottom: 5px;
-    }
-
-    .file-drop-subtext {
-      color: #999;
+    .file-info {
+      margin-top: 10px;
+      padding: 10px;
+      background: #f5f5f5;
+      border-radius: 8px;
       font-size: 13px;
-    }
-
-    .selected-file {
-      background: #e8f5e9;
-      border: 2px solid #4caf50;
-      border-radius: 10px;
-      padding: 15px;
-      margin-bottom: 20px;
+      color: #555;
       display: none;
     }
-
-    .selected-file-name {
-      color: #2e7d32;
-      font-weight: 600;
-      word-break: break-all;
+    .file-info.active {
+      display: block;
     }
-
-    .btn {
+    button {
       width: 100%;
-      padding: 14px 24px;
-      border: none;
-      border-radius: 10px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      text-align: center;
-    }
-
-    .btn-primary {
+      padding: 14px;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
     }
-
-    .btn-primary:hover {
+    button:hover:not(:disabled) {
       transform: translateY(-2px);
-      box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
     }
-
-    .btn-primary:disabled {
+    button:disabled {
       opacity: 0.6;
       cursor: not-allowed;
-      transform: none;
     }
-
-    .message {
-      padding: 12px 16px;
-      border-radius: 8px;
-      margin-bottom: 20px;
-      font-size: 14px;
-      text-align: center;
-    }
-
-    .message-success {
-      background: #d4edda;
-      color: #155724;
-      border: 1px solid #c3e6cb;
-    }
-
-    .message-error {
-      background: #f8d7da;
-      color: #721c24;
-      border: 1px solid #f5c6cb;
-    }
-
-    .spinner {
+    .progress {
       display: none;
-      width: 40px;
-      height: 40px;
-      margin: 20px auto;
-      border: 4px solid #f3f3f3;
-      border-top: 4px solid #667eea;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    .help-text {
-      font-size: 13px;
-      color: #666;
-      margin-top: 10px;
-      line-height: 1.5;
-    }
-
-    .result-section {
-      display: none;
-      background: #f8f9fa;
-      border-radius: 15px;
-      padding: 25px;
       margin-top: 20px;
     }
-
-    .result-title {
-      color: #667eea;
-      font-size: 20px;
-      font-weight: 700;
-      margin-bottom: 20px;
+    .progress.active {
+      display: block;
+    }
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: #e0e0e0;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+      width: 0%;
+      transition: width 0.3s;
+    }
+    .progress-text {
       text-align: center;
-    }
-
-    .result-item {
-      background: white;
-      border-radius: 10px;
-      padding: 15px;
-      margin-bottom: 15px;
-    }
-
-    .result-label {
+      margin-top: 8px;
+      font-size: 13px;
       color: #666;
-      font-size: 12px;
-      font-weight: 600;
-      margin-bottom: 5px;
-      text-transform: uppercase;
     }
-
-    .result-value {
-      color: #333;
+    .result {
+      display: none;
+      margin-top: 30px;
+      padding: 20px;
+      background: #f0f9ff;
+      border-left: 4px solid #667eea;
+      border-radius: 8px;
+    }
+    .result.active {
+      display: block;
+    }
+    .result h2 {
+      color: #667eea;
+      margin-bottom: 15px;
+      font-size: 20px;
+    }
+    .result-item {
+      margin-bottom: 12px;
       font-size: 14px;
+    }
+    .result-label {
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 4px;
+    }
+    .result-value {
+      color: #555;
       word-break: break-all;
     }
-
-    .manage-link-box {
-      background: #fff3cd;
-      border: 2px solid #ffc107;
-      border-radius: 12px;
-      padding: 20px;
-      margin-top: 15px;
-    }
-
-    .manage-link-title {
-      color: #856404;
-      font-size: 14px;
+    .otp-code {
+      font-size: 24px;
       font-weight: 700;
-      margin-bottom: 10px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .manage-link-description {
-      color: #856404;
-      font-size: 13px;
-      line-height: 1.5;
-      margin-bottom: 15px;
-    }
-
-    .manage-link-url {
+      color: #667eea;
+      letter-spacing: 4px;
+      padding: 10px;
       background: white;
       border-radius: 8px;
-      padding: 12px;
-      word-break: break-all;
+      display: inline-block;
     }
-
-    .manage-link-url a {
-      color: #667eea;
-      font-weight: 600;
-      text-decoration: none;
-      transition: color 0.2s ease;
-    }
-
-    .manage-link-url a:hover {
-      color: #764ba2;
-      text-decoration: underline;
-    }
-
-    .recipient-instructions {
-      background: #e8f5e9;
-      border-radius: 10px;
+    .error {
+      display: none;
+      margin-top: 20px;
       padding: 15px;
-      margin-top: 15px;
-    }
-
-    .recipient-instructions-title {
-      color: #2e7d32;
+      background: #fee;
+      border-left: 4px solid #f44;
+      border-radius: 8px;
+      color: #c33;
       font-size: 14px;
-      font-weight: 700;
-      margin-bottom: 10px;
     }
-
-    .recipient-instructions-list {
-      color: #2e7d32;
-      font-size: 13px;
-      line-height: 1.8;
-      padding-left: 20px;
+    .error.active {
+      display: block;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>📤 ファイル送信</h1>
-    <p class="subtitle">安全なファイル受け渡し</p>
+    <h1>🔒 138DataGate</h1>
+    <p class="subtitle">セキュアなファイル送信サービス（PPAP代替）</p>
 
-    <form id="upload-form">
-      <div class="input-group">
-        <label for="recipient">受信者のメールアドレス</label>
+    <form id="uploadForm">
+      <div class="form-group">
+        <label for="recipientEmail">送信先メールアドレス</label>
         <input 
           type="email" 
-          id="recipient" 
-          name="recipient" 
-          placeholder="例: user@example.com" 
+          id="recipientEmail" 
+          name="recipientEmail" 
           required
+          placeholder="recipient@example.com"
         >
-        <p class="help-text">
-          送信先のメールアドレスを入力してください。
-        </p>
       </div>
 
-      <div class="input-group">
-        <label for="file">ファイル選択</label>
-        <div class="file-drop-zone" id="drop-zone">
-          <div class="file-drop-icon">📁</div>
-          <div class="file-drop-text">ファイルをドラッグ&ドロップ</div>
-          <div class="file-drop-subtext">または クリックして選択</div>
-        </div>
+      <div class="form-group">
+        <label for="fileInput">送信ファイル（最大50MB）</label>
         <input 
           type="file" 
-          id="file" 
+          id="fileInput" 
           name="file" 
-          style="display: none;" 
           required
         >
-        <div class="selected-file" id="selected-file">
-          📄 <span class="selected-file-name" id="file-name"></span>
-        </div>
+        <div id="fileInfo" class="file-info"></div>
       </div>
 
-      <div id="message"></div>
-
-      <button type="submit" class="btn btn-primary" id="upload-btn">
-        🚀 送信する
+      <button type="submit" id="submitBtn">
+        📤 安全に送信
       </button>
     </form>
 
-    <div class="spinner" id="spinner"></div>
+    <div id="progress" class="progress">
+      <div class="progress-bar">
+        <div id="progressFill" class="progress-fill"></div>
+      </div>
+      <div id="progressText" class="progress-text">処理中...</div>
+    </div>
 
-    <div class="result-section" id="result-section">
-      <div class="result-title">✅ 送信完了！</div>
-      
-      <div id="manage-link-container"></div>
-
-      <div class="recipient-instructions">
-        <div class="recipient-instructions-title">📧 受信者の操作手順</div>
-        <ol class="recipient-instructions-list">
-          <li>メールに届いたリンクをクリック</li>
-          <li>「認証コードを送信」ボタンをクリック</li>
-          <li>認証コード（6桁）を入力してダウンロード</li>
-        </ol>
+    <div id="result" class="result">
+      <h2>✅ 送信完了</h2>
+      <div class="result-item">
+        <div class="result-label">受信者へメール送信済み</div>
+        <div class="result-value" id="resultEmail"></div>
+      </div>
+      <div class="result-item">
+        <div class="result-label">ダウンロードリンク</div>
+        <div class="result-value">
+          <a href="#" id="resultLink" target="_blank">リンクを開く</a>
+        </div>
+      </div>
+      <div class="result-item">
+        <div class="result-label">認証コード（OTP）</div>
+        <div class="result-value">
+          <span class="otp-code" id="resultOtp"></span>
+        </div>
+      </div>
+      <div class="result-item">
+        <div class="result-label">有効期限</div>
+        <div class="result-value" id="resultExpiry"></div>
       </div>
     </div>
+
+    <div id="error" class="error"></div>
   </div>
 
   <script>
-    const form = document.getElementById('upload-form');
-    const fileInput = document.getElementById('file');
-    const dropZone = document.getElementById('drop-zone');
-    const selectedFile = document.getElementById('selected-file');
-    const fileNameSpan = document.getElementById('file-name');
-    const uploadBtn = document.getElementById('upload-btn');
-    const message = document.getElementById('message');
-    const spinner = document.getElementById('spinner');
-    const resultSection = document.getElementById('result-section');
-    const manageLinkContainer = document.getElementById('manage-link-container');
-
-    // ドロップゾーンクリック → ファイル選択
-    dropZone.addEventListener('click', () => {
-      fileInput.click();
-    });
+    const form = document.getElementById('uploadForm');
+    const fileInput = document.getElementById('fileInput');
+    const fileInfo = document.getElementById('fileInfo');
+    const submitBtn = document.getElementById('submitBtn');
+    const progress = document.getElementById('progress');
+    const progressFill = document.getElementById('progressFill');
+    const progressText = document.getElementById('progressText');
+    const result = document.getElementById('result');
+    const error = document.getElementById('error');
 
     // ファイル選択時
     fileInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (file) {
-        fileNameSpan.textContent = file.name;
-        selectedFile.style.display = 'block';
-        dropZone.style.display = 'none';
-      }
-    });
-
-    // ドラッグ&ドロップ
-    dropZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      dropZone.classList.add('dragover');
-    });
-
-    dropZone.addEventListener('dragleave', () => {
-      dropZone.classList.remove('dragover');
-    });
-
-    dropZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('dragover');
-      
-      const file = e.dataTransfer.files[0];
-      if (file) {
-        fileInput.files = e.dataTransfer.files;
-        fileNameSpan.textContent = file.name;
-        selectedFile.style.display = 'block';
-        dropZone.style.display = 'none';
+        const sizeMB = (file.size / 1024 / 1024).toFixed(2);
+        fileInfo.textContent = `📁 ${file.name} (${sizeMB} MB)`;
+        fileInfo.classList.add('active');
+      } else {
+        fileInfo.classList.remove('active');
       }
     });
 
     // フォーム送信
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      
-      const formData = new FormData(form);
-      
-      uploadBtn.disabled = true;
-      spinner.style.display = 'block';
-      message.innerHTML = '';
-      resultSection.style.display = 'none';
+
+      const recipientEmail = document.getElementById('recipientEmail').value;
+      const file = fileInput.files[0];
+
+      if (!file) {
+        showError('ファイルを選択してください');
+        return;
+      }
+
+      // ファイルサイズチェック（50MB）
+      const maxSize = 50 * 1024 * 1024;
+      if (file.size > maxSize) {
+        showError('ファイルサイズは50MB以下にしてください');
+        return;
+      }
+
+      // UI更新
+      submitBtn.disabled = true;
+      progress.classList.add('active');
+      result.classList.remove('active');
+      error.classList.remove('active');
 
       try {
-        const response = await fetch('/api/upload', {
+        // ステップ1: アップロード開始
+        progressText.textContent = '📡 アップロード準備中...';
+        progressFill.style.width = '20%';
+
+        const startRes = await fetch('/api/upload-start', {
           method: 'POST',
-          body: formData
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fileName: file.name,
+            fileSize: file.size,
+            recipientEmail
+          })
         });
 
-        const data = await response.json();
-        spinner.style.display = 'none';
-
-        if (data.success) {
-          // 成功メッセージ
-          form.style.display = 'none';
-          resultSection.style.display = 'block';
-
-          // 管理リンクを表示
-          if (data.manageUrl) {
-            manageLinkContainer.innerHTML = `
-              <div class="manage-link-box">
-                <div class="manage-link-title">
-                  🔑 管理リンク（送信者専用）
-                </div>
-                <div class="manage-link-description">
-                  誤送信の場合、このリンクからファイルを失効できます。<br>
-                  このリンクは送信者のみが使用できます。
-                </div>
-                <div class="manage-link-url">
-                  <a href="${data.manageUrl}" target="_blank">
-                    管理ページを開く →
-                  </a>
-                </div>
-              </div>
-            `;
-          }
-
-          // メール送信結果を表示
-          if (data.email && data.email.sent) {
-            if (data.email.success) {
-              if (data.email.mode === 'attach') {
-                message.innerHTML = '<div class="message message-success">✅ ファイルを添付してメールを送信しました</div>';
-              } else {
-                message.innerHTML = '<div class="message message-success">✅ ダウンロードリンクをメールで送信しました</div>';
-              }
-            } else {
-              message.innerHTML = '<div class="message message-error">⚠️ ファイルは保存されましたが、メール送信に失敗しました</div>';
-            }
-          }
-        } else {
-          message.innerHTML = `<div class="message message-error">${data.message || 'アップロードに失敗しました'}</div>`;
-          uploadBtn.disabled = false;
+        if (!startRes.ok) {
+          const errData = await startRes.json();
+          throw new Error(errData.error || 'アップロード開始に失敗しました');
         }
-      } catch (error) {
-        spinner.style.display = 'none';
-        message.innerHTML = '<div class="message message-error">アップロードに失敗しました</div>';
-        uploadBtn.disabled = false;
-        console.error('Upload error:', error);
+
+        const { uploadId } = await startRes.json();
+
+        // ステップ2: ファイルをBase64エンコード
+        progressText.textContent = '🔄 ファイル処理中...';
+        progressFill.style.width = '50%';
+
+        const fileData = await readFileAsBase64(file);
+
+        // ステップ3: アップロード完了（暗号化・Blob保存）
+        progressText.textContent = '🔐 暗号化してアップロード中...';
+        progressFill.style.width = '80%';
+
+        const completeRes = await fetch('/api/upload-complete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            uploadId,
+            fileData
+          })
+        });
+
+        if (!completeRes.ok) {
+          const errData = await completeRes.json();
+          throw new Error(errData.error || 'アップロード完了に失敗しました');
+        }
+
+        const data = await completeRes.json();
+
+        // ステップ4: 完了表示
+        progressText.textContent = '✅ 完了！';
+        progressFill.style.width = '100%';
+
+        setTimeout(() => {
+          showResult(data, recipientEmail);
+        }, 500);
+
+      } catch (err) {
+        console.error('Upload error:', err);
+        showError(err.message);
+      } finally {
+        submitBtn.disabled = false;
+        setTimeout(() => {
+          progress.classList.remove('active');
+          progressFill.style.width = '0%';
+        }, 1000);
       }
     });
+
+    // ファイルをBase64に変換
+    function readFileAsBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64 = reader.result.split(',')[1]; // "data:..."を除去
+          resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // 結果表示
+    function showResult(data, email) {
+      document.getElementById('resultEmail').textContent = email;
+      document.getElementById('resultLink').href = data.downloadUrl;
+      document.getElementById('resultLink').textContent = data.downloadUrl;
+      document.getElementById('resultOtp').textContent = data.otp;
+      
+      const expiryDate = new Date(data.expiresAt);
+      document.getElementById('resultExpiry').textContent = expiryDate.toLocaleString('ja-JP');
+
+      result.classList.add('active');
+    }
+
+    // エラー表示
+    function showError(message) {
+      error.textContent = `❌ ${message}`;
+      error.classList.add('active');
+      setTimeout(() => {
+        error.classList.remove('active');
+      }, 5000);
+    }
   </script>
 </body>
 </html>
