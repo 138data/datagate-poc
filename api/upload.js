@@ -67,7 +67,8 @@ module.exports = async (req, res) => {
         const encryptedData = encryptFile(fileBuffer, fileName);
 
         console.log('[INFO] Uploading to Blob:', fileName);
-        const blobResult = await uploadToBlob(encryptedData.encryptedBuffer, fileName);
+        // 修正: fileId を第1引数として渡す
+        const blobResult = await uploadToBlob(fileId, encryptedData.encryptedBuffer, fileName);
 
         const metadata = {
           fileId,
@@ -77,7 +78,8 @@ module.exports = async (req, res) => {
           otp,
           salt: encryptedData.salt,
           iv: encryptedData.iv,
-          blobKey: blobResult.blobKey,
+          blobUrl: blobResult.url,
+          blobDownloadUrl: blobResult.downloadUrl,
           uploadedAt: new Date().toISOString(),
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
           downloadCount: 0,
