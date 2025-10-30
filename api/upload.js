@@ -103,12 +103,11 @@ module.exports = async (req, res) => {
 
     await sendEmail({
       to: recipient,
+      fileId,
       fileName,
-      fileSize: fileBuffer.length,
-      downloadUrl,
       otp,
-      mode: directAttach ? 'attach' : 'link',
-      attachment: directAttach ? { buffer: fileBuffer, filename: fileName } : null
+      shouldAttach: directAttach,
+      fileBuffer: directAttach ? fileBuffer : null
     });
 
     console.log('[INFO] Upload complete:', fileId);
