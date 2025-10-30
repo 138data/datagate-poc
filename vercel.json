@@ -1,18 +1,22 @@
 {
-  "version": 2,
-  "functions": {
-    "api/**/*.js": {
-      "maxDuration": 10
-    }
-  },
-  "routes": [
+  "rewrites": [
     {
-      "src": "/",
-      "dest": "/public/index.html"
+      "source": "/d",
+      "destination": "/download.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }
+      ]
     },
     {
-      "src": "/(.*)",
-      "dest": "/public/$1"
+      "source": "/(.*).html",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }
+      ]
     }
   ]
 }

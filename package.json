@@ -1,21 +1,22 @@
 {
   "name": "datagate-poc",
   "version": "1.0.0",
-  "engines": {
-    "node": "20.x"
+  "description": "138DataGate - PPAP代替の安全なファイル受け渡しシステム",
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "echo 'No build step required'",
+    "deploy": "vercel --prod"
   },
   "dependencies": {
-    "@sendgrid/mail": "^8.1.6",
-    "@vercel/blob": "^2.0.0",
-    "@vercel/kv": "^2.0.0",
-    "axios": "^1.7.9",
-    "bcryptjs": "^2.4.3",
-    "busboy": "^1.6.0",
-    "form-data": "^4.0.1",
-    "formidable": "^3.5.4",
-    "jsonwebtoken": "^9.0.2",
-    "multer": "^2.0.2",
-    "nodemailer": "^6.9.16",
-    "uuid": "^8.3.2"
+    "@vercel/blob": "^0.24.0",
+    "@vercel/kv": "^3.0.0",
+    "@sendgrid/mail": "^8.1.0",
+    "multer": "^2.0.0"
+  },
+  "devDependencies": {
+    "vercel": "^39.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
