@@ -1,19 +1,19 @@
 // api/upload-start.js
-// Phase 35b: クライアント直アップロード用の一時URL発行
+// Phase 35b: アップロード開始、一時メタデータ作成 (CommonJS)
 
-import crypto from 'crypto';
-import { put } from '@vercel/blob';
-import { kv } from '@vercel/kv';
+const crypto = require('crypto');
+const { kv } = require('@vercel/kv');
 
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '1mb' // メタデータのみ受信
-    }
+module.exports = async function handler(req, res) {
+  // CORSヘッダー
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
   }
-};
 
-export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -21,40 +21,30 @@ export default async function handler(req, res) {
   try {
     const { fileName, fileSize, recipientEmail } = req.body;
 
-    // バリデーション
     if (!fileName || !fileSize || !recipientEmail) {
-      return res.status(400).json({ 
-        error: 'fileName, fileSize, recipientEmail are required' 
+      return res.status(400).json({
+        error: 'fileName, fileSize, and recipientEmail are required'
       });
     }
 
-    // ファイルサイズ制限（50MB）
-    const maxSize = 50 * 1024 * 1024;
-    if (fileSize > maxSize) {
-      return res.status(413).json({ 
-        error: `File size exceeds ${maxSize / 1024 / 1024}MB limit` 
+    // ファイルサイズ検証（50MB）
+    const MAX_SIZE = 50 * 1024 * 1024;
+    if (fileSize > MAX_SIZE) {
+      return res.status(400).json({
+        error: `File size exceeds 50MB limit`
       });
     }
 
-    // 一時Blob用のキー生成
-    const tempBlobKey = `temp-${crypto.randomBytes(16).toString('hex')}`;
+    // アップロードID生成
     const uploadId = crypto.randomBytes(16).toString('hex');
 
-    // Vercel Blob の一時アップロードURL生成（PUT用）
-    // 注: @vercel/blob の put() は直接アップロード機能がないため、
-    // ここでは一時的な「予約」としてメタデータをKVに保存
-    const tempMeta = {
+    // 一時メタデータを KV に保存（10分TTL）
+    await kv.set(`upload:${uploadId}:temp`, {
       fileName,
       fileSize,
       recipientEmail,
-      uploadId,
-      tempBlobKey,
-      createdAt: Date.now(),
-      status: 'pending' // upload-complete で 'completed' に変更
-    };
-
-    // KV に一時メタデータ保存（10分TTL）
-    await kv.set(`upload:${uploadId}:temp`, tempMeta, { ex: 600 });
+      createdAt: Date.now()
+    }, { ex: 600 }); // 10分
 
     // 監査ログ
     await kv.lpush('audit:log', JSON.stringify({
@@ -66,17 +56,16 @@ export default async function handler(req, res) {
       timestamp: new Date().toISOString()
     }));
 
-    // クライアントに返す情報
-    // 注: Vercel Blob の直接PUT APIは現在サポートされていないため、
-    // この実装では「/api/upload-complete に Base64 で送る」方式を採用
-    // （真のクライアント直PUTは Vercel Blob の機能拡張待ち）
     res.status(200).json({
-      uploadId,
-      message: 'Upload session initialized. Send file data to /api/upload-complete'
+      success: true,
+      uploadId
     });
 
   } catch (error) {
     console.error('Upload start error:', error);
-    res.status(500).json({ error: 'Failed to initialize upload' });
+    res.status(500).json({ 
+      error: 'Failed to start upload',
+      details: error.message 
+    });
   }
-}
+};
