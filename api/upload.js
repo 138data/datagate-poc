@@ -68,8 +68,9 @@ module.exports = async (req, res) => {
 
         // Blob にアップロード
         const encryptedBuffer = encryptedData.encryptedData;
-        const blobUrl = await uploadToBlob(fileId, encryptedBuffer, fileName);
+        const { url: blobUrl, downloadUrl } = await uploadToBlob(fileId, encryptedBuffer, fileName);
         console.log('[INFO] Uploaded to Blob:', blobUrl);
+        console.log('[INFO] Download URL:', downloadUrl);
 
         // メタデータ作成
         const now = new Date();
@@ -86,7 +87,8 @@ module.exports = async (req, res) => {
           maxDownloads: 3,
           manageToken,
           revokedAt: null,
-          blobUrl,  // Blob URL を保存
+          blobUrl,           // 永続的な公開URL
+          downloadUrl,       // 短寿命ダウンロードURL
           salt: encryptedData.salt,
           iv: encryptedData.iv,
           authTag: encryptedData.authTag
@@ -125,6 +127,8 @@ module.exports = async (req, res) => {
           fileId,
           otp,
           manageUrl,
+          blobUrl,        // Phase 35a-v2: Blob URL を返す
+          downloadUrl,    // Phase 35a-v2: 短寿命URL を返す
           email: emailResult
         });
 
