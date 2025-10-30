@@ -1,4 +1,4 @@
-// api/files/download.js - Node.js handler format (完全版)
+// api/files/download.js - Node.js handler format (修正版 v2)
 const { kv } = require('@vercel/kv');
 const { decryptFile, verifyOTP } = require('../../lib/encryption.js');
 const { saveAuditLog } = require('../../lib/audit-log.js');
@@ -42,24 +42,45 @@ module.exports = async function handler(request) {
   try {
     // GET: ファイル情報取得
     if (request.method === 'GET') {
-      // URLパラメータ取得
-      const protocol = request.headers.get('x-forwarded-proto') || 'https';
-      const host = request.headers.get('host') || request.headers.get('x-forwarded-host') || 'localhost';
-      const fullUrl = protocol + '://' + host + request.url;
-      const url = new URL(fullUrl);
-      const id = url.searchParams.get('id');
+      console.log('[DEBUG] GET request.url:', request.url);
+      
+      // URLパラメータ取得（より確実な方法）
+      let id = null;
+      
+      // 方法1: request.url から直接抽出
+      const urlMatch = request.url.match(/[?&]id=([^&]+)/);
+      if (urlMatch) {
+        id = urlMatch[1];
+        console.log('[DEBUG] ID extracted from regex:', id);
+      }
+      
+      // 方法2: URL オブジェクトを試す
+      if (!id) {
+        try {
+          const url = new URL(request.url, 'https://dummy.com');
+          id = url.searchParams.get('id');
+          console.log('[DEBUG] ID from URL object:', id);
+        } catch (e) {
+          console.log('[DEBUG] URL parsing failed:', e.message);
+        }
+      }
+
+      console.log('[DEBUG] Final ID:', id);
 
       if (!id) {
+        console.log('[ERROR] Missing file ID in request:', request.url);
         return new Response(JSON.stringify({ error: 'Missing file ID' }), {
           status: 400,
           headers: corsHeaders
         });
       }
 
+      console.log('[DEBUG] Fetching metadata for fileId:', id);
       const metadataJson = await kv.get('file:' + id + ':meta');
       const metadata = safeParseMeta(metadataJson);
 
       if (!metadata) {
+        console.log('[ERROR] File not found:', id);
         return new Response(JSON.stringify({ error: 'File not found' }), {
           status: 404,
           headers: corsHeaders
@@ -86,6 +107,8 @@ module.exports = async function handler(request) {
         maskedEmail: maskEmail(metadata.recipient)
       };
 
+      console.log('[DEBUG] Returning file info:', responseData);
+
       return new Response(JSON.stringify(responseData), {
         status: 200,
         headers: corsHeaders
@@ -94,11 +117,14 @@ module.exports = async function handler(request) {
 
     // POST: OTP検証 + ダウンロード
     if (request.method === 'POST') {
-
-// リクエストボディ取得
+      console.log('[DEBUG] POST download request');
+      
+      // リクエストボディ取得
       const body = await request.json();
       const fileId = body.fileId;
       const otp = body.otp;
+
+      console.log('[DEBUG] fileId:', fileId, 'otp:', otp);
 
       if (!fileId || !otp) {
         return new Response(JSON.stringify({ error: 'Missing fileId or otp' }), {
@@ -133,6 +159,7 @@ module.exports = async function handler(request) {
       }
 
       // OTP検証
+      console.log('[DEBUG] Verifying OTP...');
       if (!verifyOTP(otp, metadata.otp)) {
         await saveAuditLog({
           event: 'download_failed',
@@ -147,9 +174,13 @@ module.exports = async function handler(request) {
         });
       }
 
+      console.log('[DEBUG] OTP verified successfully');
+
       // ダウンロード回数チェック
       const downloadCount = metadata.downloadCount || 0;
       const maxDownloads = metadata.maxDownloads || 3;
+
+      console.log('[DEBUG] Download count:', downloadCount, '/', maxDownloads);
 
       if (downloadCount >= maxDownloads) {
         await saveAuditLog({
@@ -166,6 +197,7 @@ module.exports = async function handler(request) {
       }
 
       // 暗号化データ取得
+      console.log('[DEBUG] Fetching encrypted data...');
       const encryptedDataJson = await kv.get('file:' + fileId + ':data');
 
       if (!encryptedDataJson) {
@@ -183,6 +215,7 @@ module.exports = async function handler(request) {
       }
 
       // 復号化
+      console.log('[DEBUG] Decrypting file...');
       const encryptedBuffer = Buffer.from(encryptedDataObj.data, 'base64');
       const decryptedBuffer = decryptFile(
         encryptedBuffer,
@@ -191,11 +224,16 @@ module.exports = async function handler(request) {
         encryptedDataObj.authTag
       );
 
+      console.log('[DEBUG] File decrypted, size:', decryptedBuffer.length);
+
       // ダウンロード回数更新
+      console.log('[DEBUG] Updating download count...');
       metadata.downloadCount = downloadCount + 1;
       await kv.set('file:' + fileId + ':meta', JSON.stringify(metadata), {
         ex: 7 * 24 * 60 * 60
       });
+
+      console.log('[DEBUG] Download count updated to:', metadata.downloadCount);
 
       // 監査ログ
       await saveAuditLog({
@@ -206,6 +244,8 @@ module.exports = async function handler(request) {
         size: metadata.fileSize,
         downloadCount: metadata.downloadCount
       });
+
+      console.log('[DEBUG] Sending file to client...');
 
       // ファイル送信
       const fileHeaders = {
