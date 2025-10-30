@@ -1,4 +1,4 @@
-// api/upload.js - Vercel Blob対応版（busboy 1.6.0 修正）
+// api/upload.js - Vercel Blob対応版（非同期タイミング修正）
 const { kv } = require('@vercel/kv');
 const Busboy = require('busboy');
 const { v4: uuidv4 } = require('uuid');
@@ -25,22 +25,32 @@ module.exports = async (req, res) => {
   try {
     // busboy 1.6.0 対応: Busboy を直接 new で初期化
     const bb = Busboy({ headers: req.headers });
-    
+
     let fileBuffer = null;
     let fileName = '';
     let recipient = '';
+    let fileProcessed = false;
 
-    bb.on('file', (fieldname, file, info) => {
-      fileName = Buffer.from(info.filename, 'latin1').toString('utf8');
-      const chunks = [];
+    // Promise で file.on('end') の完了を待つ
+    const filePromise = new Promise((resolve, reject) => {
+      bb.on('file', (fieldname, file, info) => {
+        fileName = Buffer.from(info.filename, 'latin1').toString('utf8');
+        const chunks = [];
 
-      file.on('data', (chunk) => {
-        chunks.push(chunk);
-      });
+        file.on('data', (chunk) => {
+          chunks.push(chunk);
+        });
 
-      file.on('end', () => {
-        fileBuffer = Buffer.concat(chunks);
-        console.log('[INFO] File received:', fileName, fileBuffer.length, 'bytes');
+        file.on('end', () => {
+          fileBuffer = Buffer.concat(chunks);
+          fileProcessed = true;
+          console.log('[INFO] File received:', fileName, fileBuffer.length, 'bytes');
+          resolve();
+        });
+
+        file.on('error', (error) => {
+          reject(error);
+        });
       });
     });
 
@@ -52,6 +62,12 @@ module.exports = async (req, res) => {
 
     bb.on('finish', async () => {
       try {
+        // ファイル処理の完了を待つ
+        if (fileProcessed === false) {
+          console.log('[INFO] Waiting for file processing to complete...');
+          await filePromise;
+        }
+
         if (!fileBuffer || !fileName) {
           return res.status(400).json({ error: 'ファイルが選択されていません' });
         }
@@ -62,12 +78,17 @@ module.exports = async (req, res) => {
 
         const fileId = uuidv4();
         const otp = generateOTP();
-        
+
         console.log('[INFO] Encrypting file:', fileName);
         const encryptedData = encryptFile(fileBuffer, fileName);
 
         console.log('[INFO] Uploading to Blob:', fileName);
-        // 修正: fileId を第1引数として渡す
+        console.log('[DEBUG] uploadToBlob args:', {
+          fileId,
+          bufferSize: encryptedData.encryptedBuffer.length,
+          fileName
+        });
+
         const blobResult = await uploadToBlob(fileId, encryptedData.encryptedBuffer, fileName);
 
         const metadata = {
@@ -90,10 +111,10 @@ module.exports = async (req, res) => {
         await kv.set(`file:${fileId}:meta`, JSON.stringify(metadata), { ex: 7 * 24 * 60 * 60 });
 
         const downloadUrl = `${process.env.BASE_URL || 'https://datagate-poc.vercel.app'}/d?id=${fileId}`;
-        
+
         console.log('[INFO] Sending email to:', recipient);
         const directAttach = canUseDirectAttach(recipient, fileBuffer.length);
-        
+
         await sendEmail({
           to: recipient,
           fileName,
@@ -116,18 +137,18 @@ module.exports = async (req, res) => {
 
       } catch (error) {
         console.error('[ERROR] Upload processing failed:', error);
-        res.status(500).json({ 
+        res.status(500).json({
           error: 'アップロード処理中にエラーが発生しました',
-          details: error.message 
+          details: error.message
         });
       }
     });
 
     bb.on('error', (error) => {
       console.error('[ERROR] Busboy error:', error);
-      res.status(500).json({ 
+      res.status(500).json({
         error: 'ファイルアップロード中にエラーが発生しました',
-        details: error.message 
+        details: error.message
       });
     });
 
@@ -135,9 +156,9 @@ module.exports = async (req, res) => {
 
   } catch (error) {
     console.error('[ERROR] Unexpected error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'サーバーエラーが発生しました',
-      details: error.message 
+      details: error.message
     });
   }
 };
