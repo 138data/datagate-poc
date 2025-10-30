@@ -1,8 +1,8 @@
-// api/files/download.js - Vercel Blob対応版
+// api/files/download.js - Phase 35a-v2: 短寿命URL返却版
 const { kv } = require('@vercel/kv');
 const { decryptFile, verifyOTP } = require('../../lib/encryption');
 const { saveAuditLog } = require('../../lib/audit-log');
-const { downloadFromBlob } = require('../../lib/blob-storage');
+const { downloadFromBlob, uploadTemporaryBlob, deleteTemporaryBlob } = require('../../lib/blob-storage');
 
 const maskEmail = (mail) => {
   if (!mail || !mail.includes('@')) return '';
@@ -65,7 +65,7 @@ module.exports = async (req, res) => {
       });
     }
 
-    // POST: OTP検証 + ダウンロード
+    // POST: OTP検証 + 一時Blob生成 + downloadUrl返却
     if (req.method === 'POST') {
       let body;
       if (typeof req.body === 'string') {
@@ -124,40 +124,62 @@ module.exports = async (req, res) => {
         return res.status(403).json({ error: 'Maximum download limit reached' });
       }
 
-      // Blob からダウンロード
-      console.log('[INFO] Downloading from Blob:', metadata.blobUrl);
-      const encryptedBuffer = await downloadFromBlob(metadata.blobUrl);
-      console.log('[INFO] Downloaded from Blob:', encryptedBuffer.length, 'bytes');
+      // ========================================
+      // Phase 35a-v2: 短寿命URL生成方式
+      // ========================================
 
-      // 復号化
+      // 1. 暗号化ファイルをBlobからダウンロード
+      console.log('[INFO] Downloading encrypted file from Blob:', metadata.blobUrl);
+      const encryptedBuffer = await downloadFromBlob(metadata.blobUrl);
+      console.log('[INFO] Downloaded encrypted file:', encryptedBuffer.length, 'bytes');
+
+      // 2. 復号化
       const decryptedBuffer = decryptFile(
         encryptedBuffer,
         metadata.salt,
         metadata.iv,
         metadata.authTag
       );
-
       console.log('[INFO] Decrypted file size:', decryptedBuffer.length, 'bytes');
 
-      // ダウンロード回数更新
+      // 3. 復号化済みファイルを一時Blobにアップロード（TTL: 5分）
+      const tempBlob = await uploadTemporaryBlob(
+        fileId,
+        decryptedBuffer,
+        metadata.fileName,
+        300  // 5分間有効
+      );
+      console.log('[INFO] Temporary blob created:', tempBlob.downloadUrl);
+
+      // 4. ダウンロード回数更新
       metadata.downloadCount = downloadCount + 1;
+      metadata.lastDownloadAt = new Date().toISOString();
       await kv.set('file:' + fileId + ':meta', JSON.stringify(metadata), {
         ex: 7 * 24 * 60 * 60
       });
 
+      // 5. 監査ログ記録（URL発行）
       await saveAuditLog({
-        event: 'download_success',
+        event: 'download_url_issued',
         actor: metadata.recipient,
         fileId: fileId,
         fileName: metadata.fileName,
         size: metadata.fileSize,
-        downloadCount: metadata.downloadCount
+        downloadCount: metadata.downloadCount,
+        tempBlobKey: tempBlob.blobKey,
+        expiresInSec: 300
       });
 
-      res.setHeader('Content-Type', 'application/octet-stream');
-      res.setHeader('Content-Disposition', 'attachment; filename="' + metadata.fileName + '"; filename*=UTF-8\'\'' + encodeURIComponent(metadata.fileName));
-      res.setHeader('Content-Length', decryptedBuffer.length);
-      return res.status(200).end(decryptedBuffer);
+      // 6. JSONレスポンス返却（バイナリは返さない）
+      return res.status(200).json({
+        success: true,
+        fileId: fileId,
+        fileName: metadata.fileName,
+        fileSize: metadata.fileSize,
+        downloadUrl: tempBlob.downloadUrl,
+        expiresInSec: 300,
+        remainingDownloads: maxDownloads - metadata.downloadCount
+      });
     }
 
     return res.status(405).json({ error: 'Method not allowed' });

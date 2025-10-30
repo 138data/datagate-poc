@@ -414,7 +414,7 @@
       }
     });
 
-    // ダウンロード
+    // ダウンロード（Phase 35a-v2: downloadUrl遷移方式）
     downloadBtn.addEventListener('click', async () => {
       const otp = otpInput.value.trim();
 
@@ -437,41 +437,40 @@
         spinner.style.display = 'none';
 
         if (response.ok) {
-          // ファイルダウンロード
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-
-          // Content-Disposition ヘッダーからファイル名を取得
-          const contentDisposition = response.headers.get('Content-Disposition');
-          let fileName = 'download.txt';
-          if (contentDisposition) {
-            const fileNameMatch = contentDisposition.match(/filename\*=UTF-8''(.+)/);
-            if (fileNameMatch) {
-              fileName = decodeURIComponent(fileNameMatch[1]);
-            }
+          // Phase 35a-v2: JSONレスポンスから downloadUrl を取得
+          const result = await response.json();
+          
+          if (result.success && result.downloadUrl) {
+            // 短寿命URLに直接遷移してダウンロード
+            message2.innerHTML = `<div class="message message-success">✅ ダウンロード準備完了 (有効期限: ${result.expiresInSec}秒)</div>`;
+            
+            // ダウンロード用の隠しリンクを作成
+            const a = document.createElement('a');
+            a.href = result.downloadUrl;
+            a.download = result.fileName || 'download';
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            // 成功メッセージ
+            setTimeout(() => {
+              progressFill.style.width = '100%';
+              message2.innerHTML = '<div class="message message-success">✅ ダウンロードが完了しました</div>';
+              downloadBtn.textContent = '✅ ダウンロード完了';
+              downloadBtn.disabled = true;
+            }, 1000);
+          } else {
+            throw new Error('ダウンロードURLの取得に失敗しました');
           }
-
-          a.download = fileName;
-          document.body.appendChild(a);
-          a.click();
-          window.URL.revokeObjectURL(url);
-          document.body.removeChild(a);
-
-          // 成功メッセージ
-          progressFill.style.width = '100%';
-          message2.innerHTML = '<div class="message message-success">✅ ダウンロードが完了しました</div>';
-          downloadBtn.textContent = '✅ ダウンロード完了';
-          downloadBtn.disabled = true;
         } else {
           const data = await response.json();
-          message2.innerHTML = `<div class="message message-error">${data.message}</div>`;
+          message2.innerHTML = `<div class="message message-error">${data.error || 'ダウンロードに失敗しました'}</div>`;
           downloadBtn.disabled = false;
         }
       } catch (error) {
         spinner.style.display = 'none';
-        message2.innerHTML = '<div class="message message-error">ダウンロードに失敗しました</div>';
+        message2.innerHTML = `<div class="message message-error">${error.message || 'ダウンロードに失敗しました'}</div>`;
         downloadBtn.disabled = false;
         console.error('Error downloading file:', error);
       }
