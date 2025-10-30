@@ -1,115 +1,96 @@
-// api/files/download.js - Vercel Blob対応版
+// api/files/download.js - Phase 35a: 短寿命URL返却版
 const { kv } = require('@vercel/kv');
-const { decryptFile, verifyOTP } = require('../../lib/encryption');
+const { decryptFile } = require('../../lib/encryption');
+const { downloadFromBlob, generateDownloadUrl } = require('../../lib/blob-storage');
 const { saveAuditLog } = require('../../lib/audit-log');
-const { downloadFromBlob } = require('../../lib/blob-storage');
 
-const maskEmail = (mail) => {
-  if (!mail || !mail.includes('@')) return '';
-  const [l, d] = mail.split('@');
-  const lm = l.length <= 2 ? l[0] + '*' : l[0] + '***' + l.slice(-1);
-  const [d1, ...rest] = d.split('.');
-  const dm = (d1.length <= 2 ? d1[0] + '*' : d1[0] + '***') + (rest.length ? '.' + rest.join('.') : '');
-  return lm + '@' + dm;
-};
-
-const safeParseMeta = (metaVal) => {
-  if (!metaVal) return null;
-  if (typeof metaVal === 'string') {
-    try { return JSON.parse(metaVal); } catch { return null; }
-  }
-  if (typeof metaVal === 'object') return metaVal;
-  return null;
-};
-
-module.exports = async (req, res) => {
-  res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
+module.exports = async function handler(req, res) {
   try {
+    const method = req.method;
+
+    // CORS設定
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+
+    if (method === 'OPTIONS') {
+      return res.status(200).end();
+    }
+
+    // ========================================
     // GET: ファイル情報取得
-    if (req.method === 'GET') {
-      const id = req.query.id;
+    // ========================================
+    if (method === 'GET') {
+      const { id } = req.query;
 
       if (!id) {
-        return res.status(400).json({ error: 'Missing file ID' });
+        return res.status(400).json({ error: 'File ID is required' });
       }
 
-      const metadataJson = await kv.get('file:' + id + ':meta');
-      const metadata = safeParseMeta(metadataJson);
+      // メタデータ取得
+      const metaKey = 'file:' + id + ':meta';
+      const metaStr = await kv.get(metaKey);
 
-      if (!metadata) {
+      if (!metaStr) {
         return res.status(404).json({ error: 'File not found' });
       }
 
-      if (metadata.revokedAt) {
-        return res.status(403).json({ error: 'File has been revoked' });
-      }
+      const metadata = typeof metaStr === 'string' ? JSON.parse(metaStr) : metaStr;
 
+      // 基本情報のみ返却（OTP・blobKeyは含めない）
       return res.status(200).json({
-        success: true,
+        fileId: id,
         fileName: metadata.fileName,
         fileSize: metadata.fileSize,
-        uploadedAt: metadata.uploadedAt,
-        expiresAt: metadata.expiresAt,
+        recipient: metadata.recipient,
         downloadCount: metadata.downloadCount || 0,
         maxDownloads: metadata.maxDownloads || 3,
-        maskedEmail: maskEmail(metadata.recipient)
+        expiresAt: metadata.expiresAt
       });
     }
 
-    // POST: OTP検証 + ダウンロード
-    if (req.method === 'POST') {
-      let body;
-      if (typeof req.body === 'string') {
-        body = JSON.parse(req.body);
-      } else {
-        body = req.body;
-      }
-
+    // ========================================
+    // POST: OTP検証 + 短寿命URL発行
+    // ========================================
+    if (method === 'POST') {
+      const body = req.body;
       const fileId = body.fileId;
       const otp = body.otp;
 
       if (!fileId || !otp) {
-        return res.status(400).json({ error: 'Missing fileId or otp' });
+        return res.status(400).json({ error: 'fileId and otp are required' });
       }
 
-      const metadataJson = await kv.get('file:' + fileId + ':meta');
-      const metadata = safeParseMeta(metadataJson);
+      // メタデータ取得
+      const metaKey = 'file:' + fileId + ':meta';
+      const metaStr = await kv.get(metaKey);
 
-      if (!metadata) {
-        return res.status(404).json({ error: 'File not found' });
-      }
-
-      if (metadata.revokedAt) {
+      if (!metaStr) {
         await saveAuditLog({
-          event: 'download_blocked',
-          actor: metadata.recipient,
+          event: 'download_failed',
+          actor: 'unknown',
           fileId: fileId,
-          fileName: metadata.fileName,
-          reason: 'revoked'
+          reason: 'file_not_found'
         });
-        return res.status(403).json({ error: 'File has been revoked' });
+        return res.status(404).json({ error: 'File not found or expired' });
       }
 
-      if (!verifyOTP(otp, metadata.otp)) {
+      const metadata = typeof metaStr === 'string' ? JSON.parse(metaStr) : metaStr;
+
+      // OTP検証
+      if (metadata.otp !== otp) {
         await saveAuditLog({
           event: 'download_failed',
           actor: metadata.recipient,
           fileId: fileId,
-          fileName: metadata.fileName,
           reason: 'invalid_otp'
         });
         return res.status(401).json({ error: 'Invalid OTP' });
       }
 
+      // ダウンロード回数チェック
       const downloadCount = metadata.downloadCount || 0;
       const maxDownloads = metadata.maxDownloads || 3;
 
@@ -118,48 +99,52 @@ module.exports = async (req, res) => {
           event: 'download_blocked',
           actor: metadata.recipient,
           fileId: fileId,
-          fileName: metadata.fileName,
-          reason: 'max_downloads_exceeded'
+          reason: 'max_downloads_reached'
         });
         return res.status(403).json({ error: 'Maximum download limit reached' });
       }
 
-      // Blob からダウンロード
-      console.log('[INFO] Downloading from Blob:', metadata.blobUrl);
-      const encryptedBuffer = await downloadFromBlob(metadata.blobUrl);
-      console.log('[INFO] Downloaded from Blob:', encryptedBuffer.length, 'bytes');
-
-      // 復号化
-      const decryptedBuffer = decryptFile(
-        encryptedBuffer,
-        metadata.salt,
-        metadata.iv,
-        metadata.authTag
-      );
-
-      console.log('[INFO] Decrypted file size:', decryptedBuffer.length, 'bytes');
-
+      // ========================================
+      // Phase 35a: 短寿命URL発行（ファイル本体は返さない）
+      // ========================================
+      
       // ダウンロード回数更新
       metadata.downloadCount = downloadCount + 1;
-      await kv.set('file:' + fileId + ':meta', JSON.stringify(metadata), {
+      await kv.set(metaKey, JSON.stringify(metadata), {
         ex: 7 * 24 * 60 * 60
       });
 
+      // blobKeyからblobUrlを取得
+      // Phase 34では metadata.blobUrl が保存されているため、それを使用
+      const blobUrl = metadata.blobUrl || metadata.blobKey;
+
+      // 短寿命URL生成（5分間有効）
+      const { downloadUrl, expiresAt } = await generateDownloadUrl(blobUrl, 300);
+
+      // 監査ログ
       await saveAuditLog({
-        event: 'download_success',
+        event: 'download_url_issued',
         actor: metadata.recipient,
         fileId: fileId,
         fileName: metadata.fileName,
         size: metadata.fileSize,
-        downloadCount: metadata.downloadCount
+        downloadCount: metadata.downloadCount,
+        urlExpiresAt: expiresAt
       });
 
-      res.setHeader('Content-Type', 'application/octet-stream');
-      res.setHeader('Content-Disposition', 'attachment; filename="' + metadata.fileName + '"; filename*=UTF-8\'\'' + encodeURIComponent(metadata.fileName));
-      res.setHeader('Content-Length', decryptedBuffer.length);
-      return res.status(200).end(decryptedBuffer);
+      // ✅ Phase 35a: JSON のみ返却（バイナリ返送なし）
+      return res.status(200).json({
+        success: true,
+        downloadUrl: downloadUrl,
+        fileName: metadata.fileName,
+        fileSize: metadata.fileSize,
+        downloadCount: metadata.downloadCount,
+        maxDownloads: maxDownloads,
+        expiresAt: expiresAt
+      });
     }
 
+    // その他のメソッド
     return res.status(405).json({ error: 'Method not allowed' });
 
   } catch (error) {
