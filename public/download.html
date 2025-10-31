@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ファイルダウンロード - 138DataGate</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- ヘッダー -->
+    <header class="bg-blue-600 text-white py-4 shadow-lg">
+        <div class="container mx-auto px-4">
+            <h1 class="text-2xl font-bold">138DataGate</h1>
+            <p class="text-sm text-blue-100">安全なファイル受け渡しシステム</p>
+        </div>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="container mx-auto px-4 py-8 max-w-2xl">
+        <!-- エラー表示 -->
+        <div id="error-container" class="hidden bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-red-800">エラー</h3>
+                    <p id="error-message" class="text-sm text-red-700 mt-1"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- OTP入力フォーム -->
+        <div id="download-container">
+            <!-- OTP入力カード -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">🔐 認証コード入力</h2>
+                <p class="text-gray-600 mb-4">メールに記載されている6桁の認証コード（OTP）を入力してください。</p>
+                
+                <form id="download-form" class="space-y-4">
+                    <div>
+                        <label for="otp" class="block text-sm font-medium text-gray-700 mb-2">
+                            認証コード（6桁の数字）
+                        </label>
+                        <input 
+                            type="text" 
+                            id="otp" 
+                            name="otp"
+                            maxlength="6" 
+                            pattern="[0-9]{6}" 
+                            inputmode="numeric"
+                            required
+                            class="w-full px-4 py-3 text-center text-2xl font-mono tracking-widest border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
+                            placeholder="000000"
+                            autocomplete="off"
+                        >
+                        <p class="text-xs text-gray-500 mt-2">※ メールで受信した6桁の認証コードを入力してください。</p>
+                    </div>
+
+                    <!-- OTP検証エラー -->
+                    <div id="otp-error" class="hidden bg-yellow-50 border-l-4 border-yellow-400 p-3 rounded">
+                        <p id="otp-error-message" class="text-sm text-yellow-700"></p>
+                    </div>
+
+                    <!-- ダウンロードボタン -->
+                    <button 
+                        type="submit" 
+                        id="download-button"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 flex items-center justify-center"
+                    >
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                        </svg>
+                        認証してダウンロード
+                    </button>
+                </form>
+
+                <!-- ダウンロード中表示 -->
+                <div id="downloading" class="hidden text-center py-4">
+                    <div class="spinner mx-auto mb-4"></div>
+                    <p class="text-gray-600">ダウンロードURLを発行しています...</p>
+                </div>
+
+                <!-- ダウンロード成功 -->
+                <div id="download-success" class="hidden bg-green-50 border-l-4 border-green-500 p-4 mt-4 rounded">
+                    <div class="flex">
+                        <svg class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        <div class="ml-3">
+                            <p class="text-sm font-medium text-green-800">ダウンロードが開始されました！</p>
+                            <p class="text-sm text-green-700 mt-1">ブラウザの保存ダイアログを確認してください。</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- セキュリティ情報 -->
+            <div class="mt-6 bg-blue-50 border-l-4 border-blue-400 p-4 rounded">
+                <div class="flex">
+                    <svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                    </svg>
+                    <div class="ml-3">
+                        <p class="text-sm text-blue-700">
+                            🔒 このファイルは <strong>AES-256-GCM</strong> で暗号化されています。<br>
+                            📅 有効期限が過ぎると自動的に削除されます。<br>
+                            🔐 認証コードは一度のみ有効です。<br>
+                            ⏱️ ダウンロードリンクは短寿命URLで発行されます。
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- フッター -->
+    <footer class="bg-gray-800 text-white py-6 mt-12">
+        <div class="container mx-auto px-4 text-center">
+            <p class="text-sm text-gray-400">&copy; 2025 138Data. All rights reserved.</p>
+            <p class="text-xs text-gray-500 mt-2">PPAP代替・安全なファイル受け渡しシステム</p>
+        </div>
+    </footer>
+
+    <script>
+        // URLパラメータ取得
+        const params = new URLSearchParams(window.location.search);
+        const fileId = params.get('id') || params.get('fileId') || params.get('f');
+
+        // 要素取得
+        const errorContainerEl = document.getElementById('error-container');
+        const errorMessageEl = document.getElementById('error-message');
+        const downloadContainerEl = document.getElementById('download-container');
+        const downloadFormEl = document.getElementById('download-form');
+        const downloadingEl = document.getElementById('downloading');
+        const downloadSuccessEl = document.getElementById('download-success');
+        const otpErrorEl = document.getElementById('otp-error');
+        const otpErrorMessageEl = document.getElementById('otp-error-message');
+
+        // エラー表示関数
+        function showError(message) {
+            downloadContainerEl.classList.add('hidden');
+            errorContainerEl.classList.remove('hidden');
+            errorMessageEl.textContent = message;
+        }
+
+        // OTPエラー表示関数
+        function showOtpError(message) {
+            otpErrorEl.classList.remove('hidden');
+            otpErrorMessageEl.textContent = message;
+        }
+
+        // OTPエラー非表示関数
+        function hideOtpError() {
+            otpErrorEl.classList.add('hidden');
+        }
+
+        // 初期チェック：fileIdの存在確認のみ
+        if (!fileId) {
+            showError('無効なダウンロードリンクです。URLを確認してください。');
+        } else {
+            // OTP入力フォーカス
+            document.getElementById('otp').focus();
+        }
+
+        // OTP送信・短寿命URL取得（Phase 36準拠）
+        downloadFormEl.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideOtpError();
+
+            const otp = document.getElementById('otp').value.trim();
+
+            // OTP検証（6桁の数字）
+            if (!/^\d{6}$/.test(otp)) {
+                showOtpError('認証コードは6桁の数字で入力してください。');
+                return;
+            }
+
+            // ダウンロード開始
+            downloadFormEl.classList.add('hidden');
+            downloadingEl.classList.remove('hidden');
+
+            try {
+                console.log('[Phase 36] Requesting download URL:', { fileId, otp });
+
+                // Phase 36: POST /api/files/download → JSON（downloadUrl）
+                const response = await fetch('/api/files/download', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ fileId, otp })
+                });
+
+                console.log('[Phase 36] Response status:', response.status);
+
+                const data = await response.json();
+                console.log('[Phase 36] Response data:', data);
+
+                if (!response.ok) {
+                    let errorMessage = '認証コードが正しくありません。';
+
+                    if (response.status === 401) {
+                        errorMessage = data.error || '認証コードが正しくありません。';
+                    } else if (response.status === 404) {
+                        errorMessage = 'ファイルが見つかりません。';
+                    } else if (response.status === 410) {
+                        errorMessage = 'ファイルの有効期限が切れています。';
+                    } else if (response.status === 403) {
+                        errorMessage = 'ダウンロード回数の上限に達しました。';
+                    } else if (data.error) {
+                        errorMessage = data.error;
+                    }
+
+                    downloadingEl.classList.add('hidden');
+                    downloadFormEl.classList.remove('hidden');
+                    showOtpError(errorMessage);
+                    return;
+                }
+
+                // JSON レスポンス取得（downloadUrl必須）
+                if (!data.downloadUrl) {
+                    throw new Error('ダウンロードURLが返却されませんでした。');
+                }
+
+                console.log('[Phase 36] Download URL issued:', {
+                    fileName: data.fileName,
+                    expiresInSec: data.expiresInSec,
+                    remainingDownloads: data.remainingDownloads
+                });
+
+                // 成功表示
+                downloadingEl.classList.add('hidden');
+                downloadSuccessEl.classList.remove('hidden');
+
+                // Phase 36契約：短寿命URLへ遷移（ブラウザ標準DLに委譲）
+                window.location.href = data.downloadUrl;
+
+            } catch (error) {
+                console.error('[Phase 36] Download error:', error);
+                downloadingEl.classList.add('hidden');
+                downloadFormEl.classList.remove('hidden');
+                showOtpError('ダウンロード中にエラーが発生しました。しばらくしてから再度お試しください。');
+            }
+        });
+
+        // OTP入力時のエラークリア
+        document.getElementById('otp').addEventListener('input', () => {
+            hideOtpError();
+        });
+    </script>
+</body>
+</html>
