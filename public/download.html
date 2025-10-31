@@ -46,7 +46,7 @@
             </div>
         </div>
 
-        <!-- OTP入力フォーム（シンプル版：ファイル情報なし） -->
+        <!-- OTP入力フォーム -->
         <div id="download-container">
             <!-- OTP入力カード -->
             <div class="bg-white rounded-lg shadow-md p-6">
@@ -197,6 +197,8 @@
             downloadingEl.classList.remove('hidden');
 
             try {
+                console.log('[Phase 36] Requesting download URL:', { fileId, otp });
+
                 // Phase 36: POST /api/files/download → JSON（downloadUrl）
                 const response = await fetch('/api/files/download', {
                     method: 'POST',
@@ -204,7 +206,10 @@
                     body: JSON.stringify({ fileId, otp })
                 });
 
+                console.log('[Phase 36] Response status:', response.status);
+
                 const data = await response.json();
+                console.log('[Phase 36] Response data:', data);
 
                 if (!response.ok) {
                     let errorMessage = '認証コードが正しくありません。';
