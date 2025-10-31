@@ -1,0 +1,11 @@
+# HTML files always use LF
+*.html text eol=lf
+
+# JavaScript files always use LF
+*.js text eol=lf
+
+# JSON files always use LF
+*.json text eol=lf
+
+# Markdown files always use LF
+*.md text eol=lf

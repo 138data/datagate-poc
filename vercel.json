@@ -5,5 +5,21 @@
       "maxDuration": 10
     }
   },
-  "outputDirectory": "."
+  "rewrites": [
+    {
+      "source": "/d",
+      "destination": "/download.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/download.html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
+      ]
+    }
+  ]
 }
