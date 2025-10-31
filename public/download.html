@@ -31,12 +31,6 @@
 
     <!-- メインコンテンツ -->
     <main class="container mx-auto px-4 py-8 max-w-2xl">
-        <!-- ローディング -->
-        <div id="loading" class="text-center py-12">
-            <div class="spinner mx-auto mb-4"></div>
-            <p class="text-gray-600">ファイル情報を読み込んでいます...</p>
-        </div>
-
         <!-- エラー表示 -->
         <div id="error-container" class="hidden bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded">
             <div class="flex">
@@ -52,36 +46,9 @@
             </div>
         </div>
 
-        <!-- ファイル情報とOTPフォーム -->
-        <div id="download-container" class="hidden">
-            <!-- ファイル情報カード -->
-            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-                <h2 class="text-xl font-semibold text-gray-800 mb-4">📁 ファイル情報</h2>
-                <div class="space-y-3">
-                    <div class="flex justify-between border-b pb-2">
-                        <span class="text-gray-600">ファイル名:</span>
-                        <span id="filename" class="font-medium text-gray-900"></span>
-                    </div>
-                    <div class="flex justify-between border-b pb-2">
-                        <span class="text-gray-600">サイズ:</span>
-                        <span id="filesize" class="font-medium text-gray-900"></span>
-                    </div>
-                    <div class="flex justify-between border-b pb-2">
-                        <span class="text-gray-600">送信元:</span>
-                        <span id="sender" class="font-medium text-gray-900"></span>
-                    </div>
-                    <div class="flex justify-between border-b pb-2">
-                        <span class="text-gray-600">有効期限:</span>
-                        <span id="expires" class="font-medium text-gray-900"></span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-600">残りDL回数:</span>
-                        <span id="remaining" class="font-medium text-gray-900"></span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- OTP入力フォーム -->
+        <!-- OTP入力フォーム（シンプル版：ファイル情報なし） -->
+        <div id="download-container">
+            <!-- OTP入力カード -->
             <div class="bg-white rounded-lg shadow-md p-6">
                 <h2 class="text-xl font-semibold text-gray-800 mb-4">🔐 認証コード入力</h2>
                 <p class="text-gray-600 mb-4">メールに記載されている6桁の認証コード（OTP）を入力してください。</p>
@@ -103,7 +70,7 @@
                             placeholder="000000"
                             autocomplete="off"
                         >
-                        <p class="text-xs text-gray-500 mt-2">※ 5回まで試行できます。失敗すると15分間ロックされます。</p>
+                        <p class="text-xs text-gray-500 mt-2">※ メールで受信した6桁の認証コードを入力してください。</p>
                     </div>
 
                     <!-- OTP検証エラー -->
@@ -127,7 +94,7 @@
                 <!-- ダウンロード中表示 -->
                 <div id="downloading" class="hidden text-center py-4">
                     <div class="spinner mx-auto mb-4"></div>
-                    <p class="text-gray-600">ダウンロードリンクを発行しています...</p>
+                    <p class="text-gray-600">ダウンロードURLを発行しています...</p>
                 </div>
 
                 <!-- ダウンロード成功 -->
@@ -137,8 +104,8 @@
                             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                         </svg>
                         <div class="ml-3">
-                            <p class="text-sm font-medium text-green-800">ダウンロードリンクを発行しました！</p>
-                            <p class="text-sm text-green-700 mt-1">60秒以内にダウンロードが開始されます。</p>
+                            <p class="text-sm font-medium text-green-800">ダウンロードが開始されました！</p>
+                            <p class="text-sm text-green-700 mt-1">ブラウザの保存ダイアログを確認してください。</p>
                         </div>
                     </div>
                 </div>
@@ -155,7 +122,7 @@
                             🔒 このファイルは <strong>AES-256-GCM</strong> で暗号化されています。<br>
                             📅 有効期限が過ぎると自動的に削除されます。<br>
                             🔐 認証コードは一度のみ有効です。<br>
-                            ⏱️ ダウンロードリンクは60秒間のみ有効です。
+                            ⏱️ ダウンロードリンクは短寿命URLで発行されます。
                         </p>
                     </div>
                 </div>
@@ -174,24 +141,20 @@
     <script>
         // URLパラメータ取得
         const params = new URLSearchParams(window.location.search);
-        const fileId = params.get('fileId') || params.get('f');
-        const token = params.get('token') || params.get('t');
+        const fileId = params.get('id') || params.get('fileId') || params.get('f');
 
         // 要素取得
-        const loadingEl = document.getElementById('loading');
         const errorContainerEl = document.getElementById('error-container');
         const errorMessageEl = document.getElementById('error-message');
         const downloadContainerEl = document.getElementById('download-container');
         const downloadFormEl = document.getElementById('download-form');
-        const otpErrorEl = document.getElementById('otp-error');
-        const otpErrorMessageEl = document.getElementById('otp-error-message');
-        const downloadButtonEl = document.getElementById('download-button');
         const downloadingEl = document.getElementById('downloading');
         const downloadSuccessEl = document.getElementById('download-success');
+        const otpErrorEl = document.getElementById('otp-error');
+        const otpErrorMessageEl = document.getElementById('otp-error-message');
 
         // エラー表示関数
         function showError(message) {
-            loadingEl.classList.add('hidden');
             downloadContainerEl.classList.add('hidden');
             errorContainerEl.classList.remove('hidden');
             errorMessageEl.textContent = message;
@@ -208,78 +171,15 @@
             otpErrorEl.classList.add('hidden');
         }
 
-        // ファイルサイズフォーマット
-        function formatSize(bytes) {
-            if (bytes === 0) return '0 B';
-            const k = 1024;
-            const sizes = ['B', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+        // 初期チェック：fileIdの存在確認のみ
+        if (!fileId) {
+            showError('無効なダウンロードリンクです。URLを確認してください。');
+        } else {
+            // OTP入力フォーカス
+            document.getElementById('otp').focus();
         }
 
-        // 日付フォーマット
-        function formatDate(timestamp) {
-            const date = new Date(timestamp);
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            const hours = String(date.getHours()).padStart(2, '0');
-            const minutes = String(date.getMinutes()).padStart(2, '0');
-            return `${year}年${month}月${day}日 ${hours}:${minutes}`;
-        }
-
-        // ファイル情報取得
-        async function loadFileInfo() {
-            try {
-                // パラメータチェック
-                if (!fileId || !token) {
-                    showError('無効なダウンロードリンクです。URLを確認してください。');
-                    return;
-                }
-
-                // API呼び出し
-                const response = await fetch(`/api/files/download?fileId=${encodeURIComponent(fileId)}&token=${encodeURIComponent(token)}`);
-                
-                if (!response.ok) {
-                    const error = await response.json();
-                    let errorMessage = 'ファイル情報の取得に失敗しました。';
-                    
-                    if (response.status === 404) {
-                        errorMessage = 'ファイルが見つかりません。リンクが無効か、既に削除されている可能性があります。';
-                    } else if (response.status === 410) {
-                        errorMessage = 'ファイルの有効期限が切れています。送信者に再送を依頼してください。';
-                    } else if (error.error) {
-                        errorMessage = error.error;
-                    }
-                    
-                    showError(errorMessage);
-                    return;
-                }
-
-                // レスポンス解析
-                const data = await response.json();
-
-                // ファイル情報表示
-                document.getElementById('filename').textContent = data.filename || '不明';
-                document.getElementById('filesize').textContent = formatSize(data.size || 0);
-                document.getElementById('sender').textContent = data.sender || '不明';
-                document.getElementById('expires').textContent = formatDate(data.expiresAt);
-                document.getElementById('remaining').textContent = `${data.remainingDownloads || 0}回 / ${data.maxDownloads || 3}回`;
-
-                // コンテナ表示
-                loadingEl.classList.add('hidden');
-                downloadContainerEl.classList.remove('hidden');
-
-                // OTP入力フォーカス
-                document.getElementById('otp').focus();
-
-            } catch (error) {
-                console.error('Error loading file info:', error);
-                showError('ファイル情報の取得中にエラーが発生しました。しばらくしてから再度お試しください。');
-            }
-        }
-
-        // OTP送信・短寿命URL取得
+        // OTP送信・短寿命URL取得（Phase 36準拠）
         downloadFormEl.addEventListener('submit', async (e) => {
             e.preventDefault();
             hideOtpError();
@@ -297,29 +197,28 @@
             downloadingEl.classList.remove('hidden');
 
             try {
-                // OTP検証 + 短寿命URL発行
+                // Phase 36: POST /api/files/download → JSON（downloadUrl）
                 const response = await fetch('/api/files/download', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ fileId, token, otp })
+                    body: JSON.stringify({ fileId, otp })
                 });
 
+                const data = await response.json();
+
                 if (!response.ok) {
-                    const error = await response.json();
                     let errorMessage = '認証コードが正しくありません。';
 
                     if (response.status === 401) {
-                        errorMessage = error.error || '認証コードが正しくありません。';
-                    } else if (response.status === 429) {
-                        errorMessage = '試行回数の上限に達しました。15分後に再度お試しください。';
+                        errorMessage = data.error || '認証コードが正しくありません。';
                     } else if (response.status === 404) {
                         errorMessage = 'ファイルが見つかりません。';
                     } else if (response.status === 410) {
                         errorMessage = 'ファイルの有効期限が切れています。';
                     } else if (response.status === 403) {
                         errorMessage = 'ダウンロード回数の上限に達しました。';
-                    } else if (error.error) {
-                        errorMessage = error.error;
+                    } else if (data.error) {
+                        errorMessage = data.error;
                     }
 
                     downloadingEl.classList.add('hidden');
@@ -328,31 +227,26 @@
                     return;
                 }
 
-                // JSON レスポンス取得
-                const data = await response.json();
-                const { downloadUrl, fileName, expiresInSec, remainingDownloads } = data;
+                // JSON レスポンス取得（downloadUrl必須）
+                if (!data.downloadUrl) {
+                    throw new Error('ダウンロードURLが返却されませんでした。');
+                }
 
-                console.log('Download URL issued:', { downloadUrl, fileName, expiresInSec });
+                console.log('[Phase 36] Download URL issued:', {
+                    fileName: data.fileName,
+                    expiresInSec: data.expiresInSec,
+                    remainingDownloads: data.remainingDownloads
+                });
 
                 // 成功表示
                 downloadingEl.classList.add('hidden');
                 downloadSuccessEl.classList.remove('hidden');
 
-                // 短寿命URLへ自動遷移（ダウンロード開始）
-                // ファイル名を設定して直接ダウンロード
-                const a = document.createElement('a');
-                a.href = downloadUrl;
-                a.download = fileName || 'download';
-                a.target = '_blank';
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-
-                // 残りダウンロード回数を更新
-                document.getElementById('remaining').textContent = `${remainingDownloads}回 / 3回`;
+                // Phase 36契約：短寿命URLへ遷移（ブラウザ標準DLに委譲）
+                window.location.href = data.downloadUrl;
 
             } catch (error) {
-                console.error('Download error:', error);
+                console.error('[Phase 36] Download error:', error);
                 downloadingEl.classList.add('hidden');
                 downloadFormEl.classList.remove('hidden');
                 showOtpError('ダウンロード中にエラーが発生しました。しばらくしてから再度お試しください。');
@@ -363,9 +257,6 @@
         document.getElementById('otp').addEventListener('input', () => {
             hideOtpError();
         });
-
-        // 初期化
-        loadFileInfo();
     </script>
 </body>
 </html>
