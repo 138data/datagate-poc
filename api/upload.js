@@ -1,154 +1,157 @@
-// api/upload.js - Vercel Blob対応版
+// api/upload.js - uuid除去版（CJS形式）[完全版]
 const { kv } = require('@vercel/kv');
-const busboy = require('busboy');
-const { v4: uuidv4 } = require('uuid');
-const crypto = require('crypto');
+const multer = require('multer');
+const { randomUUID } = require('crypto'); // uuidの代わりにcryptoを使用
 const { encryptFile, generateOTP } = require('../lib/encryption');
 const { sendEmail } = require('../lib/email-service');
-const { canUseDirectAttach, DIRECT_ATTACH_MAX_SIZE } = require('../lib/environment');
+const { canUseDirectAttach } = require('../lib/environment');
 const { uploadToBlob } = require('../lib/blob-storage');
 
-module.exports = async (req, res) => {
-  // CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB
+  fileFilter: (req, file, cb) => {
+    const prohibited = ['.exe', '.scr', '.vbs', '.js', '.com', '.bat'];
+    const ext = file.originalname.toLowerCase().substring(file.originalname.lastIndexOf('.'));
+    if (prohibited.includes(ext)) {
+      return cb(new Error(`Prohibited file type: ${ext}`));
+    }
+    cb(null, true);
   }
+});
 
+module.exports = async (req, res) => {
+  console.log('=== Upload Handler Start ===');
+  console.log('Method:', req.method);
+  
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const uploadPromise = new Promise((resolve, reject) => {
+    upload.single('file')(req, res, (err) => {
+      if (err) {
+        console.error('Multer error:', err);
+        reject(err);
+      } else {
+        resolve();
+      }
+    });
+  });
+
   try {
-    const bb = busboy({ headers: req.headers });
-    let fileBuffer = null;
-    let fileName = '';
-    let recipient = '';
+    await uploadPromise;
+    console.log('Multer processing complete');
 
-    bb.on('file', (fieldname, file, info) => {
-      fileName = Buffer.from(info.filename, 'latin1').toString('utf8');
-      const chunks = [];
+    if (!req.file) {
+      console.log('No file in request');
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
 
-      file.on('data', (chunk) => {
-        chunks.push(chunk);
-      });
+    const recipient = req.body.recipientEmail;
+    if (!recipient) {
+      console.log('No recipient email');
+      return res.status(400).json({ error: 'Recipient email is required' });
+    }
 
-      file.on('end', () => {
-        fileBuffer = Buffer.concat(chunks);
-        console.log('[INFO] File received:', fileName, fileBuffer.length, 'bytes');
-      });
-    });
+    // crypto.randomUUID()を使用（Node.js標準）
+    const fileId = randomUUID();
+    const otp = generateOTP();
+    const fileName = req.file.originalname;
+    const fileBuffer = req.file.buffer;
 
-    bb.on('field', (fieldname, value) => {
-      if (fieldname === 'recipient') {
-        recipient = value;
-      }
-    });
+    console.log('[INFO] File received:', fileName, fileBuffer.length, 'bytes');
+    console.log('[INFO] File ID:', fileId);
+    console.log('[INFO] OTP:', otp);
+    
+    // 暗号化
+    console.log('[INFO] Encrypting file...');
+    const encryptedData = encryptFile(fileBuffer, fileName);
+    
+    // 暗号化結果の検証
+    if (!encryptedData || !encryptedData.encryptedBuffer) {
+      console.error('[ERROR] encryptFile returned invalid result:', encryptedData);
+      return res.status(500).json({ error: 'Encryption failed' });
+    }
+    console.log('[INFO] Encryption complete, size:', encryptedData.encryptedBuffer.length);
 
-    bb.on('finish', async () => {
-      try {
-        if (!fileBuffer || !fileName || !recipient) {
-          return res.status(400).json({ error: 'Missing required fields' });
-        }
+    // Blob Storageにアップロード
+    console.log('[INFO] Uploading to Blob...');
+    let blobKey;
+    try {
+      blobKey = await uploadToBlob(fileId, encryptedData.encryptedBuffer, fileName);
+      console.log('[INFO] Blob upload complete:', blobKey);
+    } catch (blobError) {
+      console.error('[ERROR] Blob upload failed:', blobError);
+      return res.status(500).json({ error: 'Storage upload failed' });
+    }
 
-        // ファイルID生成
-        const fileId = uuidv4();
-        const otp = generateOTP();
-        const manageToken = crypto.randomBytes(32).toString('hex');
+    // KVにメタデータ保存
+    const metadata = {
+      fileId,
+      otp,
+      fileName,
+      originalName: fileName,
+      size: fileBuffer.length,
+      mimeType: req.file.mimetype,
+      uploadedAt: new Date().toISOString(),
+      blobKey,
+      downloadCount: 0,
+      maxDownloads: 3
+    };
 
-        console.log('[INFO] Generated fileId:', fileId);
-        console.log('[INFO] Generated OTP:', otp);
+    const ttl = 7 * 24 * 60 * 60; // 7日間
+    
+    console.log('[INFO] Saving to KV...');
+    try {
+      await kv.set(`file:${fileId}`, metadata, { ex: ttl });
+      console.log('[INFO] KV save complete');
+    } catch (kvError) {
+      console.error('[ERROR] KV save failed:', kvError);
+      return res.status(500).json({ error: 'Metadata save failed' });
+    }
 
-        // 暗号化
-        const encryptedData = encryptFile(fileBuffer);
-        console.log('[INFO] File encrypted');
+    // ダウンロードURL生成
+    const baseUrl = process.env.VERCEL_URL 
+      ? `https://${process.env.VERCEL_URL}`
+      : `https://${req.headers.host}`;
+    const downloadUrl = `${baseUrl}/download.html?id=${fileId}`;
+    console.log('[INFO] Download URL:', downloadUrl);
 
-        // Blob にアップロード
-        const encryptedBuffer = encryptedData.encryptedData;
-        const blobUrl = await uploadToBlob(fileId, encryptedBuffer, fileName);
-        console.log('[INFO] Uploaded to Blob:', blobUrl);
+    // メール送信
+    let mode = 'link';
+    let emailSent = false;
 
-        // メタデータ作成
-        const now = new Date();
-        const ttlSeconds = 7 * 24 * 60 * 60; // 7日間
-        const metadata = {
-          fileId,
-          fileName,
-          fileSize: fileBuffer.length,
-          recipient,
-          otp,
-          uploadedAt: now.toISOString(),
-          expiresAt: new Date(now.getTime() + ttlSeconds * 1000).toISOString(),
-          downloadCount: 0,
-          maxDownloads: 3,
-          manageToken,
-          revokedAt: null,
-          blobUrl,  // Blob URL を保存
-          salt: encryptedData.salt,
-          iv: encryptedData.iv,
-          authTag: encryptedData.authTag
-        };
+    console.log('[INFO] Sending email to:', recipient);
+    try {
+      emailSent = await sendEmail(recipient, downloadUrl, otp, fileName, mode);
+      console.log('[INFO] Email sent successfully');
+    } catch (emailError) {
+      console.error('[ERROR] Email send failed:', emailError);
+      // メール送信失敗してもアップロード自体は成功とする
+    }
 
-        // メタデータを KV に保存
-        await kv.set('file:' + fileId + ':meta', JSON.stringify(metadata), {
-          ex: ttlSeconds
-        });
+    // 成功レスポンス
+    const response = {
+      success: true,
+      fileId,
+      downloadUrl,
+      otp,
+      mode,
+      message: emailSent 
+        ? `File uploaded. Email sent to ${recipient}` 
+        : 'File uploaded. Email sending failed, but you can share the link manually.'
+    };
 
-        console.log('[INFO] Metadata saved to KV');
-
-        // 管理URL生成
-        const protocol = req.headers['x-forwarded-proto'] || 'https';
-        const host = req.headers['host'] || req.headers['x-forwarded-host'] || 'localhost';
-        const manageUrl = protocol + '://' + host + '/manage.html?id=' + fileId + '&token=' + manageToken;
-
-        // 添付直送判定
-        const shouldAttach = canUseDirectAttach(recipient, fileBuffer.length);
-
-        // メール送信
-        const emailResult = await sendEmail({
-          to: recipient,
-          fileId,
-          fileName,
-          otp,
-          shouldAttach,
-          fileBuffer: shouldAttach ? fileBuffer : null
-        });
-
-        console.log('[INFO] Email result:', emailResult);
-
-        // レスポンス
-        return res.status(200).json({
-          success: true,
-          fileId,
-          otp,
-          manageUrl,
-          email: emailResult
-        });
-
-      } catch (error) {
-        console.error('[ERROR] Upload processing failed:', error);
-        return res.status(500).json({
-          error: 'Internal server error',
-          message: error.message
-        });
-      }
-    });
-
-    bb.on('error', (error) => {
-      console.error('[ERROR] Busboy error:', error);
-      return res.status(500).json({ error: 'File upload failed' });
-    });
-
-    req.pipe(bb);
+    console.log('[INFO] Returning success response');
+    return res.status(200).json(response);
 
   } catch (error) {
     console.error('[ERROR] Upload handler error:', error);
+    console.error('[ERROR] Stack trace:', error.stack);
     return res.status(500).json({
-      error: 'Internal server error',
-      message: error.message
+      error: 'Upload failed',
+      details: error.message
     });
   }
 };

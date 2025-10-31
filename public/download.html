@@ -1,491 +1,371 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ファイルダウンロード - 138DataGate</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      padding: 20px;
-    }
-
-    .container {
-      background: white;
-      border-radius: 20px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-      padding: 40px;
-      max-width: 500px;
-      width: 100%;
-    }
-
-    h1 {
-      color: #667eea;
-      font-size: 28px;
-      margin-bottom: 10px;
-      text-align: center;
-    }
-
-    .subtitle {
-      color: #666;
-      font-size: 14px;
-      text-align: center;
-      margin-bottom: 30px;
-    }
-
-    .step {
-      display: none;
-    }
-
-    .step.active {
-      display: block;
-    }
-
-    .file-info {
-      background: #f8f9fa;
-      border-radius: 12px;
-      padding: 20px;
-      margin-bottom: 25px;
-    }
-
-    .file-info-item {
-      display: flex;
-      justify-content: space-between;
-      padding: 8px 0;
-      border-bottom: 1px solid #e9ecef;
-    }
-
-    .file-info-item:last-child {
-      border-bottom: none;
-    }
-
-    .file-info-label {
-      color: #666;
-      font-size: 13px;
-      font-weight: 500;
-    }
-
-    .file-info-value {
-      color: #333;
-      font-size: 14px;
-      font-weight: 600;
-    }
-
-    .masked-email {
-      background: #fff3cd;
-      padding: 15px;
-      border-radius: 8px;
-      margin-bottom: 20px;
-      text-align: center;
-    }
-
-    .masked-email-label {
-      color: #856404;
-      font-size: 12px;
-      font-weight: 600;
-      margin-bottom: 5px;
-    }
-
-    .masked-email-value {
-      color: #333;
-      font-size: 16px;
-      font-weight: 700;
-      letter-spacing: 1px;
-    }
-
-    .input-group {
-      margin-bottom: 20px;
-    }
-
-    .input-group label {
-      display: block;
-      color: #333;
-      font-size: 14px;
-      font-weight: 600;
-      margin-bottom: 8px;
-    }
-
-    .input-group input {
-      width: 100%;
-      padding: 12px 16px;
-      border: 2px solid #e9ecef;
-      border-radius: 10px;
-      font-size: 16px;
-      transition: all 0.3s ease;
-    }
-
-    .input-group input:focus {
-      outline: none;
-      border-color: #667eea;
-      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-    }
-
-    .btn {
-      width: 100%;
-      padding: 14px 24px;
-      border: none;
-      border-radius: 10px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      text-align: center;
-    }
-
-    .btn-primary {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-    }
-
-    .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
-    }
-
-    .btn-primary:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    .btn-success {
-      background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-      color: white;
-    }
-
-    .btn-success:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 25px rgba(17, 153, 142, 0.4);
-    }
-
-    .message {
-      padding: 12px 16px;
-      border-radius: 8px;
-      margin-bottom: 20px;
-      font-size: 14px;
-      text-align: center;
-    }
-
-    .message-success {
-      background: #d4edda;
-      color: #155724;
-      border: 1px solid #c3e6cb;
-    }
-
-    .message-error {
-      background: #f8d7da;
-      color: #721c24;
-      border: 1px solid #f5c6cb;
-    }
-
-    .message-warning {
-      background: #fff3cd;
-      color: #856404;
-      border: 1px solid #ffeeba;
-    }
-
-    .spinner {
-      display: none;
-      width: 40px;
-      height: 40px;
-      margin: 20px auto;
-      border: 4px solid #f3f3f3;
-      border-top: 4px solid #667eea;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    .help-text {
-      font-size: 13px;
-      color: #666;
-      margin-top: 10px;
-      line-height: 1.5;
-    }
-
-    .progress-bar {
-      background: #e9ecef;
-      height: 4px;
-      border-radius: 2px;
-      margin-bottom: 30px;
-      overflow: hidden;
-    }
-
-    .progress-bar-fill {
-      background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-      height: 100%;
-      width: 0%;
-      transition: width 0.3s ease;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ファイルダウンロード - 138DataGate</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
 </head>
-<body>
-  <div class="container">
-    <h1>📥 ファイルダウンロード</h1>
-    <p class="subtitle">安全なファイル受け渡し</p>
-
-    <div class="progress-bar">
-      <div class="progress-bar-fill" id="progress-fill"></div>
-    </div>
-
-    <!-- Step 1: 宛先確認 + OTP送信 -->
-    <div class="step active" id="step1">
-      <div class="file-info" id="file-info-section" style="display: none;">
-        <div class="file-info-item">
-          <span class="file-info-label">ファイル名</span>
-          <span class="file-info-value" id="file-name">読み込み中...</span>
+<body class="bg-gray-50 min-h-screen">
+    <!-- ヘッダー -->
+    <header class="bg-blue-600 text-white py-4 shadow-lg">
+        <div class="container mx-auto px-4">
+            <h1 class="text-2xl font-bold">138DataGate</h1>
+            <p class="text-sm text-blue-100">安全なファイル受け渡しシステム</p>
         </div>
-        <div class="file-info-item">
-          <span class="file-info-label">サイズ</span>
-          <span class="file-info-value" id="file-size">-</span>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="container mx-auto px-4 py-8 max-w-2xl">
+        <!-- ローディング -->
+        <div id="loading" class="text-center py-12">
+            <div class="spinner mx-auto mb-4"></div>
+            <p class="text-gray-600">ファイル情報を読み込んでいます...</p>
         </div>
-        <div class="file-info-item">
-          <span class="file-info-label">有効期限</span>
-          <span class="file-info-value" id="expires-at">-</span>
+
+        <!-- エラー表示 -->
+        <div id="error-container" class="hidden bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-red-800">エラー</h3>
+                    <p id="error-message" class="text-sm text-red-700 mt-1"></p>
+                </div>
+            </div>
         </div>
-      </div>
 
-      <div class="masked-email">
-        <div class="masked-email-label">送信先</div>
-        <div class="masked-email-value" id="masked-email">読み込み中...</div>
-      </div>
+        <!-- ファイル情報とOTPフォーム -->
+        <div id="download-container" class="hidden">
+            <!-- ファイル情報カード -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">📁 ファイル情報</h2>
+                <div class="space-y-3">
+                    <div class="flex justify-between border-b pb-2">
+                        <span class="text-gray-600">ファイル名:</span>
+                        <span id="filename" class="font-medium text-gray-900"></span>
+                    </div>
+                    <div class="flex justify-between border-b pb-2">
+                        <span class="text-gray-600">サイズ:</span>
+                        <span id="filesize" class="font-medium text-gray-900"></span>
+                    </div>
+                    <div class="flex justify-between border-b pb-2">
+                        <span class="text-gray-600">送信元:</span>
+                        <span id="sender" class="font-medium text-gray-900"></span>
+                    </div>
+                    <div class="flex justify-between border-b pb-2">
+                        <span class="text-gray-600">有効期限:</span>
+                        <span id="expires" class="font-medium text-gray-900"></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">残りDL回数:</span>
+                        <span id="remaining" class="font-medium text-gray-900"></span>
+                    </div>
+                </div>
+            </div>
 
-      <div id="message1"></div>
+            <!-- OTP入力フォーム -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">🔐 認証コード入力</h2>
+                <p class="text-gray-600 mb-4">メールに記載されている6桁の認証コード（OTP）を入力してください。</p>
+                
+                <form id="download-form" class="space-y-4">
+                    <div>
+                        <label for="otp" class="block text-sm font-medium text-gray-700 mb-2">
+                            認証コード（6桁の数字）
+                        </label>
+                        <input 
+                            type="text" 
+                            id="otp" 
+                            name="otp"
+                            maxlength="6" 
+                            pattern="[0-9]{6}" 
+                            inputmode="numeric"
+                            required
+                            class="w-full px-4 py-3 text-center text-2xl font-mono tracking-widest border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition"
+                            placeholder="000000"
+                            autocomplete="off"
+                        >
+                        <p class="text-xs text-gray-500 mt-2">※ 5回まで試行できます。失敗すると15分間ロックされます。</p>
+                    </div>
 
-      <button id="request-otp-btn" class="btn btn-primary" disabled>
-        📧 認証コードを送信
-      </button>
+                    <!-- OTP検証エラー -->
+                    <div id="otp-error" class="hidden bg-yellow-50 border-l-4 border-yellow-400 p-3 rounded">
+                        <p id="otp-error-message" class="text-sm text-yellow-700"></p>
+                    </div>
 
-      <p class="help-text">
-        上記のメールアドレス宛てに、6桁の認証コードを送信します。
-      </p>
-    </div>
+                    <!-- ダウンロードボタン -->
+                    <button 
+                        type="submit" 
+                        id="download-button"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 flex items-center justify-center"
+                    >
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                        </svg>
+                        認証してダウンロード
+                    </button>
+                </form>
 
-    <!-- Step 2: OTP入力 + ダウンロード -->
-    <div class="step" id="step2">
-      <div class="message message-success">
-        ✅ 認証コードを送信しました
-      </div>
+                <!-- ダウンロード中表示 -->
+                <div id="downloading" class="hidden text-center py-4">
+                    <div class="spinner mx-auto mb-4"></div>
+                    <p class="text-gray-600">ダウンロードリンクを発行しています...</p>
+                </div>
 
-      <div class="input-group">
-        <label for="otp-input">認証コード（6桁）</label>
-        <input 
-          type="text" 
-          id="otp-input" 
-          placeholder="例: 123456" 
-          maxlength="6"
-          pattern="[0-9]{6}"
-          inputmode="numeric"
-          autocomplete="off"
-        >
-      </div>
+                <!-- ダウンロード成功 -->
+                <div id="download-success" class="hidden bg-green-50 border-l-4 border-green-500 p-4 mt-4 rounded">
+                    <div class="flex">
+                        <svg class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        <div class="ml-3">
+                            <p class="text-sm font-medium text-green-800">ダウンロードリンクを発行しました！</p>
+                            <p class="text-sm text-green-700 mt-1">60秒以内にダウンロードが開始されます。</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-      <div id="message2"></div>
+            <!-- セキュリティ情報 -->
+            <div class="mt-6 bg-blue-50 border-l-4 border-blue-400 p-4 rounded">
+                <div class="flex">
+                    <svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                    </svg>
+                    <div class="ml-3">
+                        <p class="text-sm text-blue-700">
+                            🔒 このファイルは <strong>AES-256-GCM</strong> で暗号化されています。<br>
+                            📅 有効期限が過ぎると自動的に削除されます。<br>
+                            🔐 認証コードは一度のみ有効です。<br>
+                            ⏱️ ダウンロードリンクは60秒間のみ有効です。
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
 
-      <button id="download-btn" class="btn btn-success">
-        ⬇️ ダウンロード
-      </button>
+    <!-- フッター -->
+    <footer class="bg-gray-800 text-white py-6 mt-12">
+        <div class="container mx-auto px-4 text-center">
+            <p class="text-sm text-gray-400">&copy; 2025 138Data. All rights reserved.</p>
+            <p class="text-xs text-gray-500 mt-2">PPAP代替・安全なファイル受け渡しシステム</p>
+        </div>
+    </footer>
 
-      <p class="help-text">
-        メールに届いた6桁の認証コードを入力してください。
-      </p>
-    </div>
+    <script>
+        // URLパラメータ取得
+        const params = new URLSearchParams(window.location.search);
+        const fileId = params.get('fileId') || params.get('f');
+        const token = params.get('token') || params.get('t');
 
-    <div class="spinner" id="spinner"></div>
-  </div>
+        // 要素取得
+        const loadingEl = document.getElementById('loading');
+        const errorContainerEl = document.getElementById('error-container');
+        const errorMessageEl = document.getElementById('error-message');
+        const downloadContainerEl = document.getElementById('download-container');
+        const downloadFormEl = document.getElementById('download-form');
+        const otpErrorEl = document.getElementById('otp-error');
+        const otpErrorMessageEl = document.getElementById('otp-error-message');
+        const downloadButtonEl = document.getElementById('download-button');
+        const downloadingEl = document.getElementById('downloading');
+        const downloadSuccessEl = document.getElementById('download-success');
 
-  <script>
-    // URL パラメータから fileId を取得
-    const urlParams = new URLSearchParams(window.location.search);
-    const fileId = urlParams.get('id');
-
-    if (!fileId) {
-      alert('ファイルIDが指定されていません');
-      window.location.href = '/';
-    }
-
-    const step1 = document.getElementById('step1');
-    const step2 = document.getElementById('step2');
-    const progressFill = document.getElementById('progress-fill');
-    const requestOtpBtn = document.getElementById('request-otp-btn');
-    const downloadBtn = document.getElementById('download-btn');
-    const otpInput = document.getElementById('otp-input');
-    const message1 = document.getElementById('message1');
-    const message2 = document.getElementById('message2');
-    const spinner = document.getElementById('spinner');
-
-    // ページ読み込み時にファイル情報を取得
-    async function loadFileInfo() {
-      try {
-        spinner.style.display = 'block';
-
-        const response = await fetch(`/api/files/download?id=${fileId}`);
-        const data = await response.json();
-
-        spinner.style.display = 'none';
-
-        if (!data.success) {
-          message1.innerHTML = `<div class="message message-error">${data.message}</div>`;
-          return;
+        // エラー表示関数
+        function showError(message) {
+            loadingEl.classList.add('hidden');
+            downloadContainerEl.classList.add('hidden');
+            errorContainerEl.classList.remove('hidden');
+            errorMessageEl.textContent = message;
         }
 
-        // ファイル情報を表示
-        document.getElementById('file-name').textContent = data.fileName;
-        document.getElementById('file-size').textContent = formatFileSize(data.fileSize);
-        document.getElementById('expires-at').textContent = formatDate(data.expiresAt);
-        document.getElementById('file-info-section').style.display = 'block';
-
-        // マスク表示
-        document.getElementById('masked-email').textContent = data.maskedEmail;
-
-        // OTP送信ボタンを有効化
-        requestOtpBtn.disabled = false;
-      } catch (error) {
-        spinner.style.display = 'none';
-        message1.innerHTML = '<div class="message message-error">ファイル情報の取得に失敗しました</div>';
-        console.error('Error loading file info:', error);
-      }
-    }
-
-    // ファイルサイズのフォーマット
-    function formatFileSize(bytes) {
-      if (bytes < 1024) return bytes + ' B';
-      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-    }
-
-    // 日付のフォーマット
-    function formatDate(isoString) {
-      const date = new Date(isoString);
-      return date.toLocaleString('ja-JP', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    }
-
-    // Step 1 → Step 2
-    requestOtpBtn.addEventListener('click', async () => {
-      requestOtpBtn.disabled = true;
-      spinner.style.display = 'block';
-      message1.innerHTML = '';
-
-      try {
-        const response = await fetch('/api/files/download/request-otp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fileId })  // email は不要
-        });
-
-        const data = await response.json();
-        spinner.style.display = 'none';
-
-        if (data.success) {
-          // Step 2 に進む
-          step1.classList.remove('active');
-          step2.classList.add('active');
-          progressFill.style.width = '50%';
-        } else {
-          message1.innerHTML = `<div class="message message-error">${data.message}</div>`;
-          requestOtpBtn.disabled = false;
+        // OTPエラー表示関数
+        function showOtpError(message) {
+            otpErrorEl.classList.remove('hidden');
+            otpErrorMessageEl.textContent = message;
         }
-      } catch (error) {
-        spinner.style.display = 'none';
-        message1.innerHTML = '<div class="message message-error">認証コードの送信に失敗しました</div>';
-        requestOtpBtn.disabled = false;
-        console.error('Error requesting OTP:', error);
-      }
-    });
 
-    // ダウンロード
-    downloadBtn.addEventListener('click', async () => {
-      const otp = otpInput.value.trim();
+        // OTPエラー非表示関数
+        function hideOtpError() {
+            otpErrorEl.classList.add('hidden');
+        }
 
-      if (otp.length !== 6 || !/^\d{6}$/.test(otp)) {
-        message2.innerHTML = '<div class="message message-error">認証コードは6桁の数字で入力してください</div>';
-        return;
-      }
+        // ファイルサイズフォーマット
+        function formatSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+        }
 
-      downloadBtn.disabled = true;
-      spinner.style.display = 'block';
-      message2.innerHTML = '';
+        // 日付フォーマット
+        function formatDate(timestamp) {
+            const date = new Date(timestamp);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${year}年${month}月${day}日 ${hours}:${minutes}`;
+        }
 
-      try {
-        const response = await fetch('/api/files/download', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fileId, otp })
-        });
+        // ファイル情報取得
+        async function loadFileInfo() {
+            try {
+                // パラメータチェック
+                if (!fileId || !token) {
+                    showError('無効なダウンロードリンクです。URLを確認してください。');
+                    return;
+                }
 
-        spinner.style.display = 'none';
+                // API呼び出し
+                const response = await fetch(`/api/files/download?fileId=${encodeURIComponent(fileId)}&token=${encodeURIComponent(token)}`);
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    let errorMessage = 'ファイル情報の取得に失敗しました。';
+                    
+                    if (response.status === 404) {
+                        errorMessage = 'ファイルが見つかりません。リンクが無効か、既に削除されている可能性があります。';
+                    } else if (response.status === 410) {
+                        errorMessage = 'ファイルの有効期限が切れています。送信者に再送を依頼してください。';
+                    } else if (error.error) {
+                        errorMessage = error.error;
+                    }
+                    
+                    showError(errorMessage);
+                    return;
+                }
 
-        if (response.ok) {
-          // ファイルダウンロード
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
+                // レスポンス解析
+                const data = await response.json();
 
-          // Content-Disposition ヘッダーからファイル名を取得
-          const contentDisposition = response.headers.get('Content-Disposition');
-          let fileName = 'download.txt';
-          if (contentDisposition) {
-            const fileNameMatch = contentDisposition.match(/filename\*=UTF-8''(.+)/);
-            if (fileNameMatch) {
-              fileName = decodeURIComponent(fileNameMatch[1]);
+                // ファイル情報表示
+                document.getElementById('filename').textContent = data.filename || '不明';
+                document.getElementById('filesize').textContent = formatSize(data.size || 0);
+                document.getElementById('sender').textContent = data.sender || '不明';
+                document.getElementById('expires').textContent = formatDate(data.expiresAt);
+                document.getElementById('remaining').textContent = `${data.remainingDownloads || 0}回 / ${data.maxDownloads || 3}回`;
+
+                // コンテナ表示
+                loadingEl.classList.add('hidden');
+                downloadContainerEl.classList.remove('hidden');
+
+                // OTP入力フォーカス
+                document.getElementById('otp').focus();
+
+            } catch (error) {
+                console.error('Error loading file info:', error);
+                showError('ファイル情報の取得中にエラーが発生しました。しばらくしてから再度お試しください。');
             }
-          }
-
-          a.download = fileName;
-          document.body.appendChild(a);
-          a.click();
-          window.URL.revokeObjectURL(url);
-          document.body.removeChild(a);
-
-          // 成功メッセージ
-          progressFill.style.width = '100%';
-          message2.innerHTML = '<div class="message message-success">✅ ダウンロードが完了しました</div>';
-          downloadBtn.textContent = '✅ ダウンロード完了';
-          downloadBtn.disabled = true;
-        } else {
-          const data = await response.json();
-          message2.innerHTML = `<div class="message message-error">${data.message}</div>`;
-          downloadBtn.disabled = false;
         }
-      } catch (error) {
-        spinner.style.display = 'none';
-        message2.innerHTML = '<div class="message message-error">ダウンロードに失敗しました</div>';
-        downloadBtn.disabled = false;
-        console.error('Error downloading file:', error);
-      }
-    });
 
-    // OTP入力時にエンターキーでダウンロード
-    otpInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        downloadBtn.click();
-      }
-    });
+        // OTP送信・短寿命URL取得
+        downloadFormEl.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideOtpError();
 
-    // ページ読み込み時にファイル情報を取得
-    loadFileInfo();
-  </script>
+            const otp = document.getElementById('otp').value.trim();
+
+            // OTP検証（6桁の数字）
+            if (!/^\d{6}$/.test(otp)) {
+                showOtpError('認証コードは6桁の数字で入力してください。');
+                return;
+            }
+
+            // ダウンロード開始
+            downloadFormEl.classList.add('hidden');
+            downloadingEl.classList.remove('hidden');
+
+            try {
+                // OTP検証 + 短寿命URL発行
+                const response = await fetch('/api/files/download', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ fileId, token, otp })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    let errorMessage = '認証コードが正しくありません。';
+
+                    if (response.status === 401) {
+                        errorMessage = error.error || '認証コードが正しくありません。';
+                    } else if (response.status === 429) {
+                        errorMessage = '試行回数の上限に達しました。15分後に再度お試しください。';
+                    } else if (response.status === 404) {
+                        errorMessage = 'ファイルが見つかりません。';
+                    } else if (response.status === 410) {
+                        errorMessage = 'ファイルの有効期限が切れています。';
+                    } else if (response.status === 403) {
+                        errorMessage = 'ダウンロード回数の上限に達しました。';
+                    } else if (error.error) {
+                        errorMessage = error.error;
+                    }
+
+                    downloadingEl.classList.add('hidden');
+                    downloadFormEl.classList.remove('hidden');
+                    showOtpError(errorMessage);
+                    return;
+                }
+
+                // JSON レスポンス取得
+                const data = await response.json();
+                const { downloadUrl, fileName, expiresInSec, remainingDownloads } = data;
+
+                console.log('Download URL issued:', { downloadUrl, fileName, expiresInSec });
+
+                // 成功表示
+                downloadingEl.classList.add('hidden');
+                downloadSuccessEl.classList.remove('hidden');
+
+                // 短寿命URLへ自動遷移（ダウンロード開始）
+                // ファイル名を設定して直接ダウンロード
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                a.download = fileName || 'download';
+                a.target = '_blank';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+
+                // 残りダウンロード回数を更新
+                document.getElementById('remaining').textContent = `${remainingDownloads}回 / 3回`;
+
+            } catch (error) {
+                console.error('Download error:', error);
+                downloadingEl.classList.add('hidden');
+                downloadFormEl.classList.remove('hidden');
+                showOtpError('ダウンロード中にエラーが発生しました。しばらくしてから再度お試しください。');
+            }
+        });
+
+        // OTP入力時のエラークリア
+        document.getElementById('otp').addEventListener('input', () => {
+            hideOtpError();
+        });
+
+        // 初期化
+        loadFileInfo();
+    </script>
 </body>
 </html>
