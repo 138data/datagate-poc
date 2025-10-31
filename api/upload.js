@@ -23,7 +23,7 @@ const upload = multer({
 module.exports = async (req, res) => {
   console.log('=== Upload Handler Start ===');
   console.log('Method:', req.method);
-  
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -63,11 +63,11 @@ module.exports = async (req, res) => {
     console.log('[INFO] File received:', fileName, fileBuffer.length, 'bytes');
     console.log('[INFO] File ID:', fileId);
     console.log('[INFO] OTP:', otp);
-    
+
     // 暗号化
     console.log('[INFO] Encrypting file...');
     const encryptedData = encryptFile(fileBuffer, fileName);
-    
+
     // 暗号化結果の検証
     if (!encryptedData || !encryptedData.encryptedBuffer) {
       console.error('[ERROR] encryptFile returned invalid result:', encryptedData);
@@ -101,10 +101,10 @@ module.exports = async (req, res) => {
     };
 
     const ttl = 7 * 24 * 60 * 60; // 7日間
-    
+
     console.log('[INFO] Saving to KV...');
     try {
-      await kv.set(`file:${fileId}`, metadata, { ex: ttl });
+      await kv.set(`file:${fileId}:meta`, metadata, { ex: ttl });
       console.log('[INFO] KV save complete');
     } catch (kvError) {
       console.error('[ERROR] KV save failed:', kvError);
@@ -112,7 +112,7 @@ module.exports = async (req, res) => {
     }
 
     // ダウンロードURL生成
-    const baseUrl = process.env.VERCEL_URL 
+    const baseUrl = process.env.VERCEL_URL
       ? `https://${process.env.VERCEL_URL}`
       : `https://${req.headers.host}`;
     const downloadLink = `${baseUrl}/download.html?id=${fileId}`;
@@ -138,8 +138,8 @@ module.exports = async (req, res) => {
       downloadLink,
       otp,
       mode,
-      message: emailSent 
-        ? `File uploaded. Email sent to ${recipient}` 
+      message: emailSent
+        ? `File uploaded. Email sent to ${recipient}`
         : 'File uploaded. Email sending failed, but you can share the link manually.'
     };
 
@@ -148,10 +148,9 @@ module.exports = async (req, res) => {
 
   } catch (error) {
     console.error('[ERROR] Upload handler error:', error);
-    console.error('[ERROR] Stack trace:', error.stack);
-    return res.status(500).json({
-      error: 'Upload failed',
-      details: error.message
+    return res.status(500).json({ 
+      error: 'Internal server error',
+      details: error.message 
     });
   }
 };
