@@ -115,8 +115,8 @@ module.exports = async (req, res) => {
     const baseUrl = process.env.VERCEL_URL 
       ? `https://${process.env.VERCEL_URL}`
       : `https://${req.headers.host}`;
-    const downloadUrl = `${baseUrl}/download.html?id=${fileId}`;
-    console.log('[INFO] Download URL:', downloadUrl);
+    const downloadLink = `${baseUrl}/download.html?id=${fileId}`;
+    console.log('[INFO] Download URL:', downloadLink);
 
     // メール送信
     let mode = 'link';
@@ -124,7 +124,7 @@ module.exports = async (req, res) => {
 
     console.log('[INFO] Sending email to:', recipient);
     try {
-      emailSent = await sendEmail(recipient, downloadUrl, otp, fileName, mode);
+      emailSent = await sendEmail(recipient, downloadLink, otp, fileName, mode);
       console.log('[INFO] Email sent successfully');
     } catch (emailError) {
       console.error('[ERROR] Email send failed:', emailError);
@@ -135,7 +135,7 @@ module.exports = async (req, res) => {
     const response = {
       success: true,
       fileId,
-      downloadUrl,
+      downloadLink,
       otp,
       mode,
       message: emailSent 
