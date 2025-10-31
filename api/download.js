@@ -1,6 +1,7 @@
-// api/download.js - Phase 36契約準拠版（JSON + 短寿命URL発行）
+// api/download.js - Phase 37 完全版（復号化 + 一時Blob）
 const { kv } = require('@vercel/kv');
-const { head } = require('@vercel/blob');
+const { downloadFromBlob, uploadTemporaryBlob } = require('../lib/blob-storage');
+const { decryptFile } = require('../lib/encryption');
 
 // JSONボディ読み取り
 async function readJson(req) {
@@ -8,10 +9,10 @@ async function readJson(req) {
     let body = '';
     req.on('data', (c) => (body += c));
     req.on('end', () => {
-      try { 
-        resolve(JSON.parse(body || '{}')); 
-      } catch (e) { 
-        reject(new Error('Invalid JSON')); 
+      try {
+        resolve(JSON.parse(body || '{}'));
+      } catch (e) {
+        reject(new Error('Invalid JSON'));
       }
     });
     req.on('error', reject);
@@ -23,94 +24,147 @@ module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  
+
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
-  
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
-  
+
   try {
     const { fileId, otp } = await readJson(req);
-    
+
     if (!fileId || !otp) {
       return res.status(400).json({ error: 'fileId and otp are required' });
     }
-    
+
     // メタデータ取得
     const metaKey = `file:${fileId}:meta`;
-    const metaJson = await kv.get(metaKey);
-    
-    if (!metaJson) {
+    const metaRaw = await kv.get(metaKey);
+
+    if (!metaRaw) {
       return res.status(404).json({ error: 'File not found or expired' });
     }
-    
-    // KVの値をパース（stringの場合とobjectの場合に対応）
-    const meta = typeof metaJson === 'string' ? JSON.parse(metaJson) : metaJson;
-    
+
+    const meta = typeof metaRaw === 'string' ? JSON.parse(metaRaw) : metaRaw;
+
+    // 期限チェック
+    if (meta.expiresAt && Date.now() > new Date(meta.expiresAt).getTime()) {
+      return res.status(410).json({ error: 'File expired' });
+    }
+
     // OTP検証
     if (otp !== meta.otp) {
       return res.status(401).json({ error: 'Invalid OTP' });
     }
-    
+
     // ダウンロード回数制限
-    const maxDownloads = meta.maxDownloads || 3;
-    const downloadCount = meta.downloadCount || 0;
-    
-    if (downloadCount >= maxDownloads) {
+    const max = meta.maxDownloads || 3;
+    const used = meta.downloadCount || 0;
+
+    if (used >= max) {
       return res.status(403).json({ error: 'Download limit exceeded' });
     }
-    
-    // Phase 36契約: blobKey から短寿命URL発行
+
+    // blobKey チェック
     if (!meta.blobKey) {
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: 'File metadata corrupted',
-        hint: 'blobKey not found in metadata' 
+        hint: 'blobKey not found'
       });
     }
-    
-    // @vercel/blob の head() で署名付きURL取得
-    let downloadUrl;
+
+    // salt/iv/authTag チェック
+    if (!meta.salt || !meta.iv || !meta.authTag) {
+      return res.status(500).json({
+        error: 'Encryption metadata missing',
+        hint: 'salt/iv/authTag required for decryption'
+      });
+    }
+
+    console.log('[download] Step 1: Downloading encrypted file from Blob:', meta.blobKey);
+
+    // Step 1: Blob から暗号化ファイルをダウンロード
+    let encryptedBuffer;
     try {
-      const blobInfo = await head(meta.blobKey);
-      downloadUrl = blobInfo.url;
+      encryptedBuffer = await downloadFromBlob(meta.blobKey);
+      console.log('[download] Encrypted file downloaded, size:', encryptedBuffer.length);
     } catch (blobError) {
-      console.error('[download] Blob head() error:', blobError);
-      return res.status(500).json({ 
-        error: 'Failed to generate download URL',
-        details: blobError.message 
+      console.error('[download] Blob download error:', blobError);
+      return res.status(500).json({
+        error: 'Failed to download encrypted file',
+        details: blobError.message
       });
     }
-    
-    // ダウンロード回数を更新
-    meta.downloadCount = downloadCount + 1;
-    
-    // TTL計算（7日またはexpiresAtまで）
-    let ttlSec = 7 * 24 * 60 * 60; // デフォルト7日
+
+    console.log('[download] Step 2: Decrypting file...');
+
+    // Step 2: 復号化（salt/iv/authTag を使用）
+    let decryptedBuffer;
+    try {
+      // decryptFile(encryptedData, salt, iv, authTag) の順番
+      decryptedBuffer = decryptFile(
+        encryptedBuffer,
+        meta.salt,
+        meta.iv,
+        meta.authTag
+      );
+      console.log('[download] File decrypted, size:', decryptedBuffer.length);
+    } catch (decryptError) {
+      console.error('[download] Decryption error:', decryptError);
+      return res.status(500).json({
+        error: 'Failed to decrypt file',
+        details: decryptError.message
+      });
+    }
+
+    console.log('[download] Step 3: Uploading to temporary Blob (5min TTL)...');
+
+    // Step 3: 復号化済みファイルを一時Blob（5分TTL）にアップロード
+    let tempBlob;
+    try {
+      tempBlob = await uploadTemporaryBlob(fileId, decryptedBuffer, meta.fileName, 300);
+      console.log('[download] Temporary Blob created:', tempBlob.downloadUrl || tempBlob.url);
+    } catch (uploadError) {
+      console.error('[download] Temporary Blob upload error:', uploadError);
+      return res.status(500).json({
+        error: 'Failed to create temporary download URL',
+        details: uploadError.message
+      });
+    }
+
+    // Step 4: ダウンロード回数を更新
+    meta.downloadCount = used + 1;
+
+    // TTL計算
+    let ttlSec = 7 * 24 * 60 * 60;
     if (meta.expiresAt) {
       const expiresAt = new Date(meta.expiresAt).getTime();
       const now = Date.now();
       ttlSec = Math.max(1, Math.floor((expiresAt - now) / 1000));
     }
-    
+
     // メタデータを更新保存
     await kv.set(metaKey, meta, { ex: ttlSec });
-    
-    // JSON応答（APIはバイナリを返さない）
+
+    console.log('[download] Success! Returning download URL');
+
+    // JSON応答（一時Blobの短寿命URL）
     return res.status(200).json({
-      downloadUrl,
+      downloadUrl: tempBlob.downloadUrl || tempBlob.url || tempBlob,
       fileName: meta.fileName || meta.originalName || 'download',
-      size: meta.size,
-      remainingDownloads: maxDownloads - meta.downloadCount
+      size: decryptedBuffer.length,
+      remainingDownloads: Math.max(0, max - meta.downloadCount),
+      expiresInSec: 300
     });
-    
+
   } catch (error) {
-    console.error('[download] Error:', error);
-    return res.status(500).json({ 
+    console.error('[download] Fatal error:', error);
+    return res.status(500).json({
       error: 'Internal server error',
-      details: error.message 
+      details: error.message
     });
   }
 };

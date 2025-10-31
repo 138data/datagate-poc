@@ -1,7 +1,7 @@
-// api/upload.js - uuid除去版（CJS形式）[完全版]
+// api/upload.js - Phase 37 完全版（salt/iv/authTag 保存）
 const { kv } = require('@vercel/kv');
 const multer = require('multer');
-const { randomUUID } = require('crypto'); // uuidの代わりにcryptoを使用
+const { randomUUID } = require('crypto');
 const { encryptFile, generateOTP } = require('../lib/encryption');
 const { sendEmail } = require('../lib/email-service');
 const { canUseDirectAttach } = require('../lib/environment');
@@ -9,7 +9,7 @@ const { uploadToBlob } = require('../lib/blob-storage');
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB
+  limits: { fileSize: 100 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const prohibited = ['.exe', '.scr', '.vbs', '.js', '.com', '.bat'];
     const ext = file.originalname.toLowerCase().substring(file.originalname.lastIndexOf('.'));
@@ -54,7 +54,6 @@ module.exports = async (req, res) => {
       return res.status(400).json({ error: 'Recipient email is required' });
     }
 
-    // crypto.randomUUID()を使用（Node.js標準）
     const fileId = randomUUID();
     const otp = generateOTP();
     const fileName = req.file.originalname;
@@ -68,7 +67,6 @@ module.exports = async (req, res) => {
     console.log('[INFO] Encrypting file...');
     const encryptedData = encryptFile(fileBuffer, fileName);
 
-    // 暗号化結果の検証
     if (!encryptedData || !encryptedData.encryptedBuffer) {
       console.error('[ERROR] encryptFile returned invalid result:', encryptedData);
       return res.status(500).json({ error: 'Encryption failed' });
@@ -86,7 +84,7 @@ module.exports = async (req, res) => {
       return res.status(500).json({ error: 'Storage upload failed' });
     }
 
-    // KVにメタデータ保存
+    // KVにメタデータ保存（Phase 37: salt/iv/authTag 追加）
     const metadata = {
       fileId,
       otp,
@@ -97,12 +95,16 @@ module.exports = async (req, res) => {
       uploadedAt: new Date().toISOString(),
       blobKey,
       downloadCount: 0,
-      maxDownloads: 3
+      maxDownloads: 3,
+      // 復号化に必要な情報
+      salt: encryptedData.salt,
+      iv: encryptedData.iv,
+      authTag: encryptedData.authTag
     };
 
-    const ttl = 7 * 24 * 60 * 60; // 7日間
+    const ttl = 7 * 24 * 60 * 60;
 
-    console.log('[INFO] Saving to KV...');
+    console.log('[INFO] Saving to KV with salt/iv/authTag...');
     try {
       await kv.set(`file:${fileId}:meta`, metadata, { ex: ttl });
       console.log('[INFO] KV save complete');
@@ -111,46 +113,30 @@ module.exports = async (req, res) => {
       return res.status(500).json({ error: 'Metadata save failed' });
     }
 
-    // ダウンロードURL生成
-    const baseUrl = process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : `https://${req.headers.host}`;
-    const downloadLink = `${baseUrl}/download.html?id=${fileId}`;
-    console.log('[INFO] Download URL:', downloadLink);
-
     // メール送信
-    let mode = 'link';
-    let emailSent = false;
+    console.log('[INFO] Sending email...');
+    const emailResult = await sendEmail({
+      to: recipient,
+      fileId,
+      fileName,
+      otp,
+      fileSize: fileBuffer.length
+    });
 
-    console.log('[INFO] Sending email to:', recipient);
-    try {
-      emailSent = await sendEmail(recipient, downloadLink, otp, fileName, mode);
-      console.log('[INFO] Email sent successfully');
-    } catch (emailError) {
-      console.error('[ERROR] Email send failed:', emailError);
-      // メール送信失敗してもアップロード自体は成功とする
-    }
+    console.log('[INFO] Email result:', emailResult);
 
-    // 成功レスポンス
-    const response = {
+    return res.status(200).json({
       success: true,
       fileId,
-      downloadLink,
       otp,
-      mode,
-      message: emailSent
-        ? `File uploaded. Email sent to ${recipient}`
-        : 'File uploaded. Email sending failed, but you can share the link manually.'
-    };
-
-    console.log('[INFO] Returning success response');
-    return res.status(200).json(response);
+      email: emailResult
+    });
 
   } catch (error) {
-    console.error('[ERROR] Upload handler error:', error);
-    return res.status(500).json({ 
-      error: 'Internal server error',
-      details: error.message 
+    console.error('[ERROR] Upload failed:', error);
+    return res.status(500).json({
+      error: 'Upload failed',
+      details: error.message
     });
   }
 };
