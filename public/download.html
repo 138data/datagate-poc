@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ファイルダウンロード - 138DataGate</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 500px;
+            width: 100%;
+        }
+        h1 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 28px;
+            text-align: center;
+        }
+        .file-info {
+            background: #f7fafc;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        .file-info p {
+            margin: 8px 0;
+            color: #4a5568;
+            font-size: 14px;
+        }
+        .file-info strong {
+            color: #2d3748;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 10px;
+            color: #4a5568;
+            font-weight: 600;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 18px;
+            letter-spacing: 4px;
+            text-align: center;
+            font-family: 'Courier New', monospace;
+        }
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        button:disabled {
+            background: #cbd5e0;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .message {
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+        }
+        .error {
+            background: #fed7d7;
+            color: #c53030;
+            border: 1px solid #fc8181;
+        }
+        .success {
+            background: #c6f6d5;
+            color: #2f855a;
+            border: 1px solid #9ae6b4;
+        }
+        .loading {
+            text-align: center;
+            color: #667eea;
+            margin-top: 20px;
+            display: none;
+        }
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📥 ファイルダウンロード</h1>
+        
+        <div class="file-info" id="file-info">
+            <p><strong>ファイル名:</strong> <span id="filename">読み込み中...</span></p>
+            <p><strong>サイズ:</strong> <span id="filesize">読み込み中...</span></p>
+            <p><strong>有効期限:</strong> <span id="expires">読み込み中...</span></p>
+            <p><strong>残りダウンロード回数:</strong> <span id="remaining">読み込み中...</span></p>
+        </div>
+        
+        <form id="download-form">
+            <div class="form-group">
+                <label for="otp">6桁の認証コード（OTP）を入力してください</label>
+                <input 
+                    type="text" 
+                    id="otp" 
+                    name="otp" 
+                    maxlength="6" 
+                    pattern="[0-9]{6}" 
+                    placeholder="000000"
+                    required
+                    autocomplete="off"
+                />
+            </div>
+            <button type="submit" id="download-btn">ダウンロード</button>
+        </form>
+        
+        <div class="message error" id="error"></div>
+        <div class="message success" id="success"></div>
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>ダウンロード準備中...</p>
+        </div>
+    </div>
+    
+    <script>
+        // URLパラメータから fileId を取得
+        const params = new URLSearchParams(window.location.search);
+        const fileId = params.get('id') || params.get('fileId');
+        
+        const errorDiv = document.getElementById('error');
+        const successDiv = document.getElementById('success');
+        const loadingDiv = document.getElementById('loading');
+        
+        if (!fileId) {
+            errorDiv.textContent = '❌ ファイルIDが指定されていません';
+            errorDiv.style.display = 'block';
+        }
+        
+        // ファイルサイズのフォーマット
+        function formatSize(bytes) {
+            if (!bytes) return '0 B';
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+        
+        // 日付のフォーマット
+        function formatDate(dateString) {
+            if (!dateString) return '不明';
+            const date = new Date(dateString);
+            return date.toLocaleString('ja-JP', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+        
+        // ファイル情報を取得（GET /api/download）
+        async function loadFileInfo() {
+            try {
+                const response = await fetch(`/api/download?fileId=${fileId}`, {
+                    method: 'GET'
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'ファイル情報の取得に失敗しました');
+                }
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('filename').textContent = data.fileName || 'ファイル';
+                    document.getElementById('filesize').textContent = formatSize(data.fileSize || data.size || 0);
+                    document.getElementById('expires').textContent = formatDate(data.expiresAt);
+                    
+                    const remaining = data.remainingDownloads !== undefined 
+                        ? data.remainingDownloads 
+                        : (data.maxDownloads || 3) - (data.downloadCount || 0);
+                    document.getElementById('remaining').textContent = `${Math.max(0, remaining)} 回`;
+                }
+            } catch (error) {
+                console.error('ファイル情報取得エラー:', error);
+                document.getElementById('filename').textContent = 'ファイル';
+                document.getElementById('filesize').textContent = '不明';
+                document.getElementById('expires').textContent = '不明';
+                document.getElementById('remaining').textContent = '不明';
+            }
+        }
+        
+        // ダウンロードフォーム送信（POST /api/download → JSON downloadUrl → 遷移）
+        document.getElementById('download-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const otp = document.getElementById('otp').value;
+            const downloadBtn = document.getElementById('download-btn');
+            
+            // UI リセット
+            errorDiv.style.display = 'none';
+            successDiv.style.display = 'none';
+            loadingDiv.style.display = 'block';
+            downloadBtn.disabled = true;
+            
+            try {
+                // Phase 36 契約: POST /api/download で OTP検証 → JSON応答（downloadUrl）
+                const response = await fetch('/api/download', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json; charset=utf-8'
+                    },
+                    body: JSON.stringify({
+                        fileId: fileId,
+                        otp: otp
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'ダウンロードに失敗しました');
+                }
+                
+                const result = await response.json();
+                
+                // Phase 36 契約: downloadUrl に直接遷移（response.blob()は使わない）
+                if (result.success && result.downloadUrl) {
+                    successDiv.textContent = '✅ ダウンロードが完了しました！';
+                    successDiv.style.display = 'block';
+                    
+                    // 短寿命URL に遷移してダウンロード
+                    const a = document.createElement('a');
+                    a.href = result.downloadUrl;
+                    a.download = result.fileName || 'download';
+                    a.style.display = 'none';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    
+                    // 成功後、ファイル情報を更新（残りダウンロード回数表示）
+                    setTimeout(() => {
+                        loadFileInfo();
+                    }, 2000);
+                } else {
+                    throw new Error('ダウンロードURLが取得できませんでした');
+                }
+            } catch (error) {
+                console.error('ダウンロードエラー:', error);
+                errorDiv.textContent = `❌ ${error.message}`;
+                errorDiv.style.display = 'block';
+            } finally {
+                loadingDiv.style.display = 'none';
+                downloadBtn.disabled = false;
+            }
+        });
+        
+        // ページ読み込み時にファイル情報を取得
+        if (fileId) {
+            loadFileInfo();
+        }
+    </script>
+</body>
+</html>
