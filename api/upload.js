@@ -1,150 +1,141 @@
-// api/upload.js - Phase 39 完全版（sendMailSecure 対応）
-const { kv } = require('@vercel/kv');
-const multer = require('multer');
-const { randomUUID } = require('crypto');
-const { encryptFile, generateOTP } = require('../lib/encryption');
-const { sendMailSecure } = require('../service/email/send');
-const { canUseDirectAttach } = require('../lib/environment');
-const { uploadToBlob } = require('../lib/blob-storage');
+import multer from 'multer';
+import crypto from 'crypto';
+import { kv } from '@vercel/kv';
+import { sendMailSecure } from '../service/email/send.js';
 
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 100 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const prohibited = ['.exe', '.scr', '.vbs', '.js', '.com', '.bat'];
-    const ext = file.originalname.toLowerCase().substring(file.originalname.lastIndexOf('.'));
-    if (prohibited.includes(ext)) {
-      return cb(new Error(`Prohibited file type: ${ext}`));
-    }
-    cb(null, true);
-  }
-});
+const upload = multer({ storage: multer.memoryStorage() });
 
-module.exports = async (req, res) => {
-  console.log('=== Upload Handler Start ===');
-  console.log('Method:', req.method);
+// KDF設定
+const PBKDF2_ITERATIONS = 100000;
+const PBKDF2_KEYLEN = 32;
+const PBKDF2_DIGEST = 'sha256';
+
+// 暗号化関数
+function encryptFile(buffer, password) {
+  const salt = crypto.randomBytes(16);
+  const key = crypto.pbkdf2Sync(password, salt, PBKDF2_ITERATIONS, PBKDF2_KEYLEN, PBKDF2_DIGEST);
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  const encrypted = Buffer.concat([cipher.update(buffer), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return Buffer.concat([salt, iv, tag, encrypted]);
+}
+
+// OTP生成（6桁数値）
+function generateOTP() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
+export default async function handler(req, res) {
+  // Cache-Control: no-store を追加
+  res.setHeader('Cache-Control', 'no-store');
 
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    return res.status(405).json({ success: false, error: 'Method Not Allowed' });
   }
 
-  const uploadPromise = new Promise((resolve, reject) => {
-    upload.single('file')(req, res, (err) => {
+  return new Promise((resolve) => {
+    upload.single('file')(req, res, async (err) => {
       if (err) {
         console.error('Multer error:', err);
-        reject(err);
-      } else {
+        res.status(400).json({ success: false, error: 'ファイルのアップロードに失敗しました' });
+        return resolve();
+      }
+
+      try {
+        const file = req.file;
+        const recipientEmail = req.body.recipientEmail;
+
+        if (!file) {
+          res.status(400).json({ success: false, error: 'ファイルが選択されていません' });
+          return resolve();
+        }
+
+        if (!recipientEmail) {
+          res.status(400).json({ success: false, error: '送信先メールアドレスが指定されていません' });
+          return resolve();
+        }
+
+        // OTP生成
+        const otp = generateOTP();
+        
+        // ファイル暗号化（OTPをパスワードとして使用）
+        const encryptedData = encryptFile(file.buffer, otp);
+        const encryptedBase64 = encryptedData.toString('base64');
+
+        // ファイルID生成
+        const fileId = crypto.randomUUID();
+
+        // メタデータ
+        const metadata = {
+          fileName: file.originalname,
+          mimeType: file.mimetype,
+          fileSize: file.size,
+          uploadedAt: new Date().toISOString(),
+          otp: otp,
+          failedAttempts: 0,
+        };
+
+        // KVに保存（7日間のTTL）
+        const ttlSeconds = 7 * 24 * 60 * 60;
+        await kv.set(`file:${fileId}:meta`, metadata, { ex: ttlSeconds });
+        await kv.set(`file:${fileId}:data`, encryptedBase64, { ex: ttlSeconds });
+
+        // ダウンロードURL生成
+        const protocol = req.headers['x-forwarded-proto'] || 'https';
+        const host = req.headers['x-forwarded-host'] || req.headers.host;
+        const baseUrl = `${protocol}://${host}`;
+        const fullDownloadUrl = `${baseUrl}/download?id=${fileId}`;
+
+        // メール送信（sendMailSecure を使用）
+        const mailResult = await sendMailSecure({
+          to: recipientEmail,
+          fileName: file.originalname,
+          fileSize: file.size,
+          downloadUrl: fullDownloadUrl,
+          otp: otp,
+          fileBuffer: file.buffer, // 暗号化前のバッファ（添付直送用）
+          fileId: fileId,
+        });
+
+        // 監査ログ保存（30日TTL）
+        const auditKey = `audit:${Date.now()}:${fileId}`;
+        const auditData = {
+          ts: new Date().toISOString(),
+          event: 'file_upload',
+          fileId: fileId,
+          fileName: file.originalname,
+          fileSize: file.size,
+          to: recipientEmail,
+          mode: mailResult.mode || 'link',
+          reason: mailResult.reason || 'default',
+          status: 'success',
+        };
+        await kv.set(auditKey, auditData, { ex: 30 * 24 * 60 * 60 }); // 30日
+
+        // 契約キー（downloadUrl）+ 後方互換（downloadLink）を返す
+        res.status(200).json({
+          success: true,
+          downloadUrl: fullDownloadUrl,      // 契約キー
+          downloadLink: fullDownloadUrl,     // 後方互換（Phase 41で削除予定）
+          fileId: fileId,
+          otp: otp,
+          mailSent: true,
+          mode: mailResult.mode,
+          reason: mailResult.reason,
+        });
+        resolve();
+      } catch (error) {
+        console.error('Upload error:', error);
+        res.status(500).json({ success: false, error: 'アップロード処理に失敗しました' });
         resolve();
       }
     });
   });
-
-  try {
-    await uploadPromise;
-    console.log('Multer processing complete');
-
-    if (!req.file) {
-      console.log('No file in request');
-      return res.status(400).json({ error: 'No file uploaded' });
-    }
-
-    const recipient = req.body.recipientEmail;
-    if (!recipient) {
-      console.log('No recipient email');
-      return res.status(400).json({ error: 'Recipient email is required' });
-    }
-
-    const fileId = randomUUID();
-    const otp = generateOTP();
-    const fileName = req.file.originalname;
-    const fileBuffer = req.file.buffer;
-
-    console.log('[INFO] File received:', fileName, fileBuffer.length, 'bytes');
-    console.log('[INFO] File ID:', fileId);
-    console.log('[INFO] OTP:', otp);
-
-    // 暗号化
-    console.log('[INFO] Encrypting file...');
-    const encryptedData = encryptFile(fileBuffer, fileName);
-
-    if (!encryptedData || !encryptedData.encryptedBuffer) {
-      console.error('[ERROR] encryptFile returned invalid result:', encryptedData);
-      return res.status(500).json({ error: 'Encryption failed' });
-    }
-    console.log('[INFO] Encryption complete, size:', encryptedData.encryptedBuffer.length);
-
-    // Blob Storageにアップロード
-    console.log('[INFO] Uploading to Blob...');
-    let blobKey;
-    try {
-      blobKey = await uploadToBlob(fileId, encryptedData.encryptedBuffer, fileName);
-      console.log('[INFO] Blob upload complete:', blobKey);
-    } catch (blobError) {
-      console.error('[ERROR] Blob upload failed:', blobError);
-      return res.status(500).json({ error: 'Storage upload failed' });
-    }
-
-    // KVにメタデータ保存（Phase 37: salt/iv/authTag 追加）
-    const metadata = {
-      fileId,
-      otp,
-      fileName,
-      originalName: fileName,
-      size: fileBuffer.length,
-      mimeType: req.file.mimetype,
-      uploadedAt: new Date().toISOString(),
-      blobKey,
-      downloadCount: 0,
-      maxDownloads: 3,
-      // 復号化に必要な情報
-      salt: encryptedData.salt,
-      iv: encryptedData.iv,
-      authTag: encryptedData.authTag
-    };
-
-    const ttl = 7 * 24 * 60 * 60;
-
-    console.log('[INFO] Saving to KV with salt/iv/authTag...');
-    try {
-      await kv.set(`file:${fileId}:meta`, metadata, { ex: ttl });
-      console.log('[INFO] KV save complete');
-    } catch (kvError) {
-      console.error('[ERROR] KV save failed:', kvError);
-      return res.status(500).json({ error: 'Metadata save failed' });
-    }
-
-    // downloadUrl を生成（Phase 39 追加）
-    const downloadUrl = `https://${req.headers.host}/download.html?id=${fileId}`;
-    console.log('[INFO] Download URL:', downloadUrl);
-
-    // メール送信（Phase 39: sendMailSecure に変更）
-    console.log('[INFO] Sending email via sendMailSecure...');
-    const emailResult = await sendMailSecure({
-      to: recipient,
-      subject: 'セキュアファイルが送信されました',
-      text: `ファイル名: ${fileName}`,
-      fileId,
-      fileName,
-      fileSize: fileBuffer.length,
-      decryptedBuffer: fileBuffer, // ⚠️ 暗号化前のバッファを渡す
-      downloadUrl,
-      otp
-    });
-
-    console.log('[INFO] Email result:', emailResult);
-
-    return res.status(200).json({
-      success: true,
-      fileId,
-      otp,
-      email: emailResult
-    });
-
-  } catch (error) {
-    console.error('[ERROR] Upload failed:', error);
-    return res.status(500).json({
-      error: 'Upload failed',
-      details: error.message
-    });
-  }
-};
+}
