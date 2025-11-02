@@ -1,23 +1,31 @@
-{
+﻿{
   "version": 2,
-  "functions": {
-    "api/**/*.js": {
-      "maxDuration": 10
-    }
-  },
   "rewrites": [
     {
-      "source": "/d",
-      "destination": "/download.html"
+      "source": "/admin",
+      "destination": "/admin/index.html"
+    },
+    {
+      "source": "/admin/",
+      "destination": "/admin/index.html"
     }
   ],
   "headers": [
     {
-      "source": "/download.html",
+      "source": "/api/(.*)",
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "no-store"
+          "value": "no-store, max-age=0"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)\\.html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
         }
       ]
     }
