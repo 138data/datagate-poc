@@ -13,7 +13,7 @@ const {
   SENDGRID_FROM_EMAIL,
   SENDGRID_FROM_NAME = '138DataGate',
   ENABLE_DIRECT_ATTACH = 'false',
-  MAIL_SANDBOX = 'true',
+  MAIL_SANDBOX,
   ALLOWED_DIRECT_DOMAINS = '@138io.com,@138data.com',
   DIRECT_ATTACH_MAX_SIZE = '4718592' // 4.5MB（base64膨張を考慮）
 } = process.env;
