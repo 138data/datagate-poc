@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>DataGate Admin Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <style>
+    :root { --bg:#0f172a; --panel:#111827; --ink:#e5e7eb; --muted:#9ca3af; --accent:#6366f1; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:linear-gradient(135deg,#0b1022,#1f2a44); color:var(--ink); font:14px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+    header { padding:20px 24px; display:flex; align-items:center; justify-content:space-between; }
+    header h1 { margin:0; font-size:20px; letter-spacing:.2px; }
+    .controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    select, input[type="text"], button, .chip { background:#0b1022; color:var(--ink); border:1px solid #2d3748; border-radius:8px; padding:8px 10px; }
+    button.primary { background:var(--accent); border-color:transparent; font-weight:600; }
+    main { padding: 0 24px 32px; }
+    .grid { display:grid; grid-template-columns:repeat(12,1fr); gap:16px; }
+    .panel { grid-column:span 12; background:var(--panel); border:1px solid #1f2937; border-radius:14px; padding:16px; }
+    @media (min-width: 960px){
+      .panel.sm-6 { grid-column:span 6; }
+      .panel.sm-4 { grid-column:span 4; }
+      .panel.sm-8 { grid-column:span 8; }
+      .panel.sm-3 { grid-column:span 3; }
+    }
+    .cards { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+    .card { background:#0b1022; border:1px solid #1f2937; border-radius:12px; padding:14px; }
+    .card h3 { margin:0 0 6px; font-size:12px; color:var(--muted); letter-spacing:.3px; }
+    .metric { font-size:22px; font-weight:700; }
+    .sub { font-size:12px; color:var(--muted); }
+    .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .muted { color:var(--muted); }
+    .right { margin-left:auto; }
+    .error { background:#3b0d0d; border:1px solid #7f1d1d; color:#fecaca; padding:10px; border-radius:10px; }
+    canvas { width:100%; height:320px; }
+    .footer { padding:12px 24px; color:var(--muted); font-size:12px; }
+    details { margin-left:8px; }
+    code { background:#0b1022; border:1px solid #1f2937; padding:2px 6px; border-radius:6px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📊 DataGate Admin Dashboard</h1>
+    <div class="controls">
+      <label class="muted">期間
+        <select id="days">
+          <option value="7" selected>7日</option>
+          <option value="30">30日</option>
+          <option value="90">90日</option>
+        </select>
+      </label>
+      <label class="muted">Auto
+        <select id="auto">
+          <option value="off" selected>OFF</option>
+          <option value="30">30秒</option>
+          <option value="60">60秒</option>
+        </select>
+      </label>
+      <details>
+        <summary class="muted">認証（任意）</summary>
+        <input id="token" type="text" placeholder="Bearer トークン（空で未使用）" style="min-width:240px" />
+      </details>
+      <button id="reload" class="primary">再読み込み</button>
+    </div>
+  </header>
+
+  <main class="grid">
+    <section class="panel">
+      <div class="cards">
+        <div class="card">
+          <h3>総イベント数</h3>
+          <div id="total" class="metric">—</div>
+          <div id="period" class="sub">—</div>
+        </div>
+        <div class="card">
+          <h3>直送率（attach）</h3>
+          <div id="attachRate" class="metric">—</div>
+          <div class="sub">attach / (attach+link)</div>
+        </div>
+        <div class="card">
+          <h3>フォールバック件数（link）</h3>
+          <div id="linkCount" class="metric">—</div>
+          <div id="topReason" class="sub">—</div>
+        </div>
+        <div class="card">
+          <h3>直近エラー（download_failed等）</h3>
+          <div id="errCount" class="metric">—</div>
+          <div id="errHint" class="sub">—</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel sm-4">
+      <div class="row">
+        <h3 style="margin:0">モード内訳</h3>
+        <span id="modeCaption" class="muted right"></span>
+      </div>
+      <canvas id="modeChart"></canvas>
+    </section>
+
+    <section class="panel sm-4">
+      <div class="row">
+        <h3 style="margin:0">理由分布</h3>
+        <span id="reasonCaption" class="muted right"></span>
+      </div>
+      <canvas id="reasonChart"></canvas>
+    </section>
+
+    <section class="panel sm-4">
+      <div class="row">
+        <h3 style="margin:0">ドメイン別</h3>
+        <span id="domainCaption" class="muted right"></span>
+      </div>
+      <canvas id="domainChart"></canvas>
+    </section>
+
+    <section class="panel sm-8">
+      <div class="row">
+        <h3 style="margin:0">日次推移</h3>
+        <span id="dailyCaption" class="muted right"></span>
+      </div>
+      <canvas id="dailyChart"></canvas>
+    </section>
+
+    <section class="panel sm-4">
+      <h3 style="margin:0 0 8px">システム状態</h3>
+      <div id="meta" class="muted">—</div>
+      <div id="errorBox" class="error" style="display:none;margin-top:10px"></div>
+      <div class="muted" style="margin-top:10px">※ API は <code>Cache-Control: no-store</code> 推奨で運用統一（Phase 40）。</div>
+    </section>
+  </main>
+
+  <div class="footer">
+    DataGate Admin &middot; Dashboard v42-P1 &middot; Charts by Chart.js（CDN）&nbsp;|&nbsp;
+    契約: upload→JSONの <code>downloadUrl</code> を返し、クライアント遷移。
+  </div>
+
+  <script>
+    const els = {
+      days: document.getElementById('days'),
+      auto: document.getElementById('auto'),
+      token: document.getElementById('token'),
+      reload: document.getElementById('reload'),
+      total: document.getElementById('total'),
+      period: document.getElementById('period'),
+      attachRate: document.getElementById('attachRate'),
+      linkCount: document.getElementById('linkCount'),
+      topReason: document.getElementById('topReason'),
+      errCount: document.getElementById('errCount'),
+      errHint: document.getElementById('errHint'),
+      modeCaption: document.getElementById('modeCaption'),
+      reasonCaption: document.getElementById('reasonCaption'),
+      domainCaption: document.getElementById('domainCaption'),
+      dailyCaption: document.getElementById('dailyCaption'),
+      meta: document.getElementById('meta'),
+      errorBox: document.getElementById('errorBox'),
+    };
+
+    let charts = {};
+    function destroyChart(id){ if(charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+    function number(n){ return (n ?? 0).toLocaleString('ja-JP'); }
+    function percent(a,b){ const x=(b>0)?(a*100/b):0; return x.toFixed(1)+'%'; }
+
+    // API差異を吸収（P0実装と計画書の両対応）
+    function normalize(api){
+      const s = api.stats || api.summary || api || {};
+      const hasMode = s.modeDistribution || s.byMode || {};
+      const mode = {
+        attach: (s.modeDistribution?.attach ?? s.byMode?.attach ?? s.attach ?? 0) | 0,
+        link:   (s.modeDistribution?.link   ?? s.byMode?.link   ?? s.link   ?? 0) | 0,
+        blocked:(s.modeDistribution?.blocked?? s.byMode?.blocked?? s.blocked?? 0) | 0,
+      };
+      let total = s.totalEvents ?? s.total ?? (mode.attach + mode.link + mode.blocked);
+      if(!Number.isFinite(total)) total = 0;
+
+      // 理由分布（命名ゆれ吸収: size_exceeded → size_over_threshold）
+      const rawReason = s.reasonDistribution || s.byReason || {};
+      const reason = {};
+      for(const [k,v] of Object.entries(rawReason)){
+        const key = (k==='size_exceeded') ? 'size_over_threshold' : k;
+        reason[key] = (reason[key] ?? 0) + (v|0);
+      }
+
+      // ドメイン分布
+      const domain = s.domainDistribution || s.byDomain || {};
+      // 日次
+      let daily = s.dailyStats || s.daily || {};
+      if(Array.isArray(daily)){
+        // [{date, total, attach, link}, ...]
+        daily = daily.reduce((acc,d)=>{
+          acc[d.date] = { total:d.total|0, attach:d.attach|0, link:d.link|0 };
+          return acc;
+        },{});
+      }
+      // 期間
+      const period = api.period || {};
+      const from = period.from || api.from;
+      const to   = period.to   || api.to;
+
+      // 追加イベント系（あれば）
+      const events = s.eventDistribution || {};
+
+      return { total, mode, reason, domain, daily, period:{from,to}, events };
+    }
+
+    function topK(obj, k=8){
+      const arr = Object.entries(obj).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+      const head = arr.slice(0,k);
+      const rest = arr.slice(k);
+      const other = rest.reduce((sum, [,v])=>sum+v,0);
+      if(other>0) head.push(['その他', other]);
+      return { labels: head.map(x=>x[0]), values: head.map(x=>x[1]) };
+    }
+
+    function renderCards(N){
+      els.total.textContent = number(N.total);
+      const attachBase = N.mode.attach + N.mode.link;
+      els.attachRate.textContent = percent(N.mode.attach, attachBase);
+      els.linkCount.textContent = number(N.mode.link);
+
+      // 代表理由（トップ1）
+      const t = topK(N.reason, 1);
+      els.topReason.textContent = t.labels.length ? `最多理由: ${t.labels[0]} (${number(t.values[0])})` : '理由データなし';
+
+      // エラー近似（download_failed 等）
+      const df = N.events.download_failed|0;
+      els.errCount.textContent = number(df);
+      els.errHint.textContent = df>0 ? 'download_failed の増加に注意' : '異常なし';
+
+      const p = N.period;
+      if(p?.from && p?.to){
+        els.period.textContent = `${p.from} 〜 ${p.to}`;
+      } else {
+        els.period.textContent = `直近 ${document.getElementById('days').value} 日`;
+      }
+    }
+
+    function renderCharts(N){
+      // モード
+      destroyChart('mode');
+      charts.mode = new Chart(document.getElementById('modeChart'), {
+        type: 'doughnut',
+        data: {
+          labels: ['attach','link','blocked'],
+          datasets: [{ data: [N.mode.attach, N.mode.link, N.mode.blocked] }]
+        },
+        options: { responsive:true, plugins:{ legend:{ position:'bottom' } } }
+      });
+      els.modeCaption.textContent = `合計 ${number(N.total)}`;
+
+      // 理由
+      const r = topK(N.reason, 8);
+      destroyChart('reason');
+      charts.reason = new Chart(document.getElementById('reasonChart'), {
+        type: 'bar',
+        data: { labels: r.labels, datasets: [{ label:'件数', data: r.values }] },
+        options: { responsive:true, scales:{ x:{ ticks:{ maxRotation:0 } }, y:{ beginAtZero:true } }, plugins:{ legend:{ display:false } } }
+      });
+      els.reasonCaption.textContent = `${r.labels.length} 項目`;
+
+      // ドメイン
+      const d = topK(N.domain, 8);
+      destroyChart('domain');
+      charts.domain = new Chart(document.getElementById('domainChart'), {
+        type: 'bar',
+        data: { labels: d.labels, datasets: [{ label:'件数', data: d.values }] },
+        options: { responsive:true, scales:{ y:{ beginAtZero:true } }, plugins:{ legend:{ display:false } } }
+      });
+      els.domainCaption.textContent = `${d.labels.length} ドメイン`;
+
+      // 日次
+      const dates = Object.keys(N.daily).sort();
+      const dailyTotal  = dates.map(dt => (N.daily[dt]?.total  |0));
+      const dailyAttach = dates.map(dt => (N.daily[dt]?.attach |0));
+      const dailyLink   = dates.map(dt => (N.daily[dt]?.link   |0));
+      destroyChart('daily');
+      charts.daily = new Chart(document.getElementById('dailyChart'), {
+        type: 'line',
+        data: {
+          labels: dates,
+          datasets: [
+            { label:'total',  data: dailyTotal,  tension:.3 },
+            { label:'attach', data: dailyAttach, tension:.3 },
+            { label:'link',   data: dailyLink,   tension:.3 },
+          ]
+        },
+        options: { responsive:true, plugins:{ legend:{ position:'bottom' } }, scales:{ y:{ beginAtZero:true } } }
+      });
+      els.dailyCaption.textContent = dates.length ? `${dates[0]} 〜 ${dates.at(-1)}` : 'データなし';
+    }
+
+    async function fetchStats(){
+      const days = document.getElementById('days').value;
+      els.errorBox.style.display = 'none';
+      const headers = {};
+      const token = document.getElementById('token').value.trim();
+      if(token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(`/api/admin/stats?days=${encodeURIComponent(days)}`, { headers, cache:'no-store' });
+      if(!res.ok){
+        const txt = await res.text();
+        throw new Error(`HTTP ${res.status} / ${txt}`);
+      }
+      return res.json();
+    }
+
+    let timer = null;
+    async function load(){
+      try{
+        const data = await fetchStats();
+        const N = normalize(data);
+        renderCards(N);
+        renderCharts(N);
+        const now = new Date().toLocaleString('ja-JP');
+        els.meta.textContent = `最終更新: ${now} / API応答: success=${!!data.success ?? '—'} / days=${data.days ?? '—'} / logCount=${data.logCount ?? '—'}`;
+      }catch(err){
+        els.errorBox.style.display = 'block';
+        els.errorBox.textContent = `読み込みエラー: ${err.message}`;
+      }
+    }
+
+    function schedule(){
+      if(timer){ clearInterval(timer); timer=null; }
+      const v = document.getElementById('auto').value;
+      if(v !== 'off'){ timer = setInterval(load, parseInt(v,10)*1000); }
+    }
+
+    document.getElementById('reload').addEventListener('click', load);
+    document.getElementById('days').addEventListener('change', load);
+    document.getElementById('auto').addEventListener('change', schedule);
+
+    // 初期ロード
+    load(); schedule();
+  </script>
+</body>
+</html>
