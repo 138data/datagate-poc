@@ -27,6 +27,11 @@ function aggregateStats(logs) {
   };
 
   logs.forEach(log => {
+    // 安全なログ処理（古いフォーマット対応）
+    if (!log || typeof log !== 'object') {
+      return;
+    }
+
     // Mode 分布
     if (log.mode) {
       stats.modeDistribution[log.mode] = (stats.modeDistribution[log.mode] || 0) + 1;
@@ -47,28 +52,30 @@ function aggregateStats(logs) {
       stats.eventDistribution[log.event] = (stats.eventDistribution[log.event] || 0) + 1;
     }
 
-    // 日次統計
-    const date = log.timestamp.split('T')[0]; // YYYY-MM-DD
-    if (!stats.dailyStats[date]) {
-      stats.dailyStats[date] = {
-        uploads: 0,
-        downloads: 0,
-        failures: 0,
-        totalSize: 0
-      };
-    }
-    
-    if (log.event === 'upload_success') {
-      stats.dailyStats[date].uploads += 1;
-    } else if (log.event === 'download_success') {
-      stats.dailyStats[date].downloads += 1;
-    } else if (log.event === 'download_failed' || log.event === 'download_blocked') {
-      stats.dailyStats[date].failures += 1;
-    }
-    
-    if (log.size) {
-      stats.dailyStats[date].totalSize += log.size;
-      stats.totalFileSize += log.size;
+    // 日次統計（timestamp が存在する場合のみ）
+    if (log.timestamp && typeof log.timestamp === 'string') {
+      const date = log.timestamp.split('T')[0]; // YYYY-MM-DD
+      if (!stats.dailyStats[date]) {
+        stats.dailyStats[date] = {
+          uploads: 0,
+          downloads: 0,
+          failures: 0,
+          totalSize: 0
+        };
+      }
+      
+      if (log.event === 'upload_success') {
+        stats.dailyStats[date].uploads += 1;
+      } else if (log.event === 'download_success') {
+        stats.dailyStats[date].downloads += 1;
+      } else if (log.event === 'download_failed' || log.event === 'download_blocked') {
+        stats.dailyStats[date].failures += 1;
+      }
+      
+      if (log.size) {
+        stats.dailyStats[date].totalSize += log.size;
+        stats.totalFileSize += log.size;
+      }
     }
   });
 
