@@ -1,9 +1,9 @@
-// api/upload.js - Phase 37 完全版（salt/iv/authTag 保存）
+// api/upload.js - Phase 39 完全版（sendMailSecure 対応）
 const { kv } = require('@vercel/kv');
 const multer = require('multer');
 const { randomUUID } = require('crypto');
 const { encryptFile, generateOTP } = require('../lib/encryption');
-const { sendEmail } = require('../lib/email-service');
+const { sendMailSecure } = require('../service/email/send');
 const { canUseDirectAttach } = require('../lib/environment');
 const { uploadToBlob } = require('../lib/blob-storage');
 
@@ -113,14 +113,22 @@ module.exports = async (req, res) => {
       return res.status(500).json({ error: 'Metadata save failed' });
     }
 
-    // メール送信
-    console.log('[INFO] Sending email...');
-    const emailResult = await sendEmail({
+    // downloadUrl を生成（Phase 39 追加）
+    const downloadUrl = `https://${req.headers.host}/download.html?id=${fileId}`;
+    console.log('[INFO] Download URL:', downloadUrl);
+
+    // メール送信（Phase 39: sendMailSecure に変更）
+    console.log('[INFO] Sending email via sendMailSecure...');
+    const emailResult = await sendMailSecure({
       to: recipient,
+      subject: 'セキュアファイルが送信されました',
+      text: `ファイル名: ${fileName}`,
       fileId,
       fileName,
-      otp,
-      fileSize: fileBuffer.length
+      fileSize: fileBuffer.length,
+      decryptedBuffer: fileBuffer, // ⚠️ 暗号化前のバッファを渡す
+      downloadUrl,
+      otp
     });
 
     console.log('[INFO] Email result:', emailResult);
