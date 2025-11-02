@@ -1,80 +1,93 @@
-import crypto from 'crypto';
+﻿// api/download-blob.js - バイナリ返却（ワンタイムトークン）
+
 import { kv } from '@vercel/kv';
-
-// KDF設定
-const PBKDF2_ITERATIONS = 100000;
-const PBKDF2_KEYLEN = 32;
-const PBKDF2_DIGEST = 'sha256';
-
-// 復号化関数
-function decryptFile(encryptedBuffer, password) {
-  const salt = encryptedBuffer.subarray(0, 16);
-  const iv = encryptedBuffer.subarray(16, 28);
-  const tag = encryptedBuffer.subarray(28, 44);
-  const encrypted = encryptedBuffer.subarray(44);
-
-  const key = crypto.pbkdf2Sync(password, salt, PBKDF2_ITERATIONS, PBKDF2_KEYLEN, PBKDF2_DIGEST);
-  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
-  decipher.setAuthTag(tag);
-
-  return Buffer.concat([decipher.update(encrypted), decipher.final()]);
-}
+import { decryptFile } from '../lib/encryption.js';
 
 export default async function handler(req, res) {
-  // Cache-Control: no-store を追加
-  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
 
-  if (req.method !== 'GET') {
-    return res.status(405).json({ success: false, error: 'Method Not Allowed' });
-  }
-
-  const { token } = req.query;
-
-  if (!token) {
-    return res.status(400).json({ success: false, error: 'トークンが指定されていません' });
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
+    const { token, otp } = req.body;
+
+    if (!token || !otp) {
+      return res.status(400).json({ error: 'Token and OTP are required' });
+    }
+
     // トークン検証
-    const tokenData = await kv.get(`download-token:${token}`);
-
-    if (!tokenData) {
-      return res.status(404).json({ success: false, error: 'トークンが無効または期限切れです' });
+    const fileId = await kv.get(`token:${token}`);
+    if (!fileId) {
+      return res.status(403).json({ error: 'Invalid or expired token' });
     }
-
-    if (Date.now() > tokenData.exp) {
-      await kv.del(`download-token:${token}`);
-      return res.status(410).json({ success: false, error: 'トークンの有効期限が切れました' });
-    }
-
-    const { fileId } = tokenData;
-
-    // メタデータとデータ取得
-    const metadata = await kv.get(`file:${fileId}:meta`);
-    const encryptedBase64 = await kv.get(`file:${fileId}:data`);
-
-    if (!metadata || !encryptedBase64) {
-      return res.status(404).json({ success: false, error: 'ファイルが見つかりませんでした' });
-    }
-
-    // 復号化
-    const encryptedBuffer = Buffer.from(encryptedBase64, 'base64');
-    const decryptedData = decryptFile(encryptedBuffer, metadata.otp);
-
-    // ファイル名のエンコード（RFC 5987）
-    const encodedFileName = encodeURIComponent(metadata.fileName).replace(/['()]/g, escape).replace(/\*/g, '%2A');
-
-    // バイナリ配信
-    res.setHeader('Content-Type', metadata.mimeType || 'application/octet-stream');
-    res.setHeader('Content-Disposition', `attachment; filename="file"; filename*=UTF-8''${encodedFileName}`);
-    res.setHeader('Content-Length', decryptedData.length);
 
     // トークン削除（ワンタイム）
-    await kv.del(`download-token:${token}`);
+    await kv.del(`token:${token}`);
 
-    return res.status(200).send(decryptedData);
+    // メタデータ取得
+    const metaStr = await kv.get(`file:${fileId}:meta`);
+    if (!metaStr) {
+      return res.status(404).json({ error: 'File not found or expired' });
+    }
+
+    const metadata = JSON.parse(metaStr);
+
+    // ダウンロード回数チェック
+    if (metadata.downloadCount >= metadata.maxDownloads) {
+      return res.status(403).json({ error: 'Download limit reached' });
+    }
+
+    // 暗号化データ取得
+    const encryptedBase64 = await kv.get(`file:${fileId}:data`);
+    if (!encryptedBase64) {
+      return res.status(404).json({ error: 'File data not found' });
+    }
+
+    const encryptedBuffer = Buffer.from(encryptedBase64, 'base64');
+
+    // 復号化
+    const decryptedBuffer = decryptFile(
+      {
+        encryptedBuffer,
+        iv: metadata.iv,
+        authTag: metadata.authTag,
+        salt: metadata.salt
+      },
+      otp
+    );
+
+    // ダウンロード回数更新
+    metadata.downloadCount += 1;
+    await kv.set(`file:${fileId}:meta`, JSON.stringify(metadata), { keepTtl: true });
+
+    console.log('[api/download-blob] File downloaded:', {
+      fileId,
+      fileName: metadata.fileName,
+      downloadCount: metadata.downloadCount
+    });
+
+    // バイナリ返却
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${encodeURIComponent(metadata.fileName)}"; filename*=UTF-8''${encodeURIComponent(metadata.fileName)}`
+    );
+    res.setHeader('Content-Length', decryptedBuffer.length);
+
+    res.status(200).send(decryptedBuffer);
+
   } catch (error) {
-    console.error('Download blob error:', error);
-    return res.status(500).json({ success: false, error: 'ダウンロード処理に失敗しました' });
+    console.error('[api/download-blob] Error:', error);
+    
+    if (error.message.includes('Unsupported state or unable to authenticate data')) {
+      return res.status(403).json({ error: 'Invalid OTP' });
+    }
+
+    res.status(500).json({
+      error: 'Download failed',
+      details: error.message
+    });
   }
 }

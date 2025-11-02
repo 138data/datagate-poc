@@ -1,102 +1,60 @@
-import crypto from 'crypto';
+﻿// api/download.js - JSON返却（Phase 40契約準拠）
+
 import { kv } from '@vercel/kv';
-
-// KDF設定
-const PBKDF2_ITERATIONS = 100000;
-const PBKDF2_KEYLEN = 32;
-const PBKDF2_DIGEST = 'sha256';
-
-// 復号化関数
-function decryptFile(encryptedBuffer, password) {
-  const salt = encryptedBuffer.subarray(0, 16);
-  const iv = encryptedBuffer.subarray(16, 28);
-  const tag = encryptedBuffer.subarray(28, 44);
-  const encrypted = encryptedBuffer.subarray(44);
-
-  const key = crypto.pbkdf2Sync(password, salt, PBKDF2_ITERATIONS, PBKDF2_KEYLEN, PBKDF2_DIGEST);
-  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
-  decipher.setAuthTag(tag);
-
-  return Buffer.concat([decipher.update(encrypted), decipher.final()]);
-}
+import crypto from 'crypto';
 
 export default async function handler(req, res) {
-  // Cache-Control: no-store を追加
-  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.setHeader('Content-Type', 'application/json');
 
-  if (req.method === 'GET') {
-    // GET: ダウンロードページ表示用の情報取得
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    return res.status(200).end();
+  }
+
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
     const { id } = req.query;
 
     if (!id) {
-      return res.status(400).json({ success: false, error: 'ファイルIDが指定されていません' });
+      return res.status(400).json({ error: 'File ID is required' });
     }
 
-    try {
-      const metadata = await kv.get(`file:${id}:meta`);
-
-      if (!metadata) {
-        return res.status(404).json({ success: false, error: 'ファイルが見つかりませんでした' });
-      }
-
-      return res.status(200).json({
-        success: true,
-        fileName: metadata.fileName,
-        fileSize: metadata.fileSize,
-        uploadedAt: metadata.uploadedAt,
-      });
-    } catch (error) {
-      console.error('Download GET error:', error);
-      return res.status(500).json({ success: false, error: 'ファイル情報の取得に失敗しました' });
+    // メタデータ取得
+    const metaStr = await kv.get(`file:${id}:meta`);
+    if (!metaStr) {
+      return res.status(404).json({ error: 'File not found or expired' });
     }
+
+    const metadata = JSON.parse(metaStr);
+
+    // ワンタイムトークン生成（60秒有効）
+    const token = crypto.randomBytes(32).toString('hex');
+    await kv.set(`token:${token}`, id, { ex: 60 });
+
+    // ダウンロードURL生成
+    const baseUrl = process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : 'http://localhost:3000';
+    const downloadUrl = `${baseUrl}/api/download-blob?token=${token}`;
+
+    res.status(200).json({
+      success: true,
+      fileName: metadata.fileName,
+      fileSize: metadata.fileSize,
+      downloadUrl,
+      expiresIn: 60
+    });
+
+  } catch (error) {
+    console.error('[api/download] Error:', error);
+    res.status(500).json({
+      error: 'Failed to prepare download',
+      details: error.message
+    });
   }
-
-  if (req.method === 'POST') {
-    // POST: OTP検証 → JSON で downloadUrl を返す
-    const { fileId, otp } = req.body;
-
-    if (!fileId || !otp) {
-      return res.status(400).json({ success: false, error: 'ファイルIDまたはOTPが指定されていません' });
-    }
-
-    try {
-      const metadata = await kv.get(`file:${fileId}:meta`);
-
-      if (!metadata) {
-        return res.status(404).json({ success: false, error: 'ファイルが見つかりませんでした' });
-      }
-
-      // 試行回数制限（5回）
-      if (metadata.failedAttempts >= 5) {
-        return res.status(403).json({ success: false, error: 'OTPの入力回数が上限に達しました（15分後に再試行してください）' });
-      }
-
-      // OTP検証
-      if (metadata.otp !== otp) {
-        metadata.failedAttempts += 1;
-        await kv.set(`file:${fileId}:meta`, metadata, { keepTtl: true });
-        return res.status(401).json({ success: false, error: 'OTPが正しくありません' });
-      }
-
-      // OTP正解 → 短TTLの署名付きトークンを生成
-      const token = crypto.randomBytes(32).toString('hex');
-      await kv.set(`download-token:${token}`, { fileId, exp: Date.now() + 5 * 60 * 1000 }, { ex: 300 }); // 5分
-
-      // downloadUrl を返す（契約準拠）
-      const protocol = req.headers['x-forwarded-proto'] || 'https';
-      const host = req.headers['x-forwarded-host'] || req.headers.host;
-      const baseUrl = `${protocol}://${host}`;
-      const downloadUrl = `${baseUrl}/api/download-blob?token=${token}`;
-
-      return res.status(200).json({
-        success: true,
-        downloadUrl: downloadUrl,
-      });
-    } catch (error) {
-      console.error('Download POST error:', error);
-      return res.status(500).json({ success: false, error: 'ダウンロード処理に失敗しました' });
-    }
-  }
-
-  return res.status(405).json({ success: false, error: 'Method Not Allowed' });
 }

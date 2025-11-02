@@ -1,19 +1,14 @@
-// api/health.js
-// Phase 40 Step 0 対応 - Cache-Control統一 + セキュリティヘッダー
+﻿// api/health.js - 完全版
 
-module.exports = (req, res) => {
-  // キャッシュ禁止（全APIポリシー統一）
-  res.setHeader('Cache-Control', 'no-store');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
-  
-  // セキュリティヘッダー
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  
-  return res.status(200).json({
+export default async function handler(req, res) {
+  // Cache-Control: no-store 追加（P0修正）
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.setHeader('Content-Type', 'application/json');
+
+  res.status(200).json({
     status: 'ok',
-    version: process.env.APP_VERSION || 'unknown',
     timestamp: new Date().toISOString(),
-    message: 'DataGate API is operational'
+    service: '138DataGate',
+    version: '1.0.0'
   });
-};
+}
