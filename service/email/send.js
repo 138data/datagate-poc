@@ -1,8 +1,10 @@
+# バックアップ作成
+Copy-Item service\email\send.js service\email\send.js.backup
+
+# 修正版を作成
+@'
 // service/email/send.js
-// Phase 39: 添付直送機能の中核メール送信サービス
-// - 添付直送: 許可ドメイン + サイズ制限内 + ENABLE_DIRECT_ATTACH=true
-// - フォールバック: リンク送付（既定動作）
-// - 監査ログ: mode（attach/link/blocked）と理由を KV に保存
+// Phase 41: 添付直送機能の中核メール送信サービス
 
 const sg = require('@sendgrid/mail');
 const { kv } = require('@vercel/kv');
@@ -12,10 +14,10 @@ const {
   SENDGRID_API_KEY,
   SENDGRID_FROM_EMAIL,
   SENDGRID_FROM_NAME = '138DataGate',
-  ENABLE_DIRECT_ATTACH = 'false',
+  ENABLE_DIRECT_ATTACH,
   MAIL_SANDBOX,
   ALLOWED_DIRECT_DOMAINS = '@138io.com,@138data.com',
-  DIRECT_ATTACH_MAX_SIZE = '4718592' // 4.5MB（base64膨張を考慮）
+  DIRECT_ATTACH_MAX_SIZE = '4718592'
 } = process.env;
 
 // SendGrid 初期化
@@ -53,13 +55,11 @@ async function auditLog(entry) {
       ...entry
     });
     
-    // 30日間保持
     await kv.set(key, value, { ex: 60 * 60 * 24 * 30 });
     
     console.log('[service/email/send] Audit log saved:', key);
   } catch (err) {
     console.error('[service/email/send] Audit log error:', err.message);
-    // 監査ログ失敗はメール送信を止めない
   }
 }
 
@@ -90,15 +90,13 @@ async function sendMailSecure(options) {
     otp
   } = options;
 
-  // 既定はリンク送付
   let mode = 'link';
   let reason = 'default_policy_link';
 
-  // 添付直送の条件チェック
   const enableDirectAttach = (ENABLE_DIRECT_ATTACH === 'true');
   const sandbox = (MAIL_SANDBOX === 'true');
   const allowedDomain = isAllowedDomain(to);
-  const sizeOk = (Number(fileSize) <= Number(DIRECT_ATTACH_MAX_SIZE));
+  const sizeOk = decryptedBuffer && (decryptedBuffer.length <= Number(DIRECT_ATTACH_MAX_SIZE));
 
   console.log('[service/email/send] Conditions check:', {
     to,
@@ -107,11 +105,11 @@ async function sendMailSecure(options) {
     sandbox,
     allowedDomain,
     sizeOk,
-    fileSize,
+    hasBuffer: !!decryptedBuffer,
+    bufferLength: decryptedBuffer?.length,
     maxSize: DIRECT_ATTACH_MAX_SIZE
   });
 
-  // フォールバック判定（優先順位順）
   if (sandbox) {
     mode = 'link';
     reason = 'sandbox_link_forced';
@@ -127,14 +125,13 @@ async function sendMailSecure(options) {
   } else if (!sizeOk) {
     mode = 'link';
     reason = 'size_over_threshold';
-    console.log('[service/email/send] File size over threshold:', fileSize);
+    console.log('[service/email/send] File size over threshold');
   } else if (enableDirectAttach && allowedDomain && sizeOk && decryptedBuffer) {
     mode = 'attach';
     reason = 'allowed_domain_and_size';
     console.log('[service/email/send] Direct attach mode enabled');
   }
 
-  // SendGrid メッセージ基本構造
   const msgBase = {
     to,
     from: { 
@@ -148,10 +145,8 @@ async function sendMailSecure(options) {
     }
   };
 
-  // モード別送信処理
   try {
     if (mode === 'attach' && decryptedBuffer) {
-      // 添付直送モード
       console.log('[service/email/send] Sending with attachment:', fileName);
       
       const content = decryptedBuffer.toString('base64');
@@ -172,7 +167,6 @@ async function sendMailSecure(options) {
       console.log('[service/email/send] Attachment sent successfully');
       
     } else {
-      // リンク送付モード（既定）
       console.log('[service/email/send] Sending with link:', downloadUrl);
       
       const bodyText = [
@@ -217,7 +211,6 @@ async function sendMailSecure(options) {
       console.log('[service/email/send] Link sent successfully');
     }
 
-    // 監査ログ保存
     await auditLog({
       fileId,
       fileName,
@@ -233,7 +226,6 @@ async function sendMailSecure(options) {
   } catch (err) {
     console.error('[service/email/send] SendGrid error:', err.message);
     
-    // エラー時も監査ログ
     await auditLog({
       fileId,
       fileName,
@@ -250,3 +242,6 @@ async function sendMailSecure(options) {
 }
 
 module.exports = { sendMailSecure, isAllowedDomain };
+'@ | Out-File -FilePath service\email\send.js -Encoding UTF8
+
+Write-Host "✅ service/email/send.js を更新しました" -ForegroundColor Green
