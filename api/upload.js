@@ -2,7 +2,6 @@ const multer = require('multer');
 const { kv } = require('@vercel/kv');
 const { encryptFile } = require('../lib/encryption.js');
 const { sendMailSecure } = require('../service/email/send.js');
-const { v4: uuidv4 } = require('uuid');
 const crypto = require('crypto');
 
 const storage = multer.memoryStorage();
@@ -49,7 +48,7 @@ module.exports = async (req, res) => {
         return res.status(400).json({ error: 'Valid recipient email is required' });
       }
 
-      const fileId = uuidv4();
+      const fileId = crypto.randomUUID();
       const originalFileName = req.file.originalname;
       const fileSize = req.file.size;
       const decryptedBuffer = req.file.buffer;
