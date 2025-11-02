@@ -1,8 +1,3 @@
-# バックアップ作成
-Copy-Item service\email\send.js service\email\send.js.backup
-
-# 修正版を作成
-@'
 // service/email/send.js
 // Phase 41: 添付直送機能の中核メール送信サービス
 
@@ -28,8 +23,6 @@ sg.setApiKey(SENDGRID_API_KEY || '');
 
 /**
  * 許可ドメインチェック
- * @param {string} toEmail - 送信先メールアドレス
- * @returns {boolean} 許可ドメインの場合 true
  */
 function isAllowedDomain(toEmail) {
   const allow = (ALLOWED_DIRECT_DOMAINS || '')
@@ -43,8 +36,6 @@ function isAllowedDomain(toEmail) {
 
 /**
  * 監査ログ保存
- * @param {object} entry - ログエントリ
- * @returns {Promise<void>}
  */
 async function auditLog(entry) {
   try {
@@ -65,17 +56,6 @@ async function auditLog(entry) {
 
 /**
  * セキュアメール送信
- * @param {object} options - 送信オプション
- * @param {string} options.to - 送信先メールアドレス
- * @param {string} options.subject - 件名
- * @param {string} options.text - 本文（プレーンテキスト）
- * @param {string} options.fileId - ファイルID
- * @param {string} options.fileName - ファイル名
- * @param {number} options.fileSize - ファイルサイズ（bytes）
- * @param {Buffer} options.decryptedBuffer - 復号化済みファイルバッファ（添付直送時のみ必要）
- * @param {string} options.downloadUrl - ダウンロードURL（リンク送付時）
- * @param {string} options.otp - OTP（リンク送付時）
- * @returns {Promise<{mode: string, reason: string}>}
  */
 async function sendMailSecure(options) {
   const {
@@ -242,6 +222,3 @@ async function sendMailSecure(options) {
 }
 
 module.exports = { sendMailSecure, isAllowedDomain };
-'@ | Out-File -FilePath service\email\send.js -Encoding UTF8
-
-Write-Host "✅ service/email/send.js を更新しました" -ForegroundColor Green
