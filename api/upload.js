@@ -70,7 +70,7 @@ module.exports = async (req, res) => {
 
       const ttlSeconds = 7 * 24 * 60 * 60;
       await kv.set(`file:${fileId}:meta`, JSON.stringify(metadata), { ex: ttlSeconds });
-      await kv.set(`file:${fileId}:data`, encryptedData.encrypted, { ex: ttlSeconds });
+      await kv.set(`file:${fileId}:data`, encryptedData.encryptedBuffer.toString('base64'), { ex: ttlSeconds });
 
       const baseUrl = process.env.VERCEL_URL
         ? `https://${process.env.VERCEL_URL}`
