@@ -50,3 +50,10 @@ api/test-mail.js
 SENDGRID_API_KEY.txt
 *.key
 *.secret
+
+# Phase backup files
+*.backup-*
+*.broken-*
+*phase*-[0-9]*
+*.utf8fix-*
+downloaded-*.txt
