@@ -1,0 +1,216 @@
+
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      .help-text {
+        font-size: 13px;
+        color: #666;
+        margin-top: 10px;
+        line-height: 1.5;
+      }
+>     .result-section {
+        display: none;
+        background: #f8f9fa;
+        border-radius: 15px;
+        padding: 25px;
+        margin-top: 20px;
+      }
+      .result-title {
+        color: #667eea;
+        font-size: 20px;
+        font-weight: 700;
+        margin-bottom: 20px;
+        text-align: center;
+      }
+      .result-item {
+        background: white;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 15px;
+      }
+      .result-label {
+        color: #666;
+        font-size: 12px;
+        font-weight: 600;
+        margin-bottom: 5px;
+        text-transform: uppercase;
+      }
+      .result-value {
+        color: #333;
+        font-size: 14px;
+        word-break: break-all;
+      }
+      .manage-link-box {
+        background: #fff3cd;
+        border: 2px solid #ffc107;
+        border-radius: 12px;
+        padding: 20px;
+        margin-top: 15px;
+      }
+      .manage-link-title {
+        color: #856404;
+        font-size: 14px;
+        font-weight: 700;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .manage-link-description {
+        color: #856404;
+        font-size: 13px;
+        line-height: 1.5;
+        margin-bottom: 15px;
+      }
+      .manage-link-url {
+        background: white;
+        border-radius: 8px;
+        padding: 12px;
+        word-break: break-all;
+      }
+      .manage-link-url a {
+        color: #667eea;
+        font-weight: 600;
+        text-decoration: none;
+        transition: color 0.2s ease;
+      }
+      .manage-link-url a:hover {
+        color: #764ba2;
+        text-decoration: underline;
+      }
+      .recipient-instructions {
+        background: #e8f5e9;
+        border-radius: 10px;
+        padding: 15px;
+        margin-top: 15px;
+      }
+      .recipient-instructions-title {
+        color: #2e7d32;
+        font-size: 14px;
+        font-weight: 700;
+        margin-bottom: 10px;
+          <div class="selected-file" id="selected-file">
+            📄 <span class="selected-file-name" id="file-name"></span>
+          </div>
+        </div>
+        <div id="message"></div>
+        <button type="submit" class="btn btn-primary" id="upload-btn">
+          🚀 送信する
+        </button>
+      </form>
+      <div class="spinner" id="spinner"></div>
+>     <div class="result-section" id="result-section">
+        <div class="result-title">✅ 送信完了！</div>
+        <!-- OTP表示エリア（追加） -->
+        <div style="background: #fef3c7; border: 2px solid #f59e0b; border-radius: 8px; padding: 15px; margin: 15px 0;">
+          <p style="margin: 0 0 8px 0; font-weight: bold;">🔐 ワンタイムパスワード (OTP)</p>
+          <p style="margin: 0; font-size: 24px; font-weight: bold; color: #ea580c;">
+            <span id="otpDisplay">------</span>
+          </p>
+          <p style="margin: 8px 0 0 0; font-size: 12px; color: #78716c;">
+            ※このコードは受信者に共有済みです
+          </p>
+        </div>
+        <div id="manage-link-container"></div>
+        <div class="recipient-instructions">
+          <div class="recipient-instructions-title">📧 受信者の操作手順</div>
+          <ol class="recipient-instructions-list">
+            <li>メールに届いたリンクをクリック</li>
+            <li>「認証コードを送信」ボタンをクリック</li>
+            <li>認証コード（6桁）を入力してダウンロード</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+    <script>
+      const form = document.getElementById('upload-form');
+      const fileInput = document.getElementById('file');
+      const dropZone = document.getElementById('drop-zone');
+      const selectedFile = document.getElementById('selected-file');
+      const fileNameSpan = document.getElementById('file-name');
+      const uploadBtn = document.getElementById('upload-btn');
+      const message = document.getElementById('message');
+      const spinner = document.getElementById('spinner');
+>     const resultSection = document.getElementById('result-section');
+      const manageLinkContainer = document.getElementById('manage-link-container');
+      // ドロップゾーンクリック → ファイル選択
+      dropZone.addEventListener('click', () => {
+        fileInput.click();
+      });
+      // ファイル選択時
+      fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          fileNameSpan.textContent = file.name;
+          selectedFile.style.display = 'block';
+          dropZone.style.display = 'none';
+        }
+      });
+      // ドラッグ&ドロップ
+      dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+      });
+      dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('dragover');
+      });
+      dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+       
+        const file = e.dataTransfer.files[0];
+        if (file) {
+          fileInput.files = e.dataTransfer.files;
+          fileNameSpan.textContent = file.name;
+          selectedFile.style.display = 'block';
+          dropZone.style.display = 'none';
+        }
+      });
+      // フォーム送信
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+       
+        const formData = new FormData(form);
+       
+        uploadBtn.disabled = true;
+        spinner.style.display = 'block';
+        message.innerHTML = '';
+        resultSection.style.display = 'none';
+        try {
+          const response = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData
+          });
+          const data = await response.json();
+          spinner.style.display = 'none';
+          if (data.success) {
+            // OTP表示（追加）
+            if (data.otp) {
+              document.getElementById('otpDisplay').textContent = data.otp;
+            }
+            // 成功メッセージ
+            form.style.display = 'none';
+            resultSection.style.display = 'block';
+            // 管理リンクを表示
+            if (data.manageUrl) {
+              manageLinkContainer.innerHTML = `
+                <div class="manage-link-box">
+                  <div class="manage-link-title">
+                    🔑 管理リンク（送信者専用）
+                  </div>
+                  <div class="manage-link-description">
+                    誤送信の場合、このリンクからファイルを失効できます。<br>
+                    このリンクは送信者のみが使用できます。
+                  </div>
+                  <div class="manage-link-url">
+                    <a href="${data.manageUrl}" target="_blank">
+                      管理ページを開く →
+                    </a>
+                  </div>
+                </div>
+              `;
+            }
+            // メール送信結果を表示
+            if (data.email && data.email.sent) {
+
