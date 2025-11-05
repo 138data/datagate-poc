@@ -1,138 +1,132 @@
 ﻿// api/admin/stats.js
-import { searchAuditLogs } from '../../lib/audit-log.js';
+const jwt = require('jsonwebtoken');
+const { kv } = require('@vercel/kv');
 
-/**
- * 統計データを集計
- * @param {Array} logs - 監査ログエントリ
- * @returns {Object} 集計結果
- */
-function aggregateStats(logs) {
-  const stats = {
-    totalEvents: logs.length,
-    modeDistribution: {
-      link: 0,
-      attach: 0,
-      blocked: 0
-    },
-    reasonDistribution: {},
-    domainDistribution: {},
-    dailyStats: {},
-    eventDistribution: {
-      upload_success: 0,
-      download_success: 0,
-      download_failed: 0,
-      download_blocked: 0
-    },
-    totalFileSize: 0
-  };
-
-  logs.forEach(log => {
-    // 安全なログ処理（古いフォーマット対応）
-    if (!log || typeof log !== 'object') {
-      return;
-    }
-
-    // Mode 分布
-    if (log.mode) {
-      stats.modeDistribution[log.mode] = (stats.modeDistribution[log.mode] || 0) + 1;
-    }
-
-    // Reason 分布
-    if (log.reason) {
-      stats.reasonDistribution[log.reason] = (stats.reasonDistribution[log.reason] || 0) + 1;
-    }
-
-    // Domain 分布
-    if (log.recipientDomain) {
-      stats.domainDistribution[log.recipientDomain] = (stats.domainDistribution[log.recipientDomain] || 0) + 1;
-    }
-
-    // Event 分布
-    if (log.event) {
-      stats.eventDistribution[log.event] = (stats.eventDistribution[log.event] || 0) + 1;
-    }
-
-    // 日次統計（timestamp が存在する場合のみ）
-    if (log.timestamp && typeof log.timestamp === 'string') {
-      const date = log.timestamp.split('T')[0]; // YYYY-MM-DD
-      if (!stats.dailyStats[date]) {
-        stats.dailyStats[date] = {
-          uploads: 0,
-          downloads: 0,
-          failures: 0,
-          totalSize: 0
-        };
-      }
-      
-      if (log.event === 'upload_success') {
-        stats.dailyStats[date].uploads += 1;
-      } else if (log.event === 'download_success') {
-        stats.dailyStats[date].downloads += 1;
-      } else if (log.event === 'download_failed' || log.event === 'download_blocked') {
-        stats.dailyStats[date].failures += 1;
-      }
-      
-      if (log.size) {
-        stats.dailyStats[date].totalSize += log.size;
-        stats.totalFileSize += log.size;
-      }
-    }
-  });
-
-  return stats;
-}
-
-export default async function handler(req, res) {
-  // Cache-Control: no-store
+module.exports = async (req, res) => {
+  // キャッシュ無効化
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
-
-  // CORS（開発環境用）
+  
+  // CORS設定
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  
+  // OPTIONS対応
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
-
+  
+  // ========== JWT検証（Phase 42-P3追加） ==========
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  
+  if (!token) {
+    return res.status(401).json({ error: 'Unauthorized: Token required' });
+  }
+  
+  try {
+    const JWT_SECRET = process.env.ADMIN_JWT_SECRET;
+    if (!JWT_SECRET) {
+      console.error('ADMIN_JWT_SECRET not configured');
+      return res.status(500).json({ error: 'Server not configured' });
+    }
+    
+    jwt.verify(token, JWT_SECRET, {
+      algorithms: ['HS256'],
+      issuer: '138datagate',
+      audience: 'admin-dashboard'
+    });
+  } catch (jwtError) {
+    console.error('JWT verification failed:', jwtError.message);
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+  // ========== JWT検証ここまで ==========
+  
+  // GETのみ許可
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
-
+  
   try {
-    // TODO: JWT認証を実装（Phase 42-P1）
-    // 現在は認証なしで動作（開発環境のみ使用）
-
-    // クエリパラメータから日数を取得（デフォルト7日）
-    const days = parseInt(req.query.days || '7', 10);
+    // 日数パラメータ（デフォルト7日）
+    const { days = '7' } = req.query;
+    const daysNum = Math.max(1, Math.min(90, parseInt(days, 10)));
     
-    if (days < 1 || days > 90) {
-      return res.status(400).json({ error: 'Days must be between 1 and 90' });
+    const now = Date.now();
+    const cutoffTime = now - (daysNum * 24 * 60 * 60 * 1000);
+    
+    // 監査ログ取得
+    const keys = await kv.keys('audit:*');
+    const logs = [];
+    
+    for (const key of keys) {
+      const log = await kv.get(key);
+      if (log && log.timestamp >= cutoffTime) {
+        logs.push(log);
+      }
     }
-
-    console.log(`[api/admin/stats] Fetching audit logs for ${days} days`);
-
-    // 監査ログを検索
-    const logs = await searchAuditLogs(days);
-
-    console.log(`[api/admin/stats] Found ${logs.length} log entries`);
-
-    // 統計を集計
-    const stats = aggregateStats(logs);
-
-    return res.status(200).json({
-      success: true,
-      days: days,
-      stats: stats,
-      logCount: logs.length
+    
+    // ソート（新しい順）
+    logs.sort((a, b) => b.timestamp - a.timestamp);
+    
+    // 集計
+    const modeCount = {};
+    const reasonCount = {};
+    const domainCount = {};
+    const dailyCount = {};
+    
+    logs.forEach(log => {
+      // Mode集計
+      const mode = log.mode || 'unknown';
+      modeCount[mode] = (modeCount[mode] || 0) + 1;
+      
+      // Reason集計
+      const reason = log.reason || 'unknown';
+      reasonCount[reason] = (reasonCount[reason] || 0) + 1;
+      
+      // Domain集計（toから抽出）
+      if (log.to) {
+        const domain = log.to.includes('@') ? '@' + log.to.split('@')[1] : 'unknown';
+        domainCount[domain] = (domainCount[domain] || 0) + 1;
+      }
+      
+      // 日別集計
+      const date = new Date(log.timestamp).toISOString().split('T')[0];
+      if (!dailyCount[date]) {
+        dailyCount[date] = { date, link: 0, attach: 0, blocked: 0 };
+      }
+      if (mode === 'link') dailyCount[date].link++;
+      if (mode === 'attach') dailyCount[date].attach++;
+      if (mode === 'blocked') dailyCount[date].blocked++;
     });
-
+    
+    // 日別データをソート
+    const dailyData = Object.values(dailyCount).sort((a, b) => 
+      a.date.localeCompare(b.date)
+    );
+    
+    const stats = {
+      period: {
+        days: daysNum,
+        from: new Date(cutoffTime).toISOString(),
+        to: new Date(now).toISOString()
+      },
+      summary: {
+        total: logs.length,
+        modes: modeCount,
+        reasons: reasonCount,
+        domains: domainCount
+      },
+      daily: dailyData,
+      recentLogs: logs.slice(0, 20)
+    };
+    
+    return res.status(200).json(stats);
+    
   } catch (error) {
-    console.error('[api/admin/stats] Error:', error);
-    return res.status(500).json({
-      error: 'Internal server error',
-      message: error.message
-    });
+    console.error('Stats error:', error);
+    return res.status(500).json({ error: 'Failed to fetch stats' });
   }
-}
+};
