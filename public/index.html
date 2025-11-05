@@ -10,7 +10,6 @@
       padding: 0;
       box-sizing: border-box;
     }
-
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -20,7 +19,6 @@
       align-items: center;
       padding: 20px;
     }
-
     .container {
       background: white;
       border-radius: 20px;
@@ -29,25 +27,21 @@
       max-width: 500px;
       width: 100%;
     }
-
     h1 {
       color: #667eea;
       font-size: 28px;
       margin-bottom: 10px;
       text-align: center;
     }
-
     .subtitle {
       color: #666;
       font-size: 14px;
       text-align: center;
       margin-bottom: 30px;
     }
-
     .input-group {
       margin-bottom: 20px;
     }
-
     .input-group label {
       display: block;
       color: #333;
@@ -55,7 +49,6 @@
       font-weight: 600;
       margin-bottom: 8px;
     }
-
     .input-group input[type="email"],
     .input-group input[type="file"] {
       width: 100%;
@@ -65,13 +58,11 @@
       font-size: 16px;
       transition: all 0.3s ease;
     }
-
     .input-group input[type="email"]:focus {
       outline: none;
       border-color: #667eea;
       box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
     }
-
     .file-drop-zone {
       border: 3px dashed #d1d8e0;
       border-radius: 15px;
@@ -81,33 +72,27 @@
       transition: all 0.3s ease;
       margin-bottom: 20px;
     }
-
     .file-drop-zone:hover {
       border-color: #667eea;
       background: #f8f9fa;
     }
-
     .file-drop-zone.dragover {
       border-color: #667eea;
       background: #e8ebf9;
     }
-
     .file-drop-icon {
       font-size: 48px;
       margin-bottom: 10px;
     }
-
     .file-drop-text {
       color: #666;
       font-size: 16px;
       margin-bottom: 5px;
     }
-
     .file-drop-subtext {
       color: #999;
       font-size: 13px;
     }
-
     .selected-file {
       background: #e8f5e9;
       border: 2px solid #4caf50;
@@ -116,13 +101,11 @@
       margin-bottom: 20px;
       display: none;
     }
-
     .selected-file-name {
       color: #2e7d32;
       font-weight: 600;
       word-break: break-all;
     }
-
     .btn {
       width: 100%;
       padding: 14px 24px;
@@ -134,23 +117,19 @@
       transition: all 0.3s ease;
       text-align: center;
     }
-
     .btn-primary {
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
     }
-
     .btn-primary:hover {
       transform: translateY(-2px);
       box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
     }
-
     .btn-primary:disabled {
       opacity: 0.6;
       cursor: not-allowed;
       transform: none;
     }
-
     .message {
       padding: 12px 16px;
       border-radius: 8px;
@@ -158,19 +137,16 @@
       font-size: 14px;
       text-align: center;
     }
-
     .message-success {
       background: #d4edda;
       color: #155724;
       border: 1px solid #c3e6cb;
     }
-
     .message-error {
       background: #f8d7da;
       color: #721c24;
       border: 1px solid #f5c6cb;
     }
-
     .spinner {
       display: none;
       width: 40px;
@@ -181,19 +157,16 @@
       border-radius: 50%;
       animation: spin 1s linear infinite;
     }
-
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
-
     .help-text {
       font-size: 13px;
       color: #666;
       margin-top: 10px;
       line-height: 1.5;
     }
-
     .result-section {
       display: none;
       background: #f8f9fa;
@@ -201,7 +174,6 @@
       padding: 25px;
       margin-top: 20px;
     }
-
     .result-title {
       color: #667eea;
       font-size: 20px;
@@ -209,14 +181,12 @@
       margin-bottom: 20px;
       text-align: center;
     }
-
     .result-item {
       background: white;
       border-radius: 10px;
       padding: 15px;
       margin-bottom: 15px;
     }
-
     .result-label {
       color: #666;
       font-size: 12px;
@@ -224,13 +194,11 @@
       margin-bottom: 5px;
       text-transform: uppercase;
     }
-
     .result-value {
       color: #333;
       font-size: 14px;
       word-break: break-all;
     }
-
     .manage-link-box {
       background: #fff3cd;
       border: 2px solid #ffc107;
@@ -238,7 +206,6 @@
       padding: 20px;
       margin-top: 15px;
     }
-
     .manage-link-title {
       color: #856404;
       font-size: 14px;
@@ -248,47 +215,40 @@
       align-items: center;
       gap: 8px;
     }
-
     .manage-link-description {
       color: #856404;
       font-size: 13px;
       line-height: 1.5;
       margin-bottom: 15px;
     }
-
     .manage-link-url {
       background: white;
       border-radius: 8px;
       padding: 12px;
       word-break: break-all;
     }
-
     .manage-link-url a {
       color: #667eea;
       font-weight: 600;
       text-decoration: none;
       transition: color 0.2s ease;
     }
-
     .manage-link-url a:hover {
       color: #764ba2;
       text-decoration: underline;
     }
-
     .recipient-instructions {
       background: #e8f5e9;
       border-radius: 10px;
       padding: 15px;
       margin-top: 15px;
     }
-
     .recipient-instructions-title {
       color: #2e7d32;
       font-size: 14px;
       font-weight: 700;
       margin-bottom: 10px;
     }
-
     .recipient-instructions-list {
       color: #2e7d32;
       font-size: 13px;
@@ -301,22 +261,20 @@
   <div class="container">
     <h1>📤 ファイル送信</h1>
     <p class="subtitle">安全なファイル受け渡し</p>
-
     <form id="upload-form">
       <div class="input-group">
         <label for="recipient">受信者のメールアドレス</label>
-        <input 
-          type="email" 
-          id="recipient" 
-          name="recipient" 
-          placeholder="例: user@example.com" 
+        <input
+          type="email"
+          id="recipient"
+          name="recipient"
+          placeholder="例: user@example.com"
           required
         >
         <p class="help-text">
           送信先のメールアドレスを入力してください。
         </p>
       </div>
-
       <div class="input-group">
         <label for="file">ファイル選択</label>
         <div class="file-drop-zone" id="drop-zone">
@@ -324,32 +282,36 @@
           <div class="file-drop-text">ファイルをドラッグ&ドロップ</div>
           <div class="file-drop-subtext">または クリックして選択</div>
         </div>
-        <input 
-          type="file" 
-          id="file" 
-          name="file" 
-          style="display: none;" 
+        <input
+          type="file"
+          id="file"
+          name="file"
+          style="display: none;"
           required
         >
         <div class="selected-file" id="selected-file">
           📄 <span class="selected-file-name" id="file-name"></span>
         </div>
       </div>
-
       <div id="message"></div>
-
       <button type="submit" class="btn btn-primary" id="upload-btn">
         🚀 送信する
       </button>
     </form>
-
     <div class="spinner" id="spinner"></div>
-
     <div class="result-section" id="result-section">
       <div class="result-title">✅ 送信完了！</div>
-      
+      <!-- OTP表示エリア（追加） -->
+      <div style="background: #fef3c7; border: 2px solid #f59e0b; border-radius: 8px; padding: 15px; margin: 15px 0;">
+        <p style="margin: 0 0 8px 0; font-weight: bold;">🔐 ワンタイムパスワード (OTP)</p>
+        <p style="margin: 0; font-size: 24px; font-weight: bold; color: #ea580c;">
+          <span id="otpDisplay">------</span>
+        </p>
+        <p style="margin: 8px 0 0 0; font-size: 12px; color: #78716c;">
+          ※このコードは受信者に共有済みです
+        </p>
+      </div>
       <div id="manage-link-container"></div>
-
       <div class="recipient-instructions">
         <div class="recipient-instructions-title">📧 受信者の操作手順</div>
         <ol class="recipient-instructions-list">
@@ -360,7 +322,6 @@
       </div>
     </div>
   </div>
-
   <script>
     const form = document.getElementById('upload-form');
     const fileInput = document.getElementById('file');
@@ -372,12 +333,10 @@
     const spinner = document.getElementById('spinner');
     const resultSection = document.getElementById('result-section');
     const manageLinkContainer = document.getElementById('manage-link-container');
-
     // ドロップゾーンクリック → ファイル選択
     dropZone.addEventListener('click', () => {
       fileInput.click();
     });
-
     // ファイル選択時
     fileInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
@@ -387,21 +346,18 @@
         dropZone.style.display = 'none';
       }
     });
-
     // ドラッグ&ドロップ
     dropZone.addEventListener('dragover', (e) => {
       e.preventDefault();
       dropZone.classList.add('dragover');
     });
-
     dropZone.addEventListener('dragleave', () => {
       dropZone.classList.remove('dragover');
     });
-
     dropZone.addEventListener('drop', (e) => {
       e.preventDefault();
       dropZone.classList.remove('dragover');
-      
+     
       const file = e.dataTransfer.files[0];
       if (file) {
         fileInput.files = e.dataTransfer.files;
@@ -410,32 +366,31 @@
         dropZone.style.display = 'none';
       }
     });
-
     // フォーム送信
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      
+     
       const formData = new FormData(form);
-      
+     
       uploadBtn.disabled = true;
       spinner.style.display = 'block';
       message.innerHTML = '';
       resultSection.style.display = 'none';
-
       try {
         const response = await fetch('/api/upload', {
           method: 'POST',
           body: formData
         });
-
         const data = await response.json();
         spinner.style.display = 'none';
-
         if (data.success) {
+          // OTP表示（追加）
+          if (data.otp) {
+            document.getElementById('otpDisplay').textContent = data.otp;
+          }
           // 成功メッセージ
           form.style.display = 'none';
           resultSection.style.display = 'block';
-
           // 管理リンクを表示
           if (data.manageUrl) {
             manageLinkContainer.innerHTML = `
@@ -455,7 +410,6 @@
               </div>
             `;
           }
-
           // メール送信結果を表示
           if (data.email && data.email.sent) {
             if (data.email.success) {
