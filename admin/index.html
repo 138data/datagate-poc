@@ -753,18 +753,20 @@
 
         // 統計カード更新
         document.getElementById('totalEvents').textContent = data.total || 0;
-        document.getElementById('linkCount').textContent = data.modeStats.link || 0;
-        document.getElementById('attachCount').textContent = data.modeStats.attach || 0;
-        document.getElementById('blockedCount').textContent = data.modeStats.blocked || 0;
+        const modeData = data.modeBreakdown || data.modeStats || {};
+        document.getElementById('linkCount').textContent = modeData?.link ?? 0;
+        document.getElementById('attachCount').textContent = modeData?.attach ?? 0;
+        document.getElementById('blockedCount').textContent = modeData?.blocked ?? 0;
 
         // 日別推移チャート（簡易表示）
         renderDailyChart(data.dailyStats);
 
         // Mode別チャート（簡易表示）
-        renderModeChart(data.modeStats);
+        renderModeChart(modeData);
 
         // Reason別チャート（簡易表示）
-        renderReasonChart(data.reasonStats);
+        const reasonData = data.reasonBreakdown || data.reasonStats || {};
+        renderReasonChart(reasonData);
 
         // ログテーブル更新
         const tbody = document.getElementById('logsTable');
@@ -1019,14 +1021,21 @@
     }
 
     // 簡易チャート描画（Mode別）
-    function renderModeChart(modeStats) {
-      const container = document.getElementById('modeChart');
-      const total = Object.values(modeStats).reduce((a, b) => a + b, 0);
+function renderModeChart(modeStats) {
+  const container = document.getElementById('modeChart');
+  
+  // null/undefined チェック
+  if (!modeStats || typeof modeStats !== 'object') {
+    container.innerHTML = '<p style="color: #86868b;">データがありません</p>';
+    return;
+  }
+  
+  const total = Object.values(modeStats).reduce((a, b) => a + b, 0);
 
-      if (total === 0) {
-        container.innerHTML = '<p style="color: #86868b;">データがありません</p>';
-        return;
-      }
+  if (total === 0) {
+    container.innerHTML = '<p style="color: #86868b;">データがありません</p>';
+    return;
+  }
 
       const colors = { link: '#0071e3', attach: '#34c759', blocked: '#ff3b30' };
       let html = '<div style="display: flex; flex-direction: column; gap: 12px;">';
