@@ -103,24 +103,27 @@ module.exports = async (req, res) => {
         const protocol = req.headers['x-forwarded-proto'] || 'https';
         const host = req.headers['host'] || req.headers['x-forwarded-host'] || 'localhost';
         const manageUrl = protocol + '://' + host + '/manage.html?id=' + fileId + '&token=' + manageToken;
+        
+        // ダウンロードURL生成（メール送信前に必要）
+        const downloadUrl = `${protocol}://${host}/download.html?fileId=${fileId}`;
 
         // 添付直送判定
         const shouldAttach = canUseDirectAttach(recipient, fileBuffer.length);
 
-        // メール送信
-        const emailResult = await sendEmail({
-          to: recipient,
+        // メール送信（新しい形式で呼び出し）
+        const emailResult = await sendEmail(
+          recipient,
           fileId,
           fileName,
+          fileBuffer.length,
+          downloadUrl,
           otp,
-          shouldAttach,
-          fileBuffer: shouldAttach ? fileBuffer : null
-        });
+          'link'
+        );
 
         console.log('[INFO] Email result:', emailResult);
 
         // レスポンス
-        const downloadUrl = `${protocol}://${host}/download.html?fileId=${fileId}`;
 
         return res.status(200).json({
           success: true,
@@ -157,3 +160,4 @@ module.exports = async (req, res) => {
     });
   }
 };
+
