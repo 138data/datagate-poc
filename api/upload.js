@@ -1,4 +1,4 @@
-﻿// api/upload.js - Vercel Blob対応版
+// api/upload.js - Vercel Blob対応版
 const { kv } = require('@vercel/kv');
 const busboy = require('busboy');
 const { v4: uuidv4 } = require('uuid');
@@ -120,10 +120,8 @@ module.exports = async (req, res) => {
         console.log('[INFO] Email result:', emailResult);
 
         // レスポンス
-        const protocol = req.headers['x-forwarded-proto'] || 'https';
-        const host = req.headers['host'] || req.headers['x-forwarded-host'] || 'datagate-poc.vercel.app';
         const downloadUrl = `${protocol}://${host}/download.html?fileId=${fileId}`;
-        
+
         return res.status(200).json({
           success: true,
           fileId,
