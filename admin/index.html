@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -346,6 +347,56 @@
       display: none;
     }
   </style>
+    /* 推奨値セクション */
+    .recommendations-section {
+      background: #f0f9ff;
+      border: 2px solid #0071e3;
+      padding: 24px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+    }
+    .recommendations-section h2 {
+      font-size: 20px;
+      margin-bottom: 16px;
+      color: #0071e3;
+    }
+    .recommendation-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .recommendation-item {
+      background: white;
+      padding: 16px;
+      border-radius: 8px;
+      border-left: 4px solid #0071e3;
+    }
+    .recommendation-item .label {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 4px;
+    }
+    .recommendation-item .value {
+      font-size: 18px;
+      font-weight: 600;
+      color: #1d1d1f;
+    }
+    .insights-list {
+      background: white;
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+    .insight-item {
+      padding: 8px 0;
+      border-bottom: 1px solid #eee;
+      font-size: 14px;
+    }
+    .insight-item:last-child {
+      border-bottom: none;
+    }
+  </style>
 </head>
 <body>
   <!-- ログインコンテナ -->
@@ -451,7 +502,40 @@
       <div class="tab-content" id="policyTab">
         <!-- 成功メッセージ -->
         <div id="successMessage" class="success-message"></div>
+<!-- 推奨値セクション -->
+        <div class="recommendations-section" id="recommendationsSection" style="display: none;">
+          <h2>💡 推奨ポリシー値（データ分析結果）</h2>
+          
+          <div class="recommendation-grid" id="recommendationGrid">
+            <div class="recommendation-item">
+              <div class="label">推奨：添付直送</div>
+              <div class="value" id="recEnableDirectAttach">-</div>
+            </div>
+            <div class="recommendation-item">
+              <div class="label">推奨：サイズ上限</div>
+              <div class="value" id="recMaxSize">-</div>
+            </div>
+            <div class="recommendation-item">
+              <div class="label">分析期間</div>
+              <div class="value" id="recPeriod">-</div>
+            </div>
+            <div class="recommendation-item">
+              <div class="label">総ファイル数</div>
+              <div class="value" id="recTotalFiles">-</div>
+            </div>
+          </div>
 
+          <div class="insights-list" id="insightsList"></div>
+
+          <div class="policy-actions">
+            <button type="button" class="btn btn-primary" onclick="applyRecommendations()">
+              ✅ 推奨値を適用
+            </button>
+            <button type="button" class="btn btn-secondary" onclick="loadRecommendations()">
+              🔄 推奨値を再計算
+            </button>
+          </div>
+        </div>
         <!-- ポリシー設定フォーム -->
         <div class="policy-section">
           <h2>⚙️ ポリシー設定</h2>
@@ -641,6 +725,7 @@
       // ポリシータブに切り替えた場合は履歴を読み込み
       if (tabName === 'policy') {
         loadPolicyHistory();
+        loadRecommendations();
       }
     }
 
@@ -989,6 +1074,91 @@
       html += '</div>';
       container.innerHTML = html;
     }
+// 推奨値の読み込み
+    let currentRecommendations = null;
+
+    async function loadRecommendations() {
+      const token = localStorage.getItem('adminToken');
+      if (!token) {
+        showLogin();
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/admin/recommendations?days=7', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.status === 401) {
+          localStorage.removeItem('adminToken');
+          showLogin();
+          return;
+        }
+
+        const data = await response.json();
+
+        if (data.success) {
+          currentRecommendations = data;
+          displayRecommendations(data);
+        } else {
+          console.error('Failed to load recommendations:', data.error);
+        }
+
+      } catch (error) {
+        console.error('Failed to load recommendations:', error);
+      }
+    }
+
+    // 推奨値の表示
+    function displayRecommendations(data) {
+      const section = document.getElementById('recommendationsSection');
+      section.style.display = 'block';
+
+      // 推奨値の表示
+      document.getElementById('recEnableDirectAttach').textContent = 
+        data.recommendations.enableDirectAttach ? '有効' : '無効';
+      
+      document.getElementById('recMaxSize').textContent = 
+        (data.recommendations.directAttachMaxSize / 1048576).toFixed(1) + ' MB';
+      
+      document.getElementById('recPeriod').textContent = data.analysis.period;
+      document.getElementById('recTotalFiles').textContent = data.analysis.totalFiles;
+
+      // インサイトの表示
+      const insightsList = document.getElementById('insightsList');
+      if (data.insights && data.insights.length > 0) {
+        insightsList.innerHTML = data.insights.map(insight => 
+          `<div class="insight-item">${insight}</div>`
+        ).join('');
+      } else {
+        insightsList.innerHTML = '<div class="insight-item">十分なデータがありません</div>';
+      }
+    }
+
+    // 推奨値の適用
+    function applyRecommendations() {
+      if (!currentRecommendations) {
+        alert('推奨値を読み込んでください');
+        return;
+      }
+
+      if (!confirm('推奨値をフォームに適用しますか？\n（保存ボタンを押すまで実際には適用されません）')) {
+        return;
+      }
+
+      const rec = currentRecommendations.recommendations;
+
+      // フォームに推奨値を設定
+      document.getElementById('enableDirectAttach').value = rec.enableDirectAttach.toString();
+      document.getElementById('directAttachMaxSize').value = 
+        (rec.directAttachMaxSize / 1048576).toFixed(1);
+
+      showSuccessMessage('推奨値をフォームに反映しました。保存ボタンを押して適用してください。');
+    }
+
   </script>
 </body>
 </html>
+```
