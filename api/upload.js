@@ -5,6 +5,7 @@ import { kv } from '@vercel/kv';
 import crypto from 'crypto';
 import { encryptFile } from '../lib/encryption.js';
 import { sendMailSecure } from '../service/email/send.js';
+import { saveAuditLog } from '../lib/audit-log.js';
 
 // multer 2.x: memoryStorage 使用
 const upload = multer({
@@ -123,30 +124,18 @@ export default async function handler(req, res) {
 
         console.log('[api/upload] Email sent:', emailResult);
 
-        // 監査ログ保存（Phase 42準備）
-        const auditLog = {
+        // 監査ログ保存（Phase 42-P3）
+        await saveAuditLog({
+          event: 'upload_success',
+          actor: recipientEmail,
           fileId,
-          timestamp: new Date().toISOString(),
-          recipientDomain: recipientEmail.substring(recipientEmail.indexOf('@')),
-          recipientEmail, // 詳細分析用
+          fileName: originalFileName,
+          to: recipientEmail,
           mode: emailResult.mode,
           reason: emailResult.reason,
-          fileSize,
-          fileName: originalFileName,
-          // Phase 42 で追加予定の診断情報
-          details: {
-            hasBuffer: !!file.buffer,
-            bufferLength: file.buffer?.length,
-            enableDirectAttach: process.env.ENABLE_DIRECT_ATTACH,
-            mailSandbox: process.env.MAIL_SANDBOX
-          }
-        };
-
-        await kv.set(
-          `audit:${Date.now()}:${fileId}`,
-          JSON.stringify(auditLog),
-          { ex: ttlSeconds }
-        );
+          size: fileSize,
+          status: 'success'
+        });
 
         // 成功レスポンス
         res.status(200).json({
