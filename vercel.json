@@ -4,5 +4,6 @@
     "api/**/*.js": {
       "maxDuration": 10
     }
-  }
+  },
+  "outputDirectory": "public"
 }
