@@ -105,7 +105,7 @@ module.exports = async (req, res) => {
         const manageUrl = protocol + '://' + host + '/manage.html?id=' + fileId + '&token=' + manageToken;
         
         // ダウンロードURL生成（メール送信前に必要）
-        const downloadUrl = `${protocol}://${host}/download.html?fileId=${fileId}`;
+        const downloadUrl = `${protocol}://${host}/download-v2.html?fileId=${fileId}`;
 
         // 添付直送判定
         const shouldAttach = canUseDirectAttach(recipient, fileBuffer.length);
