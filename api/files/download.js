@@ -1,8 +1,10 @@
-// api/files/download.js - Vercel Blob対応版
+// api/files/download.js - Vercel Blob対応版（OTP試行回数制限追加）
 const { kv } = require('@vercel/kv');
 const { decryptFile, verifyOTP } = require('../../lib/encryption');
 const { saveAuditLog } = require('../../lib/audit-log');
 const { downloadFromBlob } = require('../../lib/blob-storage');
+
+const MAX_OTP_ATTEMPTS = 5;
 
 const maskEmail = (mail) => {
   if (!mail || !mail.includes('@')) return '';
@@ -50,8 +52,15 @@ module.exports = async (req, res) => {
       }
 
       if (metadata.revokedAt) {
-        return res.status(403).json({ error: 'File has been revoked' });
+        return res.status(403).json({ 
+          success: false,
+          error: 'File has been revoked',
+          message: 'このファイルは無効化されています'
+        });
       }
+
+      const otpAttempts = metadata.otpAttempts || 0;
+      const remainingAttempts = Math.max(0, MAX_OTP_ATTEMPTS - otpAttempts);
 
       return res.status(200).json({
         success: true,
@@ -61,7 +70,10 @@ module.exports = async (req, res) => {
         expiresAt: metadata.expiresAt,
         downloadCount: metadata.downloadCount || 0,
         maxDownloads: metadata.maxDownloads || 3,
-        maskedEmail: maskEmail(metadata.recipient)
+        recipientMasked: maskEmail(metadata.recipient),
+        otpAttempts: otpAttempts,
+        maxOtpAttempts: MAX_OTP_ATTEMPTS,
+        remainingAttempts: remainingAttempts
       });
     }
 
@@ -85,7 +97,10 @@ module.exports = async (req, res) => {
       const metadata = safeParseMeta(metadataJson);
 
       if (!metadata) {
-        return res.status(404).json({ error: 'File not found' });
+        return res.status(404).json({ 
+          error: 'File not found',
+          message: 'ファイルが見つかりません'
+        });
       }
 
       if (metadata.revokedAt) {
@@ -96,20 +111,71 @@ module.exports = async (req, res) => {
           fileName: metadata.fileName,
           reason: 'revoked'
         });
-        return res.status(403).json({ error: 'File has been revoked' });
+        return res.status(403).json({ 
+          error: 'File has been revoked',
+          message: 'このファイルは無効化されています'
+        });
       }
 
+      // OTP試行回数チェック
+      const otpAttempts = metadata.otpAttempts || 0;
+      if (otpAttempts >= MAX_OTP_ATTEMPTS) {
+        await saveAuditLog({
+          event: 'download_blocked',
+          actor: metadata.recipient,
+          fileId: fileId,
+          fileName: metadata.fileName,
+          reason: 'max_otp_attempts_exceeded',
+          otpAttempts: otpAttempts
+        });
+        return res.status(403).json({ 
+          error: 'Maximum OTP attempts exceeded',
+          message: 'OTP試行回数の上限に達しました。このファイルは無効化されています。',
+          otpAttempts: otpAttempts,
+          maxOtpAttempts: MAX_OTP_ATTEMPTS,
+          locked: true
+        });
+      }
+
+      // OTP検証
       if (!verifyOTP(otp, metadata.otp)) {
+        // 試行回数をインクリメント
+        metadata.otpAttempts = otpAttempts + 1;
+        
+        // 最大試行回数に達したらファイルを無効化
+        if (metadata.otpAttempts >= MAX_OTP_ATTEMPTS) {
+          metadata.revokedAt = new Date().toISOString();
+          metadata.revokeReason = 'max_otp_attempts_exceeded';
+        }
+        
+        // メタデータを更新
+        await kv.set('file:' + fileId + ':meta', JSON.stringify(metadata), {
+          ex: 7 * 24 * 60 * 60
+        });
+        
+        const remainingAttempts = Math.max(0, MAX_OTP_ATTEMPTS - metadata.otpAttempts);
+        
         await saveAuditLog({
           event: 'download_failed',
           actor: metadata.recipient,
           fileId: fileId,
           fileName: metadata.fileName,
-          reason: 'invalid_otp'
+          reason: 'invalid_otp',
+          otpAttempts: metadata.otpAttempts,
+          remainingAttempts: remainingAttempts
         });
-        return res.status(401).json({ error: 'Invalid OTP' });
+        
+        return res.status(401).json({ 
+          error: 'Invalid OTP',
+          message: 'OTP認証に失敗しました',
+          otpAttempts: metadata.otpAttempts,
+          remainingAttempts: remainingAttempts,
+          maxOtpAttempts: MAX_OTP_ATTEMPTS,
+          locked: metadata.otpAttempts >= MAX_OTP_ATTEMPTS
+        });
       }
 
+      // OTP検証成功 - ダウンロード回数チェック
       const downloadCount = metadata.downloadCount || 0;
       const maxDownloads = metadata.maxDownloads || 3;
 
@@ -121,7 +187,10 @@ module.exports = async (req, res) => {
           fileName: metadata.fileName,
           reason: 'max_downloads_exceeded'
         });
-        return res.status(403).json({ error: 'Maximum download limit reached' });
+        return res.status(403).json({ 
+          error: 'Maximum download limit reached',
+          message: 'ダウンロード回数の上限に達しました'
+        });
       }
 
       // Blob からダウンロード
@@ -139,8 +208,9 @@ module.exports = async (req, res) => {
 
       console.log('[INFO] Decrypted file size:', decryptedBuffer.length, 'bytes');
 
-      // ダウンロード回数更新
+      // ダウンロード回数更新 & OTP試行回数リセット
       metadata.downloadCount = downloadCount + 1;
+      metadata.otpAttempts = 0;
       await kv.set('file:' + fileId + ':meta', JSON.stringify(metadata), {
         ex: 7 * 24 * 60 * 60
       });
