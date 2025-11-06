@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ファイルダウンロード - 138DataGate</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #667eea;
+            font-size: 28px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .file-info {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+
+        .file-info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .file-info-item:last-child {
+            border-bottom: none;
+        }
+
+        .file-info-label {
+            color: #666;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .file-info-value {
+            color: #333;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            color: #333;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(17, 153, 142, 0.4);
+        }
+
+        .btn-success:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .message {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .message-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .message-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .spinner {
+            display: none;
+            width: 40px;
+            height: 40px;
+            margin: 20px auto;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .help-text {
+            font-size: 13px;
+            color: #666;
+            margin-top: 10px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📥 ファイルダウンロード</h1>
+        <p class="subtitle">安全なファイル受け渡し</p>
+
+        <!-- ファイル情報 -->
+        <div class="file-info" id="file-info-section" style="display: none;">
+            <div class="file-info-item">
+                <span class="file-info-label">ファイル名</span>
+                <span class="file-info-value" id="file-name">読み込み中...</span>
+            </div>
+            <div class="file-info-item">
+                <span class="file-info-label">サイズ</span>
+                <span class="file-info-value" id="file-size">-</span>
+            </div>
+            <div class="file-info-item">
+                <span class="file-info-label">有効期限</span>
+                <span class="file-info-value" id="expires-at">-</span>
+            </div>
+        </div>
+
+        <!-- メッセージ表示エリア -->
+        <div id="message"></div>
+
+        <!-- OTP入力 -->
+        <div class="input-group">
+            <label for="otp-input">認証コード（6桁）</label>
+            <input
+                type="text"
+                id="otp-input"
+                placeholder="例: 123456"
+                maxlength="6"
+                pattern="[0-9]{6}"
+                inputmode="numeric"
+                autocomplete="off"
+            >
+        </div>
+
+        <!-- ダウンロードボタン -->
+        <button id="download-btn" class="btn btn-success" disabled>
+            ⬇️ ダウンロード
+        </button>
+
+        <p class="help-text">
+            メールに届いた6桁の認証コードを入力してください。
+        </p>
+
+        <div class="spinner" id="spinner"></div>
+    </div>
+
+    <script>
+        console.log('[DEBUG] Script loaded');
+
+        // URLパラメータからfileIdを取得（?id= と ?fileId= 両対応）
+        const urlParams = new URLSearchParams(window.location.search);
+        const fileId = urlParams.get('fileId') || urlParams.get('id');
+        
+        console.log('[DEBUG] fileId:', fileId);
+
+        if (!fileId) {
+            alert('ファイルIDが指定されていません');
+            window.location.href = '/';
+        }
+
+        const downloadBtn = document.getElementById('download-btn');
+        const otpInput = document.getElementById('otp-input');
+        const message = document.getElementById('message');
+        const spinner = document.getElementById('spinner');
+
+        // ページ読み込み時にファイル情報を取得
+        async function loadFileInfo() {
+            try {
+                console.log('[DEBUG] Fetching file info...');
+                spinner.style.display = 'block';
+
+                const response = await fetch(`/api/files/download?id=${fileId}`);
+                const data = await response.json();
+
+                console.log('[DEBUG] File info response:', data);
+                spinner.style.display = 'none';
+
+                if (!data.success) {
+                    message.innerHTML = `<div class="message message-error">${data.message}</div>`;
+                    return;
+                }
+
+                // ファイル情報を表示
+                document.getElementById('file-name').textContent = data.fileName;
+                document.getElementById('file-size').textContent = formatFileSize(data.fileSize);
+                document.getElementById('expires-at').textContent = formatDate(data.expiresAt);
+                document.getElementById('file-info-section').style.display = 'block';
+
+                // ダウンロードボタンを有効化
+                downloadBtn.disabled = false;
+                console.log('[DEBUG] Download button enabled');
+
+            } catch (error) {
+                spinner.style.display = 'none';
+                message.innerHTML = '<div class="message message-error">ファイル情報の取得に失敗しました</div>';
+                console.error('[DEBUG] Error loading file info:', error);
+            }
+        }
+
+        // ファイルサイズのフォーマット
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        // 日付のフォーマット
+        function formatDate(isoString) {
+            const date = new Date(isoString);
+            return date.toLocaleString('ja-JP', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // ダウンロード処理
+        downloadBtn.addEventListener('click', async () => {
+            const otp = otpInput.value.trim();
+
+            console.log('[DEBUG] Download button clicked, OTP:', otp);
+
+            if (otp.length !== 6 || !/^\d{6}$/.test(otp)) {
+                message.innerHTML = '<div class="message message-error">認証コードは6桁の数字で入力してください</div>';
+                return;
+            }
+
+            downloadBtn.disabled = true;
+            spinner.style.display = 'block';
+            message.innerHTML = '';
+
+            try {
+                console.log('[DEBUG] Sending download request...');
+
+                const response = await fetch('/api/files/download', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ fileId, otp })
+                });
+
+                console.log('[DEBUG] Download response status:', response.status);
+                spinner.style.display = 'none';
+
+                if (response.ok) {
+                    // ファイルダウンロード
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+
+                    // Content-Dispositionヘッダーからファイル名を取得
+                    const contentDisposition = response.headers.get('Content-Disposition');
+                    let fileName = 'download.txt';
+                    if (contentDisposition) {
+                        const fileNameMatch = contentDisposition.match(/filename\*=UTF-8''(.+)/);
+                        if (fileNameMatch) {
+                            fileName = decodeURIComponent(fileNameMatch[1]);
+                        }
+                    }
+
+                    a.download = fileName;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+
+                    console.log('[DEBUG] Download completed');
+
+                    // 成功メッセージ
+                    message.innerHTML = '<div class="message message-success">✅ ダウンロードが完了しました</div>';
+                    downloadBtn.textContent = '✅ ダウンロード完了';
+                    downloadBtn.disabled = true;
+
+                } else {
+                    const data = await response.json();
+                    console.log('[DEBUG] Download failed:', data);
+                    message.innerHTML = `<div class="message message-error">${data.message}</div>`;
+                    downloadBtn.disabled = false;
+                }
+
+            } catch (error) {
+                spinner.style.display = 'none';
+                message.innerHTML = '<div class="message message-error">ダウンロードに失敗しました</div>';
+                downloadBtn.disabled = false;
+                console.error('[DEBUG] Error downloading file:', error);
+            }
+        });
+
+        // OTP入力時にエンターキーでダウンロード
+        otpInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !downloadBtn.disabled) {
+                downloadBtn.click();
+            }
+        });
+
+        // ページ読み込み時にファイル情報を取得
+        loadFileInfo();
+    </script>
+<!-- Force deploy 2025-11-06 11:28:53 -->
+</body>
+</html>
+

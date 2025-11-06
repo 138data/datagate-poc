@@ -1,9 +1,19 @@
 {
-  "version": 2,
-  "functions": {
-    "api/**/*.js": {
-      "maxDuration": 10
+  "redirects": [
+    {
+      "source": "/download.html",
+      "destination": "/download-v2.html"
     }
-  },
-  "outputDirectory": "public"
+  ],
+  "headers": [
+    {
+      "source": "/download-v2.html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, no-cache, must-revalidate"
+        }
+      ]
+    }
+  ]
 }
