@@ -12,130 +12,81 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             display: flex;
-            justify-content: center;
             align-items: center;
+            justify-content: center;
             padding: 20px;
         }
 
         .container {
             background: white;
-            border-radius: 20px;
+            border-radius: 16px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             padding: 40px;
             max-width: 500px;
             width: 100%;
         }
 
-        h1 {
-            color: #667eea;
-            font-size: 28px;
-            margin-bottom: 10px;
-            text-align: center;
-        }
-
-        .subtitle {
-            color: #666;
-            font-size: 14px;
+        .header {
             text-align: center;
             margin-bottom: 30px;
+        }
+
+        .header-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 14px;
         }
 
         .file-info {
             background: #f8f9fa;
             border-radius: 12px;
             padding: 20px;
-            margin-bottom: 25px;
+            margin-bottom: 20px;
         }
 
         .file-info-item {
             display: flex;
             justify-content: space-between;
-            padding: 8px 0;
+            margin-bottom: 12px;
+            padding-bottom: 12px;
             border-bottom: 1px solid #e9ecef;
         }
 
         .file-info-item:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
             border-bottom: none;
         }
 
         .file-info-label {
             color: #666;
-            font-size: 13px;
-            font-weight: 500;
+            font-size: 14px;
         }
 
         .file-info-value {
             color: #333;
+            font-weight: 500;
             font-size: 14px;
-            font-weight: 600;
             text-align: right;
-            word-break: break-all;
         }
 
         .download-count {
-            color: #667eea;
-            font-weight: 700;
-        }
-
-        .input-group {
-            margin-bottom: 20px;
-        }
-
-        .input-group label {
-            display: block;
-            color: #333;
-            font-size: 14px;
+            color: #764ba2;
             font-weight: 600;
-            margin-bottom: 8px;
-        }
-
-        .input-group input {
-            width: 100%;
-            padding: 12px 16px;
-            border: 2px solid #e9ecef;
-            border-radius: 10px;
-            font-size: 18px;
-            letter-spacing: 2px;
-            text-align: center;
-            transition: all 0.3s ease;
-        }
-
-        .input-group input:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-
-        .btn {
-            width: 100%;
-            padding: 14px 24px;
-            border: none;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-align: center;
-        }
-
-        .btn-success {
-            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-            color: white;
-        }
-
-        .btn-success:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(17, 153, 142, 0.4);
-        }
-
-        .btn-success:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
         }
 
         .message {
@@ -143,75 +94,135 @@
             border-radius: 8px;
             margin-bottom: 20px;
             font-size: 14px;
-            line-height: 1.5;
         }
 
         .message-success {
-            background: #d4edda;
+            background-color: #d4edda;
             color: #155724;
             border: 1px solid #c3e6cb;
         }
 
         .message-error {
-            background: #f8d7da;
+            background-color: #f8d7da;
             color: #721c24;
             border: 1px solid #f5c6cb;
         }
 
         .message-warning {
-            background: #fff3cd;
+            background-color: #fff3cd;
             color: #856404;
             border: 1px solid #ffeaa7;
         }
 
-        .spinner {
-            display: none;
-            width: 40px;
-            height: 40px;
-            margin: 20px auto;
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
+        .message-info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
         }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        .form-group {
+            margin-bottom: 20px;
         }
 
-        .help-text {
-            font-size: 13px;
-            color: #666;
-            margin-top: 15px;
-            line-height: 1.6;
+        .form-label {
+            display: block;
+            color: #333;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .otp-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 24px;
             text-align: center;
+            letter-spacing: 8px;
+            transition: all 0.3s;
+        }
+
+        .otp-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
         .otp-attempts {
-            font-size: 12px;
-            color: #dc3545;
-            margin-top: 5px;
+            margin-top: 10px;
+            padding: 8px 12px;
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 6px;
+            color: #856404;
+            font-size: 13px;
             text-align: center;
         }
 
-        @media (max-width: 600px) {
-            .container {
-                padding: 30px 20px;
-            }
-            h1 {
-                font-size: 24px;
-            }
+        .download-btn {
+            width: 100%;
+            padding: 14px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .download-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .download-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .help-text {
+            text-align: center;
+            color: #666;
+            font-size: 13px;
+            margin-top: 12px;
+            line-height: 1.6;
+        }
+
+        .help-text-icon {
+            margin-right: 4px;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>📥 ファイルダウンロード</h1>
-        <p class="subtitle">安全なファイル受け渡し</p>
+        <div class="header">
+            <div class="header-icon">📥</div>
+            <h1>ファイルダウンロード</h1>
+            <p>安全なファイル受け渡し</p>
+        </div>
 
-        <!-- ファイル情報 -->
-        <div class="file-info" id="file-info-section" style="display: none;">
+        <div class="file-info" id="file-info">
             <div class="file-info-item">
                 <span class="file-info-label">ファイル名</span>
                 <span class="file-info-value" id="file-name">読み込み中...</span>
@@ -219,10 +230,6 @@
             <div class="file-info-item">
                 <span class="file-info-label">サイズ</span>
                 <span class="file-info-value" id="file-size">-</span>
-            </div>
-            <div class="file-info-item">
-                <span class="file-info-label">送信先</span>
-                <span class="file-info-value" id="recipient">-</span>
             </div>
             <div class="file-info-item">
                 <span class="file-info-label">ダウンロード回数</span>
@@ -234,260 +241,188 @@
             </div>
         </div>
 
-        <!-- メッセージ表示エリア -->
-        <div id="message"></div>
+        <div id="message-container"></div>
 
-        <!-- OTP入力 -->
-        <div class="input-group">
-            <label for="otp-input">認証コード（6桁の数字）</label>
-            <input
-                type="text"
-                id="otp-input"
-                placeholder="123456"
-                maxlength="6"
-                pattern="[0-9]{6}"
-                inputmode="numeric"
-                autocomplete="off"
-            >
-            <div class="otp-attempts" id="otp-attempts" style="display: none;"></div>
-        </div>
-
-        <!-- ダウンロードボタン -->
-        <button id="download-btn" class="btn btn-success" disabled>
-            ⬇️ ダウンロード
-        </button>
-
-        <p class="help-text">
-            📧 メールに届いた6桁の認証コードを入力してください<br>
-            ⌨️ Enterキーでもダウンロードできます
-        </p>
-
-        <div class="spinner" id="spinner"></div>
+        <form id="download-form">
+            <div class="form-group">
+                <label class="form-label" for="otp">認証コード（6桁の数字）</label>
+                <input 
+                    type="text" 
+                    id="otp" 
+                    class="otp-input" 
+                    maxlength="6" 
+                    pattern="[0-9]{6}" 
+                    placeholder="000000"
+                    autocomplete="off"
+                    required
+                >
+                <div class="otp-attempts" id="otp-attempts" style="display: none;"></div>
+            </div>
+            <button type="button" id="download-btn" class="download-btn">
+                ✓ ダウンロード完了
+            </button>
+            <div class="help-text">
+                <div><span class="help-text-icon">🔐</span>メールに届いた6桁の認証コードを入力してください</div>
+                <div><span class="help-text-icon">⌨️</span>Enterキーでもダウンロードできます</div>
+            </div>
+        </form>
     </div>
-        <script>
-        console.log('[DEBUG] Script loaded');
 
-        const urlParams = new URLSearchParams(window.location.search);
-        const fileId = urlParams.get('fileId') || urlParams.get('id');
+    <script>
+        var fileId = new URLSearchParams(window.location.search).get('fileId');
+        var otpInput = document.getElementById('otp');
+        var downloadBtn = document.getElementById('download-btn');
+        var messageContainer = document.getElementById('message-container');
+        var otpAttemptsDiv = document.getElementById('otp-attempts');
+        var isDownloading = false;
 
-        console.log('[DEBUG] fileId:', fileId);
-
-        if (!fileId) {
-            alert('ファイルIDが指定されていません');
-            window.location.href = '/';
+        function showMessage(type, text) {
+            messageContainer.innerHTML = '<div class="message message-' + type + '">' + text + '</div>';
         }
 
-        const downloadBtn = document.getElementById('download-btn');
-        const otpInput = document.getElementById('otp-input');
-        const messageDiv = document.getElementById('message');
-        const spinner = document.getElementById('spinner');
-        const otpAttemptsDiv = document.getElementById('otp-attempts');
-
-        let otpAttempts = 0;
-        const MAX_OTP_ATTEMPTS = 5;
-        let isDownloading = false;
-
-        function showMessage(text, type) {
-            if (!type) type = 'error';
-            messageDiv.innerHTML = '<div class="message message-' + type + '">' + text + '</div>';
-            console.log('[DEBUG] Message displayed: [' + type + '] ' + text);
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            var k = 1024;
+            var sizes = ['B', 'KB', 'MB', 'GB'];
+            var i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
         }
 
-        function updateOtpAttempts() {
-            if (otpAttempts > 0) {
-                const remaining = MAX_OTP_ATTEMPTS - otpAttempts;
-                otpAttemptsDiv.textContent = '❌ 認証失敗 ' + otpAttempts + '回 / 残り ' + remaining + '回';
-                otpAttemptsDiv.style.display = 'block';
-            }
+        function formatDate(isoString) {
+            var date = new Date(isoString);
+            var year = date.getFullYear();
+            var month = ('0' + (date.getMonth() + 1)).slice(-2);
+            var day = ('0' + date.getDate()).slice(-2);
+            var hours = ('0' + date.getHours()).slice(-2);
+            var minutes = ('0' + date.getMinutes()).slice(-2);
+            return year + '/' + month + '/' + day + ' ' + hours + ':' + minutes;
         }
 
-        async function loadFileInfo() {
-            try {
-                console.log('[DEBUG] Fetching file info...');
-                spinner.style.display = 'block';
-
-                const response = await fetch('/api/files/download?id=' + fileId);
-                const data = await response.json();
-
-                console.log('[DEBUG] File info response:', data);
-                spinner.style.display = 'none';
-
+        fetch('/api/files/download?id=' + fileId)
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
                 if (!data.success) {
-                    showMessage(data.message || 'ファイル情報の取得に失敗しました', 'error');
+                    showMessage('error', data.message || 'ファイル情報の取得に失敗しました');
+                    downloadBtn.disabled = true;
                     return;
                 }
 
                 document.getElementById('file-name').textContent = data.fileName;
-                document.getElementById('file-size').textContent = formatFileSize(data.fileSize);
+                document.getElementById('file-size').textContent = formatBytes(data.fileSize);
+                document.getElementById('download-count').textContent = data.downloadCount + ' / ' + data.maxDownloads + '回';
                 document.getElementById('expires-at').textContent = formatDate(data.expiresAt);
-                
-                if (data.recipientMasked) {
-                    document.getElementById('recipient').textContent = data.recipientMasked;
+
+                if (data.otpAttempts > 0) {
+                    var remaining = data.maxOtpAttempts - data.otpAttempts;
+                    otpAttemptsDiv.textContent = '❌ 認証失敗 ' + data.otpAttempts + '回 / 残り ' + remaining + '回';
+                    otpAttemptsDiv.style.display = 'block';
                 }
-                
-                const downloadCount = data.downloadCount || 0;
-                const maxDownloads = data.maxDownloads || 3;
-                document.getElementById('download-count').textContent = downloadCount + ' / ' + maxDownloads + '回';
-                
-                if (downloadCount >= maxDownloads) {
-                    showMessage('このファイルは既にダウンロード回数制限に達しています', 'warning');
-                    downloadBtn.disabled = true;
-                    otpInput.disabled = true;
-                    return;
-                }
-
-                document.getElementById('file-info-section').style.display = 'block';
-                downloadBtn.disabled = false;
-                console.log('[DEBUG] Download button enabled');
-
-            } catch (error) {
-                spinner.style.display = 'none';
-                showMessage('ファイル情報の取得に失敗しました', 'error');
-                console.error('[DEBUG] Error loading file info:', error);
-            }
-        }
-
-        function formatFileSize(bytes) {
-            if (bytes < 1024) return bytes + ' B';
-            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-        }
-
-        function formatDate(isoString) {
-            const date = new Date(isoString);
-            return date.toLocaleString('ja-JP', {
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-        }
-
-        async function performDownload() {
-            if (isDownloading) {
-                console.log('[DEBUG] Already downloading, skipping...');
-                return;
-            }
-
-            const otp = otpInput.value.trim();
-            console.log('[DEBUG] Download attempt, OTP:', otp);
-
-            if (otp.length !== 6 || !/^\d{6}$/.test(otp)) {
-                showMessage('認証コードは6桁の数字で入力してください', 'error');
-                return;
-            }
-
-            if (otpAttempts >= MAX_OTP_ATTEMPTS) {
-                showMessage('認証に失敗しました。セキュリティのため、このリンクは無効化されました。', 'error');
+            })
+            .catch(function(error) {
+                console.error('Error:', error);
+                showMessage('error', 'ファイル情報の取得に失敗しました');
                 downloadBtn.disabled = true;
-                otpInput.disabled = true;
+            });
+
+        function handleDownload() {
+            if (isDownloading) {
+                return;
+            }
+
+            var otp = otpInput.value.trim();
+            if (!otp || otp.length !== 6) {
+                showMessage('warning', '6桁の認証コードを入力してください');
                 return;
             }
 
             isDownloading = true;
             downloadBtn.disabled = true;
-            downloadBtn.textContent = '⏳ ダウンロード中...';
-            spinner.style.display = 'block';
-            messageDiv.innerHTML = '';
+            downloadBtn.innerHTML = '<span class="loading"></span> 処理中...';
 
-            try {
-                console.log('[DEBUG] Sending download request...');
-
-                const response = await fetch('/api/files/download', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ fileId: fileId, otp: otp })
+            fetch('/api/files/download', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fileId: fileId, otp: otp })
+            })
+            .then(function(response) {
+                if (!response.ok) {
+                    return response.json().then(function(data) {
+                        throw data;
+                    });
+                }
+                return response.blob().then(function(blob) {
+                    return {
+                        blob: blob,
+                        filename: decodeURIComponent(
+                            response.headers.get('Content-Disposition')
+                                .split('filename*=UTF-8\'\'')[1] || 'download.txt'
+                        )
+                    };
                 });
+            })
+            .then(function(result) {
+                var url = window.URL.createObjectURL(result.blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = result.filename;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
 
-                console.log('[DEBUG] Download response status:', response.status);
-                spinner.style.display = 'none';
-
-                if (response.ok) {
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-
-                    const contentDisposition = response.headers.get('Content-Disposition');
-                    let fileName = 'download.txt';
-                    if (contentDisposition) {
-                        const fileNameMatch = contentDisposition.match(/filename\*=UTF-8''(.+)/);
-                        if (fileNameMatch) {
-                            fileName = decodeURIComponent(fileNameMatch[1]);
-                        } else {
-                            const simpleMatch = contentDisposition.match(/filename="?(.+)"?/);
-                            if (simpleMatch) {
-                                fileName = simpleMatch[1];
-                            }
+                showMessage('success', 'ダウンロードが完了しました');
+                downloadBtn.innerHTML = '✓ ダウンロード完了';
+                otpAttemptsDiv.style.display = 'none';
+                isDownloading = false;
+            })
+            .catch(function(error) {
+                console.error('Download error:', error);
+                
+                var errorMsg = error.message || 'ダウンロードに失敗しました';
+                
+                if (error.locked) {
+                    showMessage('error', '❌ ' + errorMsg + ' - ファイルは無効化されました');
+                    downloadBtn.disabled = true;
+                    downloadBtn.innerHTML = '🔒 ファイルは無効化されました';
+                    otpInput.disabled = true;
+                } else {
+                    showMessage('error', errorMsg);
+                    
+                    if (error.otpAttempts !== undefined) {
+                        var remaining = error.maxOtpAttempts - error.otpAttempts;
+                        otpAttemptsDiv.textContent = '❌ 認証失敗 ' + error.otpAttempts + '回 / 残り ' + remaining + '回';
+                        otpAttemptsDiv.style.display = 'block';
+                        
+                        if (remaining === 0) {
+                            downloadBtn.disabled = true;
+                            downloadBtn.innerHTML = '🔒 ファイルは無効化されました';
+                            otpInput.disabled = true;
                         }
                     }
-
-                    a.download = fileName;
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    document.body.removeChild(a);
-
-                    console.log('[DEBUG] Download completed');
-
-                    showMessage('✅ ダウンロードが完了しました', 'success');
-                    downloadBtn.textContent = '✅ ダウンロード完了';
-                    downloadBtn.disabled = true;
-                    otpInput.disabled = true;
-
-                    setTimeout(function() {
-                        loadFileInfo();
-                    }, 1000);
-
-                } else {
-                    const data = await response.json();
-                    console.log('[DEBUG] Download failed:', data);
-                    
-                    otpAttempts++;
-                    updateOtpAttempts();
-                    
-                    const errorMessage = data.message || data.error || 'ダウンロードに失敗しました';
-                    showMessage(errorMessage, 'error');
-                    
-                    downloadBtn.textContent = '⬇️ ダウンロード';
-                    downloadBtn.disabled = false;
-                    isDownloading = false;
                     
                     otpInput.value = '';
+                    otpInput.disabled = false;
+                    downloadBtn.disabled = false;
+                    downloadBtn.innerHTML = '✓ ダウンロード完了';
                     otpInput.focus();
                 }
-
-            } catch (error) {
-                spinner.style.display = 'none';
-                showMessage('ダウンロードに失敗しました。ネットワーク接続を確認してください。', 'error');
-                downloadBtn.textContent = '⬇️ ダウンロード';
-                downloadBtn.disabled = false;
+                
                 isDownloading = false;
-                console.error('[DEBUG] Error downloading file:', error);
-            }
+            });
         }
 
-        downloadBtn.addEventListener('click', performDownload);
+        downloadBtn.addEventListener('click', handleDownload);
 
         otpInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && !downloadBtn.disabled && !isDownloading) {
+            if (e.key === 'Enter') {
                 e.preventDefault();
-                performDownload();
+                handleDownload();
             }
         });
 
         otpInput.addEventListener('input', function(e) {
-            const otp = e.target.value.trim();
-            if (otp.length === 6 && /^\d{6}$/.test(otp)) {
-                downloadBtn.disabled = false;
-            }
+            e.target.value = e.target.value.replace(/[^0-9]/g, '');
         });
-
-        loadFileInfo();
     </script>
 </body>
 </html>
-
