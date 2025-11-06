@@ -126,7 +126,7 @@
     // ページ読み込み時にファイル情報を取得
     (async function loadFileInfo() {
       try {
-        const url = `/api/download?id=${fileId}`;
+        const url = `/api/files/download?id=${fileId}`;
         console.log('[DEBUG] Fetching:', url);
         
         const response = await fetch(url);
@@ -163,7 +163,7 @@
       console.log('[DEBUG] Download button clicked, otp:', otp);
       
       try {
-        const response = await fetch('/api/download', {
+        const response = await fetch('/api/files/download', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ fileId, otp })
