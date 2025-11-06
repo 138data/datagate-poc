@@ -115,7 +115,7 @@
     
     // URLパラメータからfileIdを取得
     const urlParams = new URLSearchParams(window.location.search);
-    const fileId = urlParams.get('id');
+    const fileId = urlParams.get('id') || urlParams.get('fileId');
     
     console.log('[DEBUG] fileId:', fileId);
     
