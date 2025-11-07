@@ -16,7 +16,7 @@ const {
   generateCsvFilename,
   filterLogs,
   calculateLogStatistics
-} = require('../../lib/csv-utils');
+} = require('../../../lib/csv-utils');
 
 /**
  * デフォルト設定
