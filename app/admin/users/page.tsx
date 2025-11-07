@@ -1,5 +1,3 @@
-# page.tsx を作成（長いので2パートに分割）
-@"
 'use client';
 
 import { useState, useEffect } from 'react';
