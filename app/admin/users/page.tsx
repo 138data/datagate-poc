@@ -38,7 +38,7 @@ export default function UsersPage() {
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(\`/api/admin/users?token=\${token}\`);
+      const response = await fetch((`/api/admin/users?token=${token}`);
       
       if (response.status === 401 || response.status === 403) {
         localStorage.removeItem('adminToken');
@@ -66,7 +66,7 @@ export default function UsersPage() {
 
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(\`/api/admin/users?token=\${token}\`, {
+      const response = await fetch((`/api/admin/users?token=${token}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -93,7 +93,7 @@ export default function UsersPage() {
 
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(\`/api/admin/users?token=\${token}\`, {
+      const response = await fetch((`/api/admin/users?token=${token}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -119,7 +119,7 @@ export default function UsersPage() {
 
   // ユーザー削除
   const handleDeleteUser = async (username: string) => {
-    if (!confirm(\`ユーザー「\${username}」を削除しますか？\`)) {
+    if (!confirm(`ユーザー「${username}」を削除しますか？`)) {
       return;
     }
 
@@ -127,7 +127,7 @@ export default function UsersPage() {
 
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(\`/api/admin/users?token=\${token}\`, {
+      const response = await fetch((`/api/admin/users?token=${token}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username })
@@ -377,11 +377,11 @@ export default function UsersPage() {
                     {user.username}
                   </td>
                   <td className=\"px-6 py-4 whitespace-nowrap text-sm text-gray-500\">
-                    <span className={\`px-2 py-1 text-xs rounded-full \${
+                    <span className={`px-2 py-1 text-xs rounded-full ${
                       user.role === 'admin' 
                         ? 'bg-blue-100 text-blue-800' 
                         : 'bg-green-100 text-green-800'
-                    }\`}>
+                    }`}>
                       {user.role === 'admin' ? '管理者' : '閲覧者'}
                     </span>
                   </td>
