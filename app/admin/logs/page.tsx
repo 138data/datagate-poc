@@ -177,12 +177,20 @@ export default function AdminLogsPage() {
               <h1 className="text-2xl font-bold text-gray-900">DataGate 管理者</h1>
               <p className="text-sm text-gray-600">ログ管理システム</p>
             </div>
-            <button
-              onClick={handleLogout}
-              className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50"
-            >
-              ログアウト
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => router.push('/admin/users')}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+              >
+                アカウント管理
+              </button>
+              <button
+                onClick={handleLogout}
+                className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                ログアウト
+              </button>
+            </div>
           </div>
         </div>
       </div>
