@@ -50,3 +50,6 @@ api/test-mail.js
 SENDGRID_API_KEY.txt
 *.key
 *.secret
+
+.env*.local
+.vercel
