@@ -53,3 +53,27 @@ SENDGRID_API_KEY.txt
 
 .env*.local
 .vercel
+
+# Backup env files
+.env.*.old
+.env.*.broken
+.env.*.before-*
+.env.backup-*
+.env.vercel-*
+
+# Build artifacts
+.next/
+
+scripts/
+
+# Temporary and backup files
+*.backup
+*.backup-*
+audit-logs*.csv
+deployed-*.html
+download-v2*.html
+download.html.backup*
+test-*.js
+test-*.ps1
+files*.zip
+datagate-smtp-gateway/

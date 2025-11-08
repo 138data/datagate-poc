@@ -1,0 +1,16 @@
+        // メッセージ表示関数
+        function showMessage(text, type) {
+            if (!type) type = 'error';
+            messageDiv.innerHTML = '<div class="message message-' + type + '">' + text + '</div>';
+            console.log('[DEBUG] Message displayed: [' + type + '] ' + text);
+        }
+
+        // OTP試行回数表示（サーバー側の情報を使用）
+        function updateOtpAttempts(otpAttempts, remainingAttempts) {
+            if (otpAttempts > 0) {
+                otpAttemptsDiv.textContent = '❌ 認証失敗 ' + otpAttempts + '回 / 残り ' + remainingAttempts + '回';
+                otpAttemptsDiv.style.display = 'block';
+            } else {
+                otpAttemptsDiv.style.display = 'none';
+            }
+        }
