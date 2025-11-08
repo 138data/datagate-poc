@@ -112,7 +112,7 @@ export default function AdminLogsPage() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = \udit-logs-\.csv\;
+      a.download = `audit-logs-${new Date().toISOString().split('T')[0]}.csv`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -358,5 +358,6 @@ export default function AdminLogsPage() {
     </div>
   );
 }
+
 
 
