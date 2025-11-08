@@ -66,7 +66,7 @@ export default function AdminLogsPage() {
 
       const response = await fetch('/api/admin/logs?format=json&limit=100', {
         headers: {
-          'Authorization': \Bearer \\,
+          'Authorization': `Bearer ${token}`,
         },
       });
 
@@ -100,7 +100,7 @@ export default function AdminLogsPage() {
 
       const response = await fetch('/api/admin/logs?format=csv', {
         headers: {
-          'Authorization': \Bearer \\,
+          'Authorization': `Bearer ${token}`,
         },
       });
 
@@ -358,3 +358,5 @@ export default function AdminLogsPage() {
     </div>
   );
 }
+
+
