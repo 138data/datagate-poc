@@ -122,7 +122,7 @@ export default function AdminUsersPage() {
   };
 
   const handleDeleteUser = async (username: string) => {
-      if (!confirm(`ユーザー「${username}」を削除しますか？`)) {
+    if (!confirm(`ユーザー「${username}」を削除しますか？`)) {
       return;
     }
 
