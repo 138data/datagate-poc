@@ -1,7 +1,5 @@
-'use client';
-
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from 'next/router';
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -48,7 +46,7 @@ export default function AdminLoginPage() {
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            DataGate 管理者
+            DataGate 管理者ログイン
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
             ログ管理システム
@@ -111,7 +109,7 @@ export default function AdminLoginPage() {
           </div>
         </form>
         <div className="text-center text-xs text-gray-500">
-          Phase 55: 管理者ダッシュボードUI
+          Phase 54: アカウント管理UI
         </div>
       </div>
     </div>
