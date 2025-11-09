@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import AdminLayout from '../../components/AdminLayout';
 
 interface LogEntry {
   ts: string;
@@ -43,18 +44,8 @@ export default function AdminLogsPage() {
   const [downloadingCsv, setDownloadingCsv] = useState(false);
 
   useEffect(() => {
-    checkAuth();
     fetchLogs();
   }, []);
-
-  const checkAuth = () => {
-    const token = localStorage.getItem('admin_token');
-    const expires = localStorage.getItem('admin_token_expires');
-
-    if (!token || !expires || Date.now() > Number(expires)) {
-      router.push('/admin/login');
-    }
-  };
 
   const fetchLogs = async () => {
     try {
@@ -124,12 +115,6 @@ export default function AdminLogsPage() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('admin_token');
-    localStorage.removeItem('admin_token_expires');
-    router.push('/admin/login');
-  };
-
   const filteredLogs = logs.filter(log => {
     if (filterEvent && log.event !== filterEvent) return false;
     if (filterStatus && log.status !== filterStatus) return false;
@@ -156,88 +141,75 @@ export default function AdminLogsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">ログを読み込み中...</p>
+      <AdminLayout title="監査ログ">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">ログを読み込み中...</p>
+          </div>
         </div>
-      </div>
+      </AdminLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* ヘッダー */}
-      <div className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-3xl font-bold text-gray-900">監査ログ</h1>
-              <button
-                onClick={handleLogout}
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium"
-              >
-                ログアウト
-              </button>
-            </div>
-            <div className="flex space-x-4">
-              <select
-                value={filterEvent}
-                onChange={(e) => setFilterEvent(e.target.value)}
-                className="border border-gray-300 rounded-md px-3 py-2 text-sm"
-              >
-                <option value="">全イベント</option>
-                {Object.entries(EVENT_LABELS).map(([key, label]) => (
-                  <option key={key} value={key}>{label}</option>
-                ))}
-              </select>
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="border border-gray-300 rounded-md px-3 py-2 text-sm"
-              >
-                <option value="">全ステータス</option>
-                {Object.entries(STATUS_LABELS).map(([key, label]) => (
-                  <option key={key} value={key}>{label}</option>
-                ))}
-              </select>
-              <button
-                onClick={handleDownloadCsv}
-                disabled={downloadingCsv}
-                className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white px-4 py-2 rounded-md text-sm font-medium"
-              >
-                {downloadingCsv ? 'ダウンロード中...' : 'CSVエクスポート'}
-              </button>
-            </div>
-          </div>
+    <AdminLayout title="監査ログ">
+      {/* フィルターとエクスポートボタン */}
+      <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
+        <div className="flex flex-wrap gap-4">
+          <select
+            value={filterEvent}
+            onChange={(e) => setFilterEvent(e.target.value)}
+            className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500"
+          >
+            <option value="">全イベント</option>
+            {Object.entries(EVENT_LABELS).map(([key, label]) => (
+              <option key={key} value={key}>{label}</option>
+            ))}
+          </select>
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-indigo-500 focus:border-indigo-500"
+          >
+            <option value="">全ステータス</option>
+            {Object.entries(STATUS_LABELS).map(([key, label]) => (
+              <option key={key} value={key}>{label}</option>
+            ))}
+          </select>
         </div>
+        <button
+          onClick={handleDownloadCsv}
+          disabled={downloadingCsv}
+          className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+        >
+          {downloadingCsv ? 'ダウンロード中...' : 'CSVエクスポート'}
+        </button>
       </div>
 
       {/* 統計カード */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white rounded-lg shadow p-4">
-            <p className="text-sm text-gray-600 mb-1">総ログ数</p>
-            <p className="text-2xl font-bold text-gray-900">{logs.length}</p>
-          </div>
-          <div className="bg-white rounded-lg shadow p-4">
-            <p className="text-sm text-gray-600 mb-1">フィルター後</p>
-            <p className="text-2xl font-bold text-indigo-600">{filteredLogs.length}</p>
-          </div>
-          <div className="bg-white rounded-lg shadow p-4">
-            <p className="text-sm text-gray-600 mb-1">成功率</p>
-            <p className="text-2xl font-bold text-green-600">
-              {logs.length > 0
-                ? `${((logs.filter(log => log.status === 'success').length / logs.length) * 100).toFixed(1)}%`
-                : '-'}
-            </p>
-          </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div className="bg-white rounded-lg shadow p-4">
+          <p className="text-sm text-gray-600 mb-1">総ログ数</p>
+          <p className="text-2xl font-bold text-gray-900">{logs.length}</p>
+        </div>
+        <div className="bg-white rounded-lg shadow p-4">
+          <p className="text-sm text-gray-600 mb-1">フィルター後</p>
+          <p className="text-2xl font-bold text-indigo-600">{filteredLogs.length}</p>
+        </div>
+        <div className="bg-white rounded-lg shadow p-4">
+          <p className="text-sm text-gray-600 mb-1">成功率</p>
+          <p className="text-2xl font-bold text-green-600">
+            {logs.length > 0
+              ? `${((logs.filter(log => log.status === 'success').length / logs.length) * 100).toFixed(1)}%`
+              : '-'}
+          </p>
         </div>
       </div>
 
       {/* エラー表示 */}
       {error && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
+        <div className="mb-6">
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <p className="text-red-600">{error}</p>
           </div>
@@ -245,87 +217,85 @@ export default function AdminLogsPage() {
       )}
 
       {/* ログテーブル */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  日時
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  イベント
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  ファイル名
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  宛先
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  配信モード
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  サイズ
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  ステータス
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredLogs.length === 0 ? (
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    日時
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    イベント
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    ファイル名
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    宛先
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    配信モード
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    サイズ
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    ステータス
-                  </th>
+                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                    ログが見つかりません
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredLogs.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
-                      ログが見つかりません
+              ) : (
+                filteredLogs.map((log, index) => (
+                  <tr key={index} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
+                      {formatDate(log.ts)}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      {EVENT_LABELS[log.event] || log.event}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700 truncate max-w-xs">
+                      {log.fileName || '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700 truncate max-w-xs">
+                      {log.to || '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700">
+                      {log.mode ? (MODE_LABELS[log.mode] || log.mode) : '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700">
+                      {formatSize(log.fileSize)}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <span
+                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          log.status === 'success' ? 'bg-green-100 text-green-800' :
+                          log.status === 'error' ? 'bg-red-100 text-red-800' :
+                          'bg-yellow-100 text-yellow-800'
+                        }`}
+                      >
+                        {STATUS_LABELS[log.status || ''] || log.status || '-'}
+                      </span>
                     </td>
                   </tr>
-                ) : (
-                  filteredLogs.map((log, index) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
-                        {formatDate(log.ts)}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900">
-                        {EVENT_LABELS[log.event] || log.event}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-700 truncate max-w-xs">
-                        {log.fileName || '-'}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-700 truncate max-w-xs">
-                        {log.to || '-'}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">
-                        {log.mode ? (MODE_LABELS[log.mode] || log.mode) : '-'}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">
-                        {formatSize(log.fileSize)}
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        <span
-                          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            log.status === 'success' ? 'bg-green-100 text-green-800' :
-                            log.status === 'error' ? 'bg-red-100 text-red-800' :
-                            'bg-yellow-100 text-yellow-800'
-                          }`}
-                        >
-                          {STATUS_LABELS[log.status || ''] || log.status || '-'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
       {/* フッター */}
       <div className="mt-6 text-center text-sm text-gray-500">
-        Phase 54: アカウント管理UI - 最大100件表示
+        Phase 55: 共通ナビゲーションバー実装 - 最大100件表示
       </div>
-    </div>
+    </AdminLayout>
   );
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import AdminLayout from '../../components/AdminLayout';
 
 interface User {
   username: string;
@@ -25,17 +26,8 @@ export default function AdminUsersPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    checkAuth();
     fetchUsers();
   }, []);
-
-  const checkAuth = () => {
-    const token = localStorage.getItem('admin_token');
-    const expires = localStorage.getItem('admin_token_expires');
-    if (!token || !expires || Date.now() > Number(expires)) {
-      router.push('/admin/login');
-    }
-  };
 
   const fetchUsers = async () => {
     try {
@@ -146,12 +138,6 @@ export default function AdminUsersPage() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('admin_token');
-    localStorage.removeItem('admin_token_expires');
-    router.push('/admin/login');
-  };
-
   const openEditModal = (user: User) => {
     setEditingUser(user);
     setFormData({ username: user.username, password: '', role: user.role });
@@ -160,61 +146,48 @@ export default function AdminUsersPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">ユーザー情報を読み込み中...</p>
+      <AdminLayout title="ユーザー管理">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">ユーザー情報を読み込み中...</p>
+          </div>
         </div>
-      </div>
+      </AdminLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* ヘッダー */}
-      <div className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-3xl font-bold text-gray-900">ユーザー管理</h1>
-              <button
-                onClick={handleLogout}
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium"
-              >
-                ログアウト
-              </button>
-            </div>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium"
-            >
-              ユーザー追加
-            </button>
-          </div>
-        </div>
+    <AdminLayout title="ユーザー管理">
+      {/* ユーザー追加ボタン */}
+      <div className="mb-6 flex justify-end">
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+        >
+          ユーザー追加
+        </button>
       </div>
 
       {/* 統計カード */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white rounded-lg shadow p-4">
-            <p className="text-sm text-gray-600 mb-1">総ユーザー数</p>
-            <p className="text-2xl font-bold text-gray-900">{stats.totalUsers}</p>
-          </div>
-          <div className="bg-white rounded-lg shadow p-4">
-            <p className="text-sm text-gray-600 mb-1">管理者</p>
-            <p className="text-2xl font-bold text-purple-600">{stats.adminCount}</p>
-          </div>
-          <div className="bg-white rounded-lg shadow p-4">
-            <p className="text-sm text-gray-600 mb-1">閲覧者</p>
-            <p className="text-2xl font-bold text-blue-600">{stats.viewerCount}</p>
-          </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div className="bg-white rounded-lg shadow p-4">
+          <p className="text-sm text-gray-600 mb-1">総ユーザー数</p>
+          <p className="text-2xl font-bold text-gray-900">{stats.totalUsers}</p>
+        </div>
+        <div className="bg-white rounded-lg shadow p-4">
+          <p className="text-sm text-gray-600 mb-1">管理者</p>
+          <p className="text-2xl font-bold text-purple-600">{stats.adminCount}</p>
+        </div>
+        <div className="bg-white rounded-lg shadow p-4">
+          <p className="text-sm text-gray-600 mb-1">閲覧者</p>
+          <p className="text-2xl font-bold text-blue-600">{stats.viewerCount}</p>
         </div>
       </div>
 
       {/* エラー表示 */}
       {error && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
+        <div className="mb-6">
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <p className="text-red-600">{error}</p>
           </div>
@@ -222,74 +195,77 @@ export default function AdminUsersPage() {
       )}
 
       {/* ユーザーテーブル */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  ユーザー名
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  権限
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  作成日
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  アクション
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {users.length === 0 ? (
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    ユーザー名
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    権限
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    作成日
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    アクション
-                  </th>
+                  <td colSpan={4} className="px-4 py-8 text-center text-gray-500">
+                    ユーザーが見つかりません
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {users.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="px-4 py-8 text-center text-gray-500">
-                      ユーザーが見つかりません
+              ) : (
+                users.map((user) => (
+                  <tr key={user.username} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      {user.username}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                      }`}>
+                        {user.role === 'admin' ? '管理者' : '閲覧者'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700">
+                      {new Date(user.createdAt).toLocaleDateString('ja-JP')}
+                    </td>
+                    <td className="px-4 py-3 text-sm font-medium">
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => openEditModal(user)}
+                          disabled={user.username === 'admin'}
+                          className="text-indigo-600 hover:text-indigo-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          編集
+                        </button>
+                        <button
+                          onClick={() => handleDeleteUser(user.username)}
+                          disabled={user.username === 'admin'}
+                          className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          削除
+                        </button>
+                      </div>
                     </td>
                   </tr>
-                ) : (
-                  users.map((user) => (
-                    <tr key={user.username} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm text-gray-900">
-                        {user.username}
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        <span className={`px-2 py-1 text-xs rounded-full ${
-                          user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
-                        }`}>
-                          {user.role === 'admin' ? '管理者' : '閲覧者'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">
-                        {new Date(user.createdAt).toLocaleDateString('ja-JP')}
-                      </td>
-                      <td className="px-4 py-3 text-sm font-medium">
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => openEditModal(user)}
-                            disabled={user.username === 'admin'}
-                            className="text-indigo-600 hover:text-indigo-900 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            編集
-                          </button>
-                          <button
-                            onClick={() => handleDeleteUser(user.username)}
-                            disabled={user.username === 'admin'}
-                            className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            削除
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
+      </div>
+
+      {/* フッター */}
+      <div className="mt-6 text-center text-sm text-gray-500">
+        Phase 55: 共通ナビゲーションバー実装
       </div>
 
       {/* 追加モーダル */}
@@ -424,6 +400,6 @@ export default function AdminUsersPage() {
           </div>
         </div>
       )}
-    </div>
+    </AdminLayout>
   );
 }
