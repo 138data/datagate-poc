@@ -30,7 +30,11 @@ export default function AdminLoginPage() {
 
       // トークンをlocalStorageに保存
       localStorage.setItem('admin_token', data.token);
-      localStorage.setItem('admin_token_expires', data.expires.toString());
+      
+      // expires が存在する場合のみ保存（安全な処理）
+      if (data.expires) {
+        localStorage.setItem('admin_token_expires', String(data.expires));
+      }
 
       // ログ管理画面へリダイレクト
       router.push('/admin/logs');
