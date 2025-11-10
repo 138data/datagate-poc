@@ -5,8 +5,8 @@
       "destination": "/upload.html"
     },
     {
-      "source": "/download",
-      "destination": "/download.html"
+      "source": "/download/:fileId",
+      "destination": "/api/files/download?fileId=:fileId"
     }
   ]
 }
