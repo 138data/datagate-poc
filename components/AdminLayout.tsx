@@ -1,15 +1,25 @@
-import { ReactNode, useEffect } from 'react';
+// components/AdminLayout.tsx
+import { ReactNode, useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
+import { jwtDecode } from 'jwt-decode';
 
 interface AdminLayoutProps {
   children: ReactNode;
   title: string;
 }
 
+interface JwtPayload {
+  username: string;
+  role: 'admin' | 'viewer';
+  exp: number;
+}
+
 export default function AdminLayout({ children, title }: AdminLayoutProps) {
   const router = useRouter();
   const currentPath = router.pathname;
+  const [userRole, setUserRole] = useState<'admin' | 'viewer'>('viewer');
+  const [username, setUsername] = useState<string>('');
 
   useEffect(() => {
     checkAuth();
@@ -20,6 +30,20 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
     const expires = localStorage.getItem('admin_token_expires');
 
     if (!token || !expires || Date.now() > Number(expires)) {
+      router.push('/admin/login');
+      return;
+    }
+
+    // JWT トークンからロール情報を取得
+    try {
+      const decoded = jwtDecode<JwtPayload>(token);
+      setUserRole(decoded.role);
+      setUsername(decoded.username);
+    } catch (error) {
+      console.error('JWT デコードエラー:', error);
+      // トークンが不正な場合はログイン画面へ
+      localStorage.removeItem('admin_token');
+      localStorage.removeItem('admin_token_expires');
       router.push('/admin/login');
     }
   };
@@ -58,21 +82,31 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                 >
                   📊 監査ログ
                 </Link>
-                <Link
-                  href="/admin/users"
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    isActive('/admin/users')
-                      ? 'bg-indigo-100 text-indigo-700 border-b-2 border-indigo-600'
-                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-                  }`}
-                >
-                  👥 ユーザー管理
-                </Link>
+                
+                {/* 管理者のみユーザー管理を表示 */}
+                {userRole === 'admin' && (
+                  <Link
+                    href="/admin/users"
+                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      isActive('/admin/users')
+                        ? 'bg-indigo-100 text-indigo-700 border-b-2 border-indigo-600'
+                        : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                    }`}
+                  >
+                    👥 ユーザー管理
+                  </Link>
+                )}
               </div>
             </div>
 
-            {/* 右側: ログアウトボタン */}
-            <div className="flex items-center">
+            {/* 右側: ユーザー情報とログアウトボタン */}
+            <div className="flex items-center space-x-4">
+              <div className="hidden md:flex flex-col items-end">
+                <span className="text-sm font-medium text-gray-700">{username}</span>
+                <span className="text-xs text-gray-500">
+                  {userRole === 'admin' ? '管理者' : '閲覧者'}
+                </span>
+              </div>
               <button
                 onClick={handleLogout}
                 className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
@@ -96,16 +130,20 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
             >
               📊 監査ログ
             </Link>
-            <Link
-              href="/admin/users"
-              className={`block px-3 py-2 rounded-md text-base font-medium ${
-                isActive('/admin/users')
-                  ? 'bg-indigo-100 text-indigo-700'
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              👥 ユーザー管理
-            </Link>
+            
+            {/* 管理者のみユーザー管理を表示 */}
+            {userRole === 'admin' && (
+              <Link
+                href="/admin/users"
+                className={`block px-3 py-2 rounded-md text-base font-medium ${
+                  isActive('/admin/users')
+                    ? 'bg-indigo-100 text-indigo-700'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                👥 ユーザー管理
+              </Link>
+            )}
           </div>
         </div>
       </nav>

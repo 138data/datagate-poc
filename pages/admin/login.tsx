@@ -1,3 +1,4 @@
+```tsx
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 
@@ -34,6 +35,11 @@ export default function AdminLoginPage() {
       // expires が存在する場合のみ保存（安全な処理）
       if (data.expires) {
         localStorage.setItem('admin_token_expires', String(data.expires));
+      }
+
+      // ユーザー情報も保存（任意、ロール情報を含む。AdminLayout で JWT からデコードするため必須ではないが、冗長性のため）
+      if (data.user) {
+        localStorage.setItem('admin_user', JSON.stringify(data.user));
       }
 
       // ログ管理画面へリダイレクト
@@ -119,3 +125,4 @@ export default function AdminLoginPage() {
     </div>
   );
 }
+```
