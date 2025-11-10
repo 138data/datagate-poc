@@ -29,55 +29,54 @@ export default async function handler(req, res) {
     const adminPasswordHash = process.env.ADMIN_PASSWORD;
     const jwtSecret = process.env.ADMIN_JWT_SECRET;
 
-    // デバッグ: 環境変数の状態を確認
-    console.log('=== 環境変数デバッグ ===');
-    console.log('ADMIN_USER:', adminUser ? '設定あり' : '未設定');
-    console.log('ADMIN_PASSWORD:', adminPasswordHash ? '設定あり' : '未設定');
-    console.log('ADMIN_JWT_SECRET:', jwtSecret ? '設定あり' : '未設定');
-    console.log('ADMIN_USER 値:', adminUser);
-    console.log('ADMIN_PASSWORD 長さ:', adminPasswordHash ? adminPasswordHash.length : 0);
-    console.log('====================');
-
-    if (!adminUser || !adminPasswordHash) {
-      console.error('ADMIN_USER または ADMIN_PASSWORD が設定されていません');
+    if (!adminUser || !adminPasswordHash || !jwtSecret) {
+      console.error('環境変数が設定されていません');
       return res.status(500).json({ error: 'サーバー設定エラー' });
     }
 
-    // ユーザー名チェック
-    if (username !== adminUser) {
+    let userRole = null;
+    let passwordHash = null;
+
+    // まず環境変数の管理者アカウントをチェック
+    if (username === adminUser) {
+      userRole = 'admin';
+      passwordHash = adminPasswordHash;
+    } else {
+      // Upstash から追加ユーザーを取得
+      try {
+        const userData = await kv.get(`admin:user:${username}`);
+        if (userData && userData.passwordHash) {
+          userRole = userData.role || 'viewer';
+          passwordHash = userData.passwordHash;
+        }
+      } catch (error) {
+        console.error('Upstash エラー:', error);
+      }
+    }
+
+    // ユーザーが見つからない
+    if (!userRole || !passwordHash) {
       return res.status(401).json({ error: 'ユーザー名またはパスワードが正しくありません' });
     }
 
     // パスワードチェック
-    const isPasswordValid = await bcrypt.compare(password, adminPasswordHash);
+    const isPasswordValid = await bcrypt.compare(password, passwordHash);
 
     if (!isPasswordValid) {
       return res.status(401).json({ error: 'ユーザー名またはパスワードが正しくありません' });
     }
 
-    // Upstash から追加ユーザー情報を取得（将来の拡張用）
-    let userRole = 'admin'; // デフォルトは admin
-    try {
-      const userData = await kv.get(`admin:user:${username}`);
-      if (userData && userData.role) {
-        userRole = userData.role;
-      }
-    } catch (error) {
-      console.log('Upstash からユーザー情報を取得できませんでした（デフォルト値を使用）:', error.message);
-      // エラーでもログインは継続（デフォルト値で）
-    }
-
-    // JWT トークン生成（ロール情報を含む）
+    // JWT トークン生成
     const token = jwt.sign(
       {
         username: username,
-        role: userRole  // ロール情報を追加
+        role: userRole
       },
       jwtSecret,
       { expiresIn: '24h' }
     );
 
-    // トークンの有効期限（24時間後）
+    // トークンの有効期限
     const expiresAt = Date.now() + 24 * 60 * 60 * 1000;
 
     return res.status(200).json({
@@ -85,7 +84,7 @@ export default async function handler(req, res) {
       expires: expiresAt,
       user: {
         username: username,
-        role: userRole  // クライアントにもロール情報を返す
+        role: userRole
       }
     });
   } catch (error) {
