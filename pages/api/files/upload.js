@@ -128,7 +128,7 @@ export default async function handler(req, res) {
     await kv.set(`file:${fileId}:data`, encrypted.toString('base64'), { ex: 7 * 24 * 60 * 60 });
 
     // ダウンロードURL生成
-    const downloadUrl = `${process.env.VERCEL_URL || 'https://datagate-poc.vercel.app'}/download?id=${fileId}`;
+    const downloadUrl = `${process.env.VERCEL_URL || 'https://datagate-poc.vercel.app'}/download/${fileId}`;
 
     // メール送信
     try {
