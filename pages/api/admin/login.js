@@ -27,6 +27,16 @@ export default async function handler(req, res) {
     // 環境変数から管理者情報を取得
     const adminUser = process.env.ADMIN_USER;
     const adminPasswordHash = process.env.ADMIN_PASSWORD;
+    const jwtSecret = process.env.ADMIN_JWT_SECRET;
+
+    // デバッグ: 環境変数の状態を確認
+    console.log('=== 環境変数デバッグ ===');
+    console.log('ADMIN_USER:', adminUser ? '設定あり' : '未設定');
+    console.log('ADMIN_PASSWORD:', adminPasswordHash ? '設定あり' : '未設定');
+    console.log('ADMIN_JWT_SECRET:', jwtSecret ? '設定あり' : '未設定');
+    console.log('ADMIN_USER 値:', adminUser);
+    console.log('ADMIN_PASSWORD 長さ:', adminPasswordHash ? adminPasswordHash.length : 0);
+    console.log('====================');
 
     if (!adminUser || !adminPasswordHash) {
       console.error('ADMIN_USER または ADMIN_PASSWORD が設定されていません');
@@ -40,6 +50,7 @@ export default async function handler(req, res) {
 
     // パスワードチェック
     const isPasswordValid = await bcrypt.compare(password, adminPasswordHash);
+
     if (!isPasswordValid) {
       return res.status(401).json({ error: 'ユーザー名またはパスワードが正しくありません' });
     }
@@ -58,11 +69,11 @@ export default async function handler(req, res) {
 
     // JWT トークン生成（ロール情報を含む）
     const token = jwt.sign(
-      { 
+      {
         username: username,
         role: userRole  // ロール情報を追加
       },
-      process.env.ADMIN_JWT_SECRET,
+      jwtSecret,
       { expiresIn: '24h' }
     );
 
