@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ファイルアップロード - DataGate</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+            text-align: center;
+        }
+
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        input[type="email"],
+        input[type="file"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="email"]:focus,
+        input[type="file"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            width: 100%;
+        }
+
+        .file-input-wrapper input[type="file"] {
+            position: absolute;
+            left: -9999px;
+        }
+
+        .file-input-label {
+            display: block;
+            padding: 12px;
+            border: 2px dashed #e0e0e0;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #f9f9f9;
+        }
+
+        .file-input-label:hover {
+            border-color: #667eea;
+            background: #f0f0ff;
+        }
+
+        .file-name {
+            margin-top: 10px;
+            color: #667eea;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .upload-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin-top: 20px;
+        }
+
+        .upload-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .upload-btn:active {
+            transform: translateY(0);
+        }
+
+        .upload-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .message {
+            margin-top: 20px;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 14px;
+            display: none;
+        }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .info-box {
+            background: #f0f0ff;
+            border-left: 4px solid #667eea;
+            padding: 12px;
+            margin-top: 20px;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .info-box strong {
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📁 DataGate</h1>
+        <p class="subtitle">安全なファイル送信サービス</p>
+
+        <form id="uploadForm">
+            <div class="form-group">
+                <label for="recipientEmail">受信者のメールアドレス</label>
+                <input 
+                    type="email" 
+                    id="recipientEmail" 
+                    name="recipientEmail" 
+                    placeholder="example@example.com"
+                    required
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="fileInput">ファイルを選択</label>
+                <div class="file-input-wrapper">
+                    <input 
+                        type="file" 
+                        id="fileInput" 
+                        name="file"
+                        required
+                    >
+                    <label for="fileInput" class="file-input-label">
+                        📎 ファイルを選択してください<br>
+                        <small>最大サイズ: 4.5MB</small>
+                    </label>
+                </div>
+                <div id="fileName" class="file-name"></div>
+            </div>
+
+            <button type="submit" class="upload-btn" id="uploadBtn">
+                🚀 送信する
+            </button>
+        </form>
+
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p style="margin-top: 10px; color: #667eea;">アップロード中...</p>
+        </div>
+
+        <div id="message" class="message"></div>
+
+        <div class="info-box">
+            <strong>📌 ご利用方法</strong><br>
+            1. 受信者のメールアドレスを入力<br>
+            2. 送信したいファイルを選択<br>
+            3. 送信ボタンをクリック<br>
+            4. 受信者にOTP付きメールが届きます
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('uploadForm');
+        const fileInput = document.getElementById('fileInput');
+        const fileName = document.getElementById('fileName');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const loading = document.getElementById('loading');
+        const message = document.getElementById('message');
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                fileName.textContent = `選択されたファイル: ${file.name} (${formatFileSize(file.size)})`;
+                
+                if (file.size > 4.5 * 1024 * 1024) {
+                    showMessage('error', 'ファイルサイズが4.5MBを超えています');
+                    fileInput.value = '';
+                    fileName.textContent = '';
+                }
+            }
+        });
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const recipientEmail = document.getElementById('recipientEmail').value;
+            const file = fileInput.files[0];
+
+            if (!file) {
+                showMessage('error', 'ファイルを選択してください');
+                return;
+            }
+
+            uploadBtn.disabled = true;
+            loading.style.display = 'block';
+            message.style.display = 'none';
+
+            const formData = new FormData();
+            formData.append('recipientEmail', recipientEmail);
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/api/files/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    showMessage('success', 
+                        `✅ ${data.message}<br>` +
+                        `📧 ${recipientEmail} にメールを送信しました<br>` +
+                        `⏰ 有効期限: ${new Date(data.expiresAt).toLocaleString('ja-JP')}`
+                    );
+                    form.reset();
+                    fileName.textContent = '';
+                } else {
+                    showMessage('error', data.error || 'アップロードに失敗しました');
+                }
+            } catch (error) {
+                console.error('Upload error:', error);
+                showMessage('error', 'ネットワークエラーが発生しました');
+            } finally {
+                uploadBtn.disabled = false;
+                loading.style.display = 'none';
+            }
+        });
+
+        function showMessage(type, text) {
+            message.className = `message ${type}`;
+            message.innerHTML = text;
+            message.style.display = 'block';
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+    </script>
+</body>
+</html>
