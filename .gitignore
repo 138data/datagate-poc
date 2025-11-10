@@ -77,3 +77,6 @@ test-*.js
 test-*.ps1
 files*.zip
 datagate-smtp-gateway/
+
+# Backup files
+.env.local.backup*
