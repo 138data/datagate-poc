@@ -1,7 +1,7 @@
 import formidable from 'formidable';
 import crypto from 'crypto';
 import { kv } from '@vercel/kv';
-import { sendOTPEmail } from '../../lib/email-service.js';
+import { sendOTPEmail } from '../../../lib/email-service.js';
 
 export const config = {
   api: {
