@@ -72,6 +72,20 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                 </h1>
               </div>
               <div className="hidden md:flex space-x-4">
+                {/* 管理者のみダッシュボードを表示 */}
+                {userRole === 'admin' && (
+                  <Link
+                    href="/admin/dashboard"
+                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      isActive('/admin/dashboard')
+                        ? 'bg-indigo-100 text-indigo-700 border-b-2 border-indigo-600'
+                        : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                    }`}
+                  >
+                    📈 KPI ダッシュボード
+                  </Link>
+                )}
+
                 <Link
                   href="/admin/logs"
                   className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
@@ -82,7 +96,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                 >
                   📊 監査ログ
                 </Link>
-                
+
                 {/* 管理者のみユーザー管理を表示 */}
                 {userRole === 'admin' && (
                   <Link
@@ -120,6 +134,20 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
         {/* モバイル用ナビゲーション */}
         <div className="md:hidden border-t border-gray-200">
           <div className="px-2 pt-2 pb-3 space-y-1">
+            {/* 管理者のみダッシュボードを表示 */}
+            {userRole === 'admin' && (
+              <Link
+                href="/admin/dashboard"
+                className={`block px-3 py-2 rounded-md text-base font-medium ${
+                  isActive('/admin/dashboard')
+                    ? 'bg-indigo-100 text-indigo-700'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                📈 KPI ダッシュボード
+              </Link>
+            )}
+
             <Link
               href="/admin/logs"
               className={`block px-3 py-2 rounded-md text-base font-medium ${
@@ -130,7 +158,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
             >
               📊 監査ログ
             </Link>
-            
+
             {/* 管理者のみユーザー管理を表示 */}
             {userRole === 'admin' && (
               <Link
