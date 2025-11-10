@@ -85,32 +85,36 @@ export default async function handler(req, res) {
     // メタデータ作成
     const metadata = {
       fileId,
-      fileName: file.originalFilename || 'unknown',              // ✅ 修正: originalName → fileName
-      fileSize: file.size,                                       // ✅ 修正: size → fileSize
+      fileName: file.originalFilename || 'unknown',
+      fileSize: file.size,
       mimeType: file.mimetype || 'application/octet-stream',
       recipientEmail,
       otp,
       encryptionPassword,
-      downloadCount: 3,                                          // ✅ 修正: 0 → 3
+      downloadCount: 3,
       maxDownloads: 3,
       createdAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7日後
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
     };
 
     // KV保存（TTL: 7日）
     await kv.set(`file:${fileId}:meta`, metadata, { ex: 7 * 24 * 60 * 60 });
     await kv.set(`file:${fileId}:data`, encrypted.toString('base64'), { ex: 7 * 24 * 60 * 60 });
 
+    // ダウンロードURL生成（ホスト名を動的に取得）
+    const protocol = req.headers['x-forwarded-proto'] || 'https';
+    const host = req.headers.host;
+    const downloadUrl = `${protocol}://${host}/download/${fileId}`;
+
     // OTPメール送信
     try {
-      await sendOTPEmail(recipientEmail, otp, fileId, {
+      await sendOTPEmail(recipientEmail, otp, downloadUrl, {
         fileName: file.originalFilename || 'unknown',
         fileSize: file.size,
         expiresAt: metadata.expiresAt,
       });
     } catch (emailError) {
       console.error('Email sending failed:', emailError);
-      // メール送信失敗時は警告するが、処理は継続
       return res.status(200).json({
         success: true,
         fileId,
