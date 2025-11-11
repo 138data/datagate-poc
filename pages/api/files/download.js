@@ -1,7 +1,3 @@
-# download.js を修正版に置き換え
-$downloadJsPath = "D:\datagate-poc\pages\api\files\download.js"
-
-$newContent = @'
 import { kv } from '@vercel/kv';
 import crypto from 'crypto';
 
@@ -371,7 +367,7 @@ export default async function handler(req, res) {
         return res.status(404).json({ error: 'ファイルデータが見つかりません' });
       }
 
-      // 復号化（Bufferを直接返すように修正）
+      // 復号化（Bufferを直接返す）
       const decryptedBuffer = decrypt(encryptedData, metadata.encryptionKey, metadata.iv);
 
       // ダウンロード回数を減らす
@@ -402,7 +398,7 @@ function readBody(req) {
   });
 }
 
-// 復号化（Bufferを直接返すように修正）
+// 復号化（Bufferを直接返す）
 function decrypt(encryptedData, keyHex, ivHex) {
   const key = Buffer.from(keyHex, 'hex');
   const iv = Buffer.from(ivHex, 'hex');
@@ -431,10 +427,3 @@ function formatFileSize(bytes) {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 }
-'@
-
-# UTF-8 (BOMなし) で保存
-$utf8NoBom = New-Object System.Text.UTF8Encoding $false
-[System.IO.File]::WriteAllText($downloadJsPath, $newContent, $utf8NoBom)
-
-Write-Host "✅ download.js を修正版に置き換えました" -ForegroundColor Green
