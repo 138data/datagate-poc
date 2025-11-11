@@ -368,6 +368,10 @@ export default async function handler(req, res) {
       }
 
       // 復号化（Bufferを直接返す）
+      console.log('[Download Debug] encryptedData type:', typeof encryptedData, 'length:', encryptedData?.length);
+      console.log('[Download Debug] encryptionKey:', metadata.encryptionKey ? 'exists' : 'MISSING');
+      console.log('[Download Debug] iv:', metadata.iv ? 'exists' : 'MISSING');
+      
       const decryptedBuffer = decrypt(encryptedData, metadata.encryptionKey, metadata.iv);
 
       // ダウンロード回数を減らす
