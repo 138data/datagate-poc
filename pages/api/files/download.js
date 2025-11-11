@@ -357,14 +357,14 @@ E    }
       // ダウンロード回数を減らす
       metadata.downloadCount -= 1;
       await kv.set(`file:${fileId}:meta`, metadata, { ex: 7 * 24 * 60 * 60 });
-U    // ファイル送信
+      // ファイル送信
       res.setHeader('Content-Type', 'application/octet-stream');
       res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(metadata.fileName)}"; filename*=UTF-8''${encodeURIComponent(metadata.fileName)}`);
       return res.status(200).send(decryptedBuffer);
     } catch (error) {
       console.error('Download error:', error);
       return res.status(500).json({ error: 'ダウンロードに失敗しました' });
-s   }
+    }
   }
   return res.status(405).json({ error: 'Method not allowed' });
 }
