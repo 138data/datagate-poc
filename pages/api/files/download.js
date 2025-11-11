@@ -342,8 +342,8 @@ export default async function handler(req, res) {
         try {
           encryptedBuffer = Buffer.from(encryptedData, 'base64');
           // Valid base64チェック: lengthが16の倍数 + padding確認
-          if (encryptedBuffer.length < 16 || encryptedBuffer.length % 16 !== 0) {
-            throw new Error(`Invalid encrypted data length: ${encryptedBuffer.length} (min 16, multiple of 16)`);
+          if (encryptedBuffer.length < 16) {
+            throw new Error(`Invalid encrypted data length: ${encryptedBuffer.length} (min 16)`);
           }
           console.log('[Download Debug] Buffer created, length:', encryptedBuffer.length);
         } catch (convError) {
@@ -398,12 +398,12 @@ function decrypt(encryptedBuffer, keyHex, ivHex) {
     decipher.setAuthTag(authTag);
     const decrypted = Buffer.concat([
       decipher.update(ciphertext),
-      decipher.final()  // ここでエラーthrow
+      decipher.final() // ここでエラーthrow
     ]);
     return decrypted;
   } catch (error) {
     console.error('[Decrypt Error]', error.message, { bufferLen: encryptedBuffer.length });
-    throw error;  // 上位でキャッチ
+    throw error; // 上位でキャッチ
   }
 }
 
