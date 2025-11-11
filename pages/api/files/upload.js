@@ -1,5 +1,4 @@
 import formidable from 'formidable';
-// Phase 62: Use default import for email-service - 2025-11-11 11:14:00
 import crypto from 'crypto';
 import { kv } from '@vercel/kv';
 import emailService from '../../../lib/email-service.js';
@@ -10,25 +9,26 @@ export const config = {
   },
 };
 
-// 暗号化関数
+// 暗号化関数（keyとivを返すように修正）
 function encryptFile(buffer, password) {
   const algorithm = 'aes-256-gcm';
   const salt = crypto.randomBytes(16);
   const key = crypto.pbkdf2Sync(password, salt, 100000, 32, 'sha256');
   const iv = crypto.randomBytes(16);
   const cipher = crypto.createCipheriv(algorithm, key, iv);
-  
+
   const encrypted = Buffer.concat([
     cipher.update(buffer),
     cipher.final()
   ]);
-  
+
   const authTag = cipher.getAuthTag();
-  
+
   return {
-    encrypted: Buffer.concat([salt, iv, authTag, encrypted]),
-    salt: salt.toString('hex'),
+    encrypted: Buffer.concat([authTag, encrypted]),
+    key: key.toString('hex'),
     iv: iv.toString('hex'),
+    salt: salt.toString('hex'),
     authTag: authTag.toString('hex')
   };
 }
@@ -45,12 +45,12 @@ export default async function handler(req, res) {
 
   try {
     const form = formidable({
-      maxFileSize: 4.5 * 1024 * 1024, // 4.5MB
+      maxFileSize: 4.5 * 1024 * 1024,
       keepExtensions: true,
     });
 
     const [fields, files] = await form.parse(req);
-    
+
     const recipientEmail = fields.recipientEmail?.[0];
     const file = files.file?.[0];
 
@@ -58,32 +58,26 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: '必須項目が不足しています' });
     }
 
-    // メールアドレス検証
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(recipientEmail)) {
       return res.status(400).json({ error: '有効なメールアドレスを入力してください' });
     }
 
-    // ファイルサイズチェック
     if (file.size > 4.5 * 1024 * 1024) {
       return res.status(400).json({ error: 'ファイルサイズは4.5MB以下にしてください' });
     }
 
-    // ファイル読み込み
     const fs = require('fs').promises;
     const fileBuffer = await fs.readFile(file.filepath);
 
-    // 暗号化
+    // 暗号化（keyとivも取得）
     const encryptionPassword = crypto.randomBytes(32).toString('hex');
-    const { encrypted } = encryptFile(fileBuffer, encryptionPassword);
+    const { encrypted, key, iv } = encryptFile(fileBuffer, encryptionPassword);
 
-    // OTP生成
     const otp = generateOTP();
-
-    // ファイルID生成
     const fileId = crypto.randomBytes(16).toString('hex');
 
-    // メタデータ作成
+    // メタデータ作成（encryptionKeyとivを保存）
     const metadata = {
       fileId,
       fileName: file.originalFilename || 'unknown',
@@ -91,7 +85,8 @@ export default async function handler(req, res) {
       mimeType: file.mimetype || 'application/octet-stream',
       recipientEmail,
       otp,
-      encryptionPassword,
+      encryptionKey: key,
+      iv: iv,
       downloadCount: 3,
       maxDownloads: 3,
       createdAt: new Date().toISOString(),
@@ -102,7 +97,7 @@ export default async function handler(req, res) {
     await kv.set(`file:${fileId}:meta`, metadata, { ex: 7 * 24 * 60 * 60 });
     await kv.set(`file:${fileId}:data`, encrypted.toString('base64'), { ex: 7 * 24 * 60 * 60 });
 
-    // ダウンロードURL生成（ホスト名を動的に取得）
+    // ダウンロードURL生成
     const protocol = req.headers['x-forwarded-proto'] || 'https';
     const host = req.headers.host;
     const downloadUrl = `${protocol}://${host}/download/${fileId}`;
@@ -125,7 +120,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // 成功レスポンス
     res.status(200).json({
       success: true,
       fileId,
