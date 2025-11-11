@@ -366,20 +366,23 @@ function readBody(req) {
   });
 }
 // 復号化（Bufferを直接返す）
-function decrypt(encryptedData, keyHex, ivHex) {
-  const key = Buffer.from(keyHex, 'hex');
-  const iv = Buffer.from(ivHex, 'hex');
-  const encrypted = Buffer.from(encryptedData, 'base64');
-  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
-  const authTag = encrypted.slice(-16);
-  const ciphertext = encrypted.slice(0, -16);
+function decrypt(encryptedBuffer, keyHex, ivHex) { // 引数名を Buffer であることが分かりやすいように変更
+  const key = Buffer.from(keyHex, 'hex');
+  const iv = Buffer.from(ivHex, 'hex');
+  // const encrypted = Buffer.from(encryptedData, 'base64'); // <--- この行を削除
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+  
+  // 引数で受け取った Buffer を直接使用する
+  const authTag = encryptedBuffer.slice(-16);
+  const ciphertext = encryptedBuffer.slice(0, -16);
+  
   decipher.setAuthTag(authTag);
-  const decrypted = Buffer.concat([
-    decipher.update(ciphertext),
-    decipher.final()
-  ]);
-  // Bufferを直接返す（base64変換しない）
-  return decrypted;
+  const decrypted = Buffer.concat([
+    decipher.update(ciphertext),
+    decipher.final()
+  ]);
+  // Bufferを直接返す（base64変換しない）
+  return decrypted;
 }
 // ファイルサイズフォーマット
 function formatFileSize(bytes) {
