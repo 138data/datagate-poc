@@ -1,8 +1,8 @@
 import formidable from 'formidable';
-// Phase 62: Force rebundle upload.js - 2025-11-11 10:57:25
+// Phase 62: Use default import for email-service - 2025-11-11 11:14:00
 import crypto from 'crypto';
 import { kv } from '@vercel/kv';
-import { sendOTPEmail } from '../../../lib/email-service.js';
+import emailService from '../../../lib/email-service.js';
 
 export const config = {
   api: {
@@ -109,7 +109,7 @@ export default async function handler(req, res) {
 
     // OTPメール送信
     try {
-      await sendOTPEmail(recipientEmail, otp, downloadUrl, {
+      await emailService.sendOTPEmail(recipientEmail, otp, downloadUrl, {
         fileName: file.originalFilename || 'unknown',
         fileSize: file.size,
         expiresAt: metadata.expiresAt,
