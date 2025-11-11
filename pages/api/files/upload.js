@@ -14,7 +14,7 @@ function encryptFile(buffer, password) {
   const algorithm = 'aes-256-gcm';
   const salt = crypto.randomBytes(16);
   const key = crypto.pbkdf2Sync(password, salt, 100000, 32, 'sha256');
-  const iv = crypto.randomBytes(16);
+  const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv(algorithm, key, iv);
 
   const encrypted = Buffer.concat([
