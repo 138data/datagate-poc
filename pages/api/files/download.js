@@ -1,29 +1,24 @@
+```javascript
 import { kv } from '@vercel/kv';
 import crypto from 'crypto';
-
 export const config = {
   api: {
     bodyParser: false,
   },
 };
-
 export default async function handler(req, res) {
   // GET /api/files/download?fileId=xxx でアクセスされる
   if (req.method === 'GET') {
     const { fileId } = req.query;
-
     if (!fileId) {
       return res.status(400).json({ error: 'ファイルIDが指定されていません' });
     }
-
     try {
       // メタデータ取得
       const metadata = await kv.get(`file:${fileId}:meta`);
-
       if (!metadata) {
         return res.status(404).json({ error: 'ファイルが見つかりません' });
       }
-
       // ダウンロードページHTML返却
       const html = `
 <!DOCTYPE html>
@@ -182,7 +177,6 @@ export default async function handler(req, res) {
       <h1>DataGate</h1>
       <p class="subtitle">安全なファイル受け渡しサービス</p>
     </div>
-
     <div class="file-info">
       <div class="info-row">
         <span class="info-label">ファイル名:</span>
@@ -201,10 +195,8 @@ export default async function handler(req, res) {
         <span class="info-value">${metadata.downloadCount}回</span>
       </div>
     </div>
-
     <div class="error" id="error"></div>
     <div class="success" id="success"></div>
-
     <form id="downloadForm">
       <div class="form-group">
         <label for="otp">ワンタイムパスワード (OTP):</label>
@@ -223,7 +215,6 @@ export default async function handler(req, res) {
         📥 ダウンロード
       </button>
     </form>
-
     <div class="note">
       <strong>⚠️ ご注意</strong>
       <ul style="margin-left: 20px; margin-top: 5px;">
@@ -233,7 +224,6 @@ export default async function handler(req, res) {
       </ul>
     </div>
   </div>
-
   <script>
     const fileId = '${fileId}';
     const form = document.getElementById('downloadForm');
@@ -241,21 +231,16 @@ export default async function handler(req, res) {
     const downloadBtn = document.getElementById('downloadBtn');
     const errorDiv = document.getElementById('error');
     const successDiv = document.getElementById('success');
-
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-
       const otp = otpInput.value.trim();
-
       if (!/^[0-9]{6}$/.test(otp)) {
         showError('OTPは6桁の数字で入力してください');
         return;
       }
-
       downloadBtn.disabled = true;
       downloadBtn.textContent = 'ダウンロード中...';
       hideMessages();
-
       try {
         const response = await fetch('/api/files/download', {
           method: 'POST',
@@ -264,12 +249,10 @@ export default async function handler(req, res) {
           },
           body: JSON.stringify({ fileId, otp })
         });
-
         if (!response.ok) {
           const error = await response.json();
           throw new Error(error.error || 'ダウンロードに失敗しました');
         }
-
         // ファイルダウンロード
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
@@ -280,17 +263,13 @@ export default async function handler(req, res) {
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
-
         showSuccess('ファイルのダウンロードが完了しました');
-
         // フォームをリセット
         form.reset();
-
         // ページをリロードして残り回数を更新
         setTimeout(() => {
           window.location.reload();
         }, 2000);
-
       } catch (error) {
         showError(error.message);
       } finally {
@@ -298,24 +277,20 @@ export default async function handler(req, res) {
         downloadBtn.textContent = '📥 ダウンロード';
       }
     });
-
     function showError(message) {
       errorDiv.textContent = message;
       errorDiv.style.display = 'block';
       successDiv.style.display = 'none';
     }
-
     function showSuccess(message) {
       successDiv.textContent = message;
       successDiv.style.display = 'block';
       errorDiv.style.display = 'none';
     }
-
     function hideMessages() {
       errorDiv.style.display = 'none';
       successDiv.style.display = 'none';
     }
-
     // OTP入力時に数字のみ許可
     otpInput.addEventListener('input', (e) => {
       e.target.value = e.target.value.replace(/[^0-9]/g, '');
@@ -324,74 +299,63 @@ export default async function handler(req, res) {
 </body>
 </html>
 `;
-
       return res.status(200).setHeader('Content-Type', 'text/html; charset=utf-8').send(html);
-
     } catch (error) {
       console.error('Download page error:', error);
       return res.status(500).json({ error: 'サーバーエラーが発生しました' });
     }
   }
-
   // POST /api/files/download でファイルダウンロード実行
   if (req.method === 'POST') {
     try {
       const body = await readBody(req);
       const { fileId, otp } = JSON.parse(body);
-
       if (!fileId || !otp) {
         return res.status(400).json({ error: 'ファイルIDまたはOTPが指定されていません' });
       }
-
       // メタデータ取得
       const metadata = await kv.get(`file:${fileId}:meta`);
-
       if (!metadata) {
         return res.status(404).json({ error: 'ファイルが見つかりません' });
       }
-
       // OTP検証
       if (metadata.otp !== otp) {
         return res.status(400).json({ error: '無効なワンタイムパスワードです' });
       }
-
       // ダウンロード回数チェック
       if (metadata.downloadCount <= 0) {
         return res.status(400).json({ error: 'ダウンロード回数の上限に達しました' });
       }
-
       // 暗号化データ取得
       const encryptedData = await kv.get(`file:${fileId}:data`);
-
       if (!encryptedData) {
         return res.status(404).json({ error: 'ファイルデータが見つかりません' });
       }
-
       // 復号化（Bufferを直接返す）
       console.log('[Download Debug] encryptedData type:', typeof encryptedData, 'length:', encryptedData?.length);
       console.log('[Download Debug] encryptionKey:', metadata.encryptionKey ? 'exists' : 'MISSING');
       console.log('[Download Debug] iv:', metadata.iv ? 'exists' : 'MISSING');
-      
-      const decryptedBuffer = decrypt(encryptedData, metadata.encryptionKey, metadata.iv);
+     
+      // KV から取得したデータは String なので Buffer に変換
+      const encryptedBuffer = typeof encryptedData === 'string' 
+        ? Buffer.from(encryptedData, 'base64') 
+        : encryptedData;
 
+      const decryptedBuffer = decrypt(encryptedBuffer, metadata.encryptionKey, metadata.iv);
       // ダウンロード回数を減らす
       metadata.downloadCount -= 1;
       await kv.set(`file:${fileId}:meta`, metadata, { ex: 7 * 24 * 60 * 60 });
-
       // ファイル送信
       res.setHeader('Content-Type', 'application/octet-stream');
       res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(metadata.fileName)}"; filename*=UTF-8''${encodeURIComponent(metadata.fileName)}`);
       return res.status(200).send(decryptedBuffer);
-
     } catch (error) {
       console.error('Download error:', error);
       return res.status(500).json({ error: 'ダウンロードに失敗しました' });
     }
   }
-
   return res.status(405).json({ error: 'Method not allowed' });
 }
-
 // リクエストボディ読み取り
 function readBody(req) {
   return new Promise((resolve, reject) => {
@@ -401,28 +365,22 @@ function readBody(req) {
     req.on('error', reject);
   });
 }
-
 // 復号化（Bufferを直接返す）
 function decrypt(encryptedData, keyHex, ivHex) {
   const key = Buffer.from(keyHex, 'hex');
   const iv = Buffer.from(ivHex, 'hex');
   const encrypted = Buffer.from(encryptedData, 'base64');
-
   const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
   const authTag = encrypted.slice(-16);
   const ciphertext = encrypted.slice(0, -16);
-
   decipher.setAuthTag(authTag);
-
   const decrypted = Buffer.concat([
     decipher.update(ciphertext),
     decipher.final()
   ]);
-
   // Bufferを直接返す（base64変換しない）
   return decrypted;
 }
-
 // ファイルサイズフォーマット
 function formatFileSize(bytes) {
   if (bytes === 0) return '0 Bytes';
@@ -431,3 +389,4 @@ function formatFileSize(bytes) {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 }
+```
