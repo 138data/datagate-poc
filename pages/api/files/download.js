@@ -1,4 +1,3 @@
-```javascript
 import { kv } from '@vercel/kv';
 import crypto from 'crypto';
 export const config = {
@@ -392,4 +391,3 @@ function formatFileSize(bytes) {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 }
-```
