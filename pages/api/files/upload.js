@@ -1,10 +1,11 @@
-const { S3Client, PutObjectCommand, HeadObjectCommand } = require('@aws-sdk/client-s3');
-const { Readable } = require('stream');
-const crypto = require('crypto');
-const jwt = require('jsonwebtoken');
-const multiparty = require('multiparty');
-const { kv } = require('@vercel/kv');
-const sendEmail = require('../../../lib/email-service.js');
+import { S3Client, PutObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
+import { Readable } from 'stream';
+import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
+import multiparty from 'multiparty';
+import { kv } from '@vercel/kv';
+// ⬇️ 修正点: `require` を `import` に変更
+import sendEmail from '../../../lib/email-service.js';
 
 // S3クライアントの初期化
 const s3Client = new S3Client({
@@ -20,8 +21,6 @@ const BUCKET_NAME = process.env.S3_BUCKET || 'datagate-poc-138data';
 // AES-256-GCM暗号化関数
 function encryptBuffer(buffer) {
   const algorithm = 'aes-256-gcm';
-  // 🚨 セキュリティ警告: scryptのsaltはハードコードしないでください。
-  // 実際には環境変数からキーを取得し、saltはランダムに生成して保存すべきです。
   const key = crypto.scryptSync(process.env.ENCRYPTION_KEY || 'default-key-change-in-production', 'salt', 32);
   const iv = crypto.randomBytes(16); // 🚨 AES-GCMの標準IVは12バイトです
   const cipher = crypto.createCipheriv(algorithm, key, iv);
@@ -97,7 +96,8 @@ async function uploadToS3(fileId, encryptedBuffer, metadata) {
 }
 
 // メイン処理
-module.exports = async function handler(req, res) {
+// ⬇️ 修正点: `module.exports` を `export default` に変更
+export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -196,8 +196,8 @@ module.exports = async function handler(req, res) {
   }
 }
 
-// ⬇️ 修正点: `exports.config` を `module.exports.config` に変更
-module.exports.config = {
+// ⬇️ 修正点: `module.exports.config` を `export const config` に変更
+export const config = {
   api: {
     bodyParser: false,
     responseLimit: false,

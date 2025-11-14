@@ -1,6 +1,6 @@
-const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
-const crypto = require('crypto');
-const { kv } = require('@vercel/kv');
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import crypto from 'crypto';
+import { kv } from '@vercel/kv';
 
 // S3クライアントの初期化
 const s3Client = new S3Client({
@@ -59,7 +59,8 @@ function decryptBuffer(encryptedBuffer) {
 }
 
 // メインハンドラ
-module.exports = async function handler(req, res) {
+// ⬇️ 修正点: `module.exports` を `export default` に変更
+export default async function handler(req, res) {
   console.log('[Download] Request received:', req.method, req.url);
 
   // CORS headers
@@ -71,15 +72,10 @@ module.exports = async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // ⭐️ 修正点: fileId をクエリパラメータ (GET) またはボディ (POST) から取得
   let fileId;
   if (req.method === 'GET') {
     fileId = req.query.fileId;
   } else if (req.method === 'POST') {
-    // ⭐️ 修正点: 以前のコードは req.body を期待していたが、
-    // upload.js と同様に bodyParser: false が必要かもしれない。
-    // まずは Vercel のデフォルト (bodyParser: true) で試す。
-    // download.js の config で bodyParser: true が指定されているため、req.body が使える。
     fileId = req.body.fileId || req.query.fileId;
   }
 
@@ -88,7 +84,7 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    // ⭐️ 修正点 1: KVから文字列として取得
+    // 1: KVから文字列として取得
     const metadataString = await kv.get(`file:${fileId}`);
     
     if (!metadataString) {
@@ -96,7 +92,7 @@ module.exports = async function handler(req, res) {
       return res.status(404).json({ error: 'ファイルが見つかりません' });
     }
 
-    // ⭐️ 修正点 2: JSONとしてパース
+    // 2: JSONとしてパース
     const metadata = JSON.parse(metadataString);
 
     // Handle POST (OTP verification and download)
@@ -107,7 +103,7 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ error: '認証コードが必要です' });
       }
 
-      // ⭐️ 修正点 3: otpAttempts は upload.js の metadata にないので初期化
+      // 3: otpAttempts は upload.js の metadata にないので初期化
       metadata.otpAttempts = metadata.otpAttempts || 0;
 
       // Check OTP attempts
@@ -121,7 +117,7 @@ module.exports = async function handler(req, res) {
       if (otp !== metadata.otp) {
         // Increment attempts
         metadata.otpAttempts += 1;
-        // ⭐️ 修正点 4: KV保存時は再度 stringify
+        // 4: KV保存時は再度 stringify
         await kv.set(`file:${fileId}`, JSON.stringify(metadata), { ex: 7 * 24 * 60 * 60 });
         
         return res.status(401).json({ 
@@ -134,7 +130,7 @@ module.exports = async function handler(req, res) {
       console.log('[Download] Downloading from S3:', metadata.s3Key);
       const { buffer: encryptedBuffer } = await downloadFromS3(metadata.s3Key);
 
-      // Decrypt file (⭐️ 修正点 5: 互換性のある関数を使用)
+      // Decrypt file (5: 互換性のある関数を使用)
       const decryptedBuffer = decryptBuffer(encryptedBuffer);
 
       // Mark as downloaded
@@ -146,7 +142,7 @@ module.exports = async function handler(req, res) {
       res.setHeader('Content-Type', metadata.mimeType || 'application/octet-stream');
       res.setHeader('Content-Length', decryptedBuffer.length);
       
-      // ⭐️ 修正点 6: upload.js の 'originalName' を使う
+      // 6: upload.js の 'originalName' を使う
       const fileName = metadata.originalName || 'downloaded-file';
       
       // Use RFC 5987 encoding for filename
@@ -167,7 +163,7 @@ module.exports = async function handler(req, res) {
     if (req.method === 'GET') {
       return res.status(200).json({
         success: true,
-        // ⭐️ 修正点 7: upload.js のキー名に合わせる
+        // 7: upload.js のキー名に合わせる
         fileName: metadata.originalName,
         fileSize: metadata.size,
         uploadDate: metadata.createdAt,
@@ -177,7 +173,7 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    return res.status(405).json({ error: 'Method not allowed' });
+    return res.status(45).json({ error: 'Method not allowed' });
 
   } catch (error) {
     console.error('[Download] Error:', error);
@@ -198,8 +194,8 @@ module.exports = async function handler(req, res) {
   }
 };
 
-// ⭐️ 修正点 8: config のエクスポート形式を CommonJS に統一
-module.exports.config = {
+// ⬇️ 修正点: `module.exports.config` を `export const config` に変更
+export const config = {
   api: {
     bodyParser: true, // POSTで {otp: '...'} を受け取るため true が必要
     sizeLimit: '1mb',

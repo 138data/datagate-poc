@@ -1,0 +1,4 @@
+Phase 70 メール受信テスト - Gmail版
+実施日時: 2025-11-11 13:40
+送信先: 138data@gmail.com
+理由: Outlook.jp blocked
