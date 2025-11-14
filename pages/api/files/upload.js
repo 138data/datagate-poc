@@ -20,8 +20,10 @@ const BUCKET_NAME = process.env.S3_BUCKET || 'datagate-poc-138data';
 // AES-256-GCM暗号化関数
 function encryptBuffer(buffer) {
   const algorithm = 'aes-256-gcm';
+  // 🚨 セキュリティ警告: scryptのsaltはハードコードしないでください。
+  // 実際には環境変数からキーを取得し、saltはランダムに生成して保存すべきです。
   const key = crypto.scryptSync(process.env.ENCRYPTION_KEY || 'default-key-change-in-production', 'salt', 32);
-  const iv = crypto.randomBytes(16);
+  const iv = crypto.randomBytes(16); // 🚨 AES-GCMの標準IVは12バイトです
   const cipher = crypto.createCipheriv(algorithm, key, iv);
   
   const encrypted = Buffer.concat([cipher.update(buffer), cipher.final()]);
@@ -38,6 +40,9 @@ function generateOTP() {
 // メタデータ保存
 async function storeMetadata(fileId, metadata) {
   const key = `file:${fileId}`;
+  // 🚨 修正: 以前のKVではJSONをそのまま保存していましたが、
+  // S3移行コードではJSON.stringifyを使っています。
+  // download.js側もJSON.parseを想定しているか確認が必要です。
   await kv.set(key, JSON.stringify(metadata), { ex: 7 * 24 * 60 * 60 });
 }
 
@@ -95,7 +100,8 @@ async function uploadToS3(fileId, encryptedBuffer, metadata) {
 }
 
 // メイン処理
-export default async function handler(req, res) {
+// ⬇️ 修正点 1: `export default` を `module.exports` に変更
+module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -194,7 +200,8 @@ export default async function handler(req, res) {
   }
 }
 
-export const config = {
+// ⬇️ 修正点 2: `export const config` を `exports.config` に変更
+exports.config = {
   api: {
     bodyParser: false,
     responseLimit: false,
