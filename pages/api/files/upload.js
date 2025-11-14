@@ -1,205 +1,234 @@
-import { S3Client, PutObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
-import { Readable } from 'stream';
-import crypto from 'crypto';
-import jwt from 'jsonwebtoken';
-import multiparty from 'multiparty';
 import { kv } from '@vercel/kv';
-// ⬇️ 修正点: `require` を `import` に変更
-import sendEmail from '../../../lib/email-service.js';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import crypto from 'crypto';
+import pako from 'pako';
+import formidable from 'formidable';
+import fs from 'fs';
 
-// S3クライアントの初期化
+// S3クライアント初期化
 const s3Client = new S3Client({
-  region: process.env.AWS_REGION || 'us-east-1',
+  region: process.env.AWS_REGION || 'ap-northeast-1',
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   },
 });
 
-const BUCKET_NAME = process.env.S3_BUCKET || 'datagate-poc-138data';
+const BUCKET_NAME = process.env.AWS_S3_BUCKET_NAME;
 
-// AES-256-GCM暗号化関数
-function encryptBuffer(buffer) {
-  const algorithm = 'aes-256-gcm';
-  const key = crypto.scryptSync(process.env.ENCRYPTION_KEY || 'default-key-change-in-production', 'salt', 32);
-  const iv = crypto.randomBytes(16); // 🚨 AES-GCMの標準IVは12バイトです
-  const cipher = crypto.createCipheriv(algorithm, key, iv);
-  
-  const encrypted = Buffer.concat([cipher.update(buffer), cipher.final()]);
-  const authTag = cipher.getAuthTag();
-  
-  return Buffer.concat([iv, authTag, encrypted]);
-}
-
-// OTP生成
-function generateOTP() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
-
-// メタデータ保存
-async function storeMetadata(fileId, metadata) {
-  const key = `file:${fileId}`;
-  await kv.set(key, JSON.stringify(metadata), { ex: 7 * 24 * 60 * 60 });
-}
-
-// リクエストボディのパース（multipart/form-data）
-function parseMultipartForm(req) {
-  return new Promise((resolve, reject) => {
-    const form = new multiparty.Form();
-    const fields = {};
-    const files = {};
-
-    form.on('field', (name, value) => {
-      fields[name] = value;
-    });
-
-    form.on('part', (part) => {
-      if (part.filename) {
-        const chunks = [];
-        part.on('data', (chunk) => chunks.push(chunk));
-        part.on('end', () => {
-          files[part.name] = {
-            filename: part.filename,
-            contentType: part.headers['content-type'],
-            buffer: Buffer.concat(chunks),
-          };
-        });
-      } else {
-        part.resume();
-      }
-    });
-
-    form.on('close', () => resolve({ fields, files }));
-    form.on('error', reject);
-    form.parse(req);
-  });
-}
-
-// S3アップロード
-async function uploadToS3(fileId, encryptedBuffer, metadata) {
-  const s3Key = `files/${fileId}`;
-  
-  const command = new PutObjectCommand({
-    Bucket: BUCKET_NAME,
-    Key: s3Key,
-    Body: encryptedBuffer,
-    ContentType: 'application/octet-stream',
-    ServerSideEncryption: 'AES256',
-    Metadata: {
-      'original-filename': metadata.originalName,
-      'uploaded-at': new Date().toISOString(),
-    },
-  });
-
-  await s3Client.send(command);
-  return s3Key;
-}
-
-// メイン処理
-// ⬇️ 修正点: `module.exports` を `export default` に変更
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
-    console.log('[upload] Starting file upload process');
-
-    // リクエストボディをパース
-    const { fields, files } = await parseMultipartForm(req);
-
-    const file = files.file;
-    const recipientEmail = fields.recipientEmail;
-
-    if (!file || !file.buffer) {
-      console.error('[upload] No file provided');
-      return res.status(400).json({ error: 'No file provided' });
-    }
-
-    if (!recipientEmail) {
-      console.error('[upload] No recipient email provided');
-      return res.status(400).json({ error: 'Recipient email is required' });
-    }
-
-    console.log('[upload] File received:', {
-      originalName: file.filename,
-      size: file.buffer.length,
-      type: file.contentType,
-    });
-
-    // ファイルID生成
-    const fileId = crypto.randomBytes(16).toString('hex');
-    console.log('[upload] Generated fileId:', fileId);
-
-    // 暗号化
-    const encryptedBuffer = encryptBuffer(file.buffer);
-    console.log('[upload] File encrypted, size:', encryptedBuffer.length);
-
-    // OTP生成
-    const otp = generateOTP();
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-
-    // メタデータ作成
-    const metadata = {
-      fileId,
-      originalName: file.filename,
-      size: file.buffer.length,
-      mimeType: file.contentType,
-      recipientEmail,
-      otp,
-      verified: false,
-      createdAt: new Date().toISOString(),
-      expiresAt: expiresAt.toISOString(),
-      storage: 's3',
-    };
-
-    // S3にアップロード
-    console.log('[upload] Uploading to S3...');
-    const s3Key = await uploadToS3(fileId, encryptedBuffer, metadata);
-    metadata.s3Key = s3Key;
-    console.log('[upload] S3 upload complete:', s3Key);
-
-    // KVにメタデータ保存
-    await storeMetadata(fileId, metadata);
-    console.log('[upload] Metadata stored in KV');
-
-    // メール送信
-    const emailSent = await sendEmail({
-      to: recipientEmail,
-      fileId,
-      fileName: file.filename,
-      fileSize: file.buffer.length,
-      otp,
-      expiresAt,
-    });
-
-    if (!emailSent) {
-      console.warn('[upload] Email sending failed');
-    }
-
-    console.log('[upload] Upload process completed successfully');
-
-    return res.status(200).json({
-      success: true,
-      fileId,
-      recipientEmail,
-      expiresAt: expiresAt.toISOString(),
-      emailSent,
-      storage: 's3',
-    });
-  } catch (error) {
-    console.error('[upload] Error:', error);
-    return res.status(500).json({
-      error: 'Upload failed',
-      details: error.message,
-    });
-  }
-}
-
-// ⬇️ 修正点: `module.exports.config` を `export const config` に変更
+// Vercel設定
 export const config = {
   api: {
     bodyParser: false,
     responseLimit: false,
   },
 };
+
+// ヘルパー: OTP生成
+function generateOTP() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+// ヘルパー: ランダムsalt生成 (32バイト)
+function generateSalt() {
+  return crypto.randomBytes(32);
+}
+
+// ヘルパー: SHA256ハッシュ計算
+function calculateSHA256(buffer) {
+  return crypto.createHash('sha256').update(buffer).digest('hex');
+}
+
+// ヘルパー: 暗号化 (AES-256-GCM, 12バイトIV, ランダムsalt)
+function encryptFile(buffer, password, salt) {
+  const iv = crypto.randomBytes(12); // AES-GCM推奨: 12バイト
+  const key = crypto.pbkdf2Sync(password, salt, 100000, 32, 'sha256');
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  
+  const encrypted = Buffer.concat([cipher.update(buffer), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+  
+  // 形式: [IV(12) + authTag(16) + 暗号化データ]
+  return Buffer.concat([iv, authTag, encrypted]);
+}
+
+// メイン処理
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  let fileId = null;
+  let tempPath = null;
+
+  try {
+    // 1. フォームデータ解析
+    const form = formidable({
+      maxFileSize: 50 * 1024 * 1024, // 50MB
+      keepExtensions: true,
+    });
+
+    const [fields, files] = await new Promise((resolve, reject) => {
+      form.parse(req, (err, fields, files) => {
+        if (err) reject(err);
+        else resolve([fields, files]);
+      });
+    });
+
+    const file = files.file?.[0];
+    const to = fields.to?.[0];
+    const from = fields.from?.[0];
+    const subject = fields.subject?.[0] || '安全なファイル転送';
+    const message = fields.message?.[0] || '';
+
+    // バリデーション
+    if (!file || !to || !from) {
+      return res.status(400).json({
+        error: 'ファイル、送信先、送信元は必須です',
+      });
+    }
+
+    // 2. ファイル読み込み
+    tempPath = file.filepath;
+    const originalBuffer = fs.readFileSync(tempPath);
+    const originalSize = originalBuffer.length;
+
+    console.log(`[Upload] File: ${file.originalFilename}, Size: ${originalSize} bytes`);
+
+    // 3. SHA256ハッシュ計算
+    const sha256 = calculateSHA256(originalBuffer);
+    console.log(`[Upload] SHA256: ${sha256}`);
+
+    // 4. 圧縮
+    const compressed = pako.gzip(originalBuffer, { level: 9 });
+    const compressedSize = compressed.length;
+    const compressionRatio = ((1 - compressedSize / originalSize) * 100).toFixed(1);
+
+    console.log(`[Upload] Compressed: ${compressedSize} bytes (${compressionRatio}% reduction)`);
+
+    // 5. 暗号化準備
+    fileId = crypto.randomBytes(16).toString('hex');
+    const otp = generateOTP();
+    const salt = generateSalt(); // ランダムsalt生成
+
+    // 6. 暗号化
+    const encryptedData = encryptFile(compressed, otp, salt);
+    const encryptedSize = encryptedData.length;
+
+    console.log(`[Upload] Encrypted: ${encryptedSize} bytes, FileID: ${fileId}`);
+
+    // 7. S3アップロード
+    const s3Key = `files/${fileId}`;
+    const uploadCommand = new PutObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: s3Key,
+      Body: encryptedData,
+      ContentType: 'application/octet-stream',
+      Metadata: {
+        'original-filename': Buffer.from(file.originalFilename).toString('base64'),
+        'file-id': fileId,
+      },
+    });
+
+    await s3Client.send(uploadCommand);
+    console.log(`[Upload] S3 upload successful: ${s3Key}`);
+
+    // 8. メタデータ保存 (KV)
+    const metadata = {
+      id: fileId,
+      filename: file.originalFilename,
+      size: originalSize,
+      compressedSize,
+      encryptedSize,
+      compressionRatio: parseFloat(compressionRatio),
+      mimeType: file.mimetype || 'application/octet-stream',
+      to,
+      from,
+      subject,
+      message,
+      otp,
+      salt: salt.toString('base64'), // Base64エンコードして保存
+      sha256, // SHA256ハッシュ
+      scanStatus: 'pending', // マルウェアスキャン状態
+      otpAttempts: 0,
+      otpLocked: false,
+      downloaded: false,
+      uploadedAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7日後
+      storageType: 's3',
+      s3Key,
+    };
+
+    await kv.set(`file:${fileId}`, JSON.stringify(metadata));
+    await kv.expire(`file:${fileId}`, 7 * 24 * 60 * 60); // 7日TTL
+
+    console.log(`[Upload] Metadata saved to KV: file:${fileId}`);
+
+    // 9. 統計更新
+    try {
+      await kv.incr('stats:totalFiles');
+      await kv.incrby('stats:totalSize', originalSize);
+    } catch (statsError) {
+      console.error('[Upload] Stats update failed:', statsError);
+    }
+
+    // 10. メール送信
+    const downloadUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://datagate-poc.vercel.app'}/download/${fileId}`;
+    
+    try {
+      const emailService = await import('../../../lib/email-service.js');
+      await emailService.sendFileNotification({
+        to,
+        from,
+        subject,
+        message,
+        filename: file.originalFilename,
+        fileSize: originalSize,
+        downloadUrl,
+        expiresAt: metadata.expiresAt,
+      });
+      console.log(`[Upload] Email sent to: ${to}`);
+    } catch (emailError) {
+      console.error('[Upload] Email failed:', emailError);
+      // メール失敗時もファイルは保存済みなので処理続行
+    }
+
+    // 11. 成功レスポンス
+    return res.status(200).json({
+      success: true,
+      fileId,
+      downloadUrl,
+      expiresAt: metadata.expiresAt,
+      size: originalSize,
+      compressed: compressedSize,
+      compressionRatio: parseFloat(compressionRatio),
+      sha256,
+    });
+
+  } catch (error) {
+    console.error('[Upload] Error:', error);
+
+    // クリーンアップ
+    if (fileId) {
+      try {
+        await kv.del(`file:${fileId}`);
+      } catch (cleanupError) {
+        console.error('[Upload] Cleanup failed:', cleanupError);
+      }
+    }
+
+    return res.status(500).json({
+      error: 'ファイルアップロード中にエラーが発生しました',
+      details: error.message,
+    });
+  } finally {
+    // 一時ファイル削除
+    if (tempPath) {
+      try {
+        fs.unlinkSync(tempPath);
+      } catch (unlinkError) {
+        console.error('[Upload] Temp file cleanup failed:', unlinkError);
+      }
+    }
+  }
+}
