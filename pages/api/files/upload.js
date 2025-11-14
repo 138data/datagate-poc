@@ -19,7 +19,6 @@ const BUCKET_NAME = 'datagate-poc-138data';
 
 // Vercel設定
 export const config = {
-//... (以下、変更なし) ...
   api: {
     bodyParser: false,
     responseLimit: false,
@@ -188,6 +187,7 @@ export default async function handler(req, res) {
         fileSize: originalSize,
         downloadUrl,
         expiresAt: metadata.expiresAt,
+        otp: metadata.otp, // ★ OTPを渡す
       });
       console.log(`[Upload] Email sent to: ${to}`);
     } catch (emailError) {
