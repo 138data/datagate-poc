@@ -4,7 +4,6 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const multiparty = require('multiparty');
 const { kv } = require('@vercel/kv');
-// ⬇️ 修正点: パスを ../../ から ../../../ に変更
 const sendEmail = require('../../../lib/email-service.js');
 
 // S3クライアントの初期化
@@ -41,9 +40,6 @@ function generateOTP() {
 // メタデータ保存
 async function storeMetadata(fileId, metadata) {
   const key = `file:${fileId}`;
-  // 🚨 修正: 以前のKVではJSONをそのまま保存していましたが、
-  // S3移行コードではJSON.stringifyを使っています。
-  // download.js側もJSON.parseを想定しているか確認が必要です。
   await kv.set(key, JSON.stringify(metadata), { ex: 7 * 24 * 60 * 60 });
 }
 
@@ -200,8 +196,8 @@ module.exports = async function handler(req, res) {
   }
 }
 
-// CommonJS 形式
-exports.config = {
+// ⬇️ 修正点: `exports.config` を `module.exports.config` に変更
+module.exports.config = {
   api: {
     bodyParser: false,
     responseLimit: false,
