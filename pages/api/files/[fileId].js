@@ -1,5 +1,3 @@
-# 修正ファイルを作成
-@'
 // pages/api/files/[fileId].js
 const kv = require('../../../lib/kv-client');
 const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
@@ -230,4 +228,3 @@ async function streamToBuffer(stream) {
 }
 
 module.exports = handler;
-'@ | Out-File -Encoding UTF8 "pages/api/files/[fileId].js"

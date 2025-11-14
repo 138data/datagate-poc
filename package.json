@@ -9,6 +9,7 @@
     "@aws-sdk/client-sesv2": "^3.928.0",
     "@aws-sdk/s3-request-presigner": "^3.931.0",
     "@sendgrid/mail": "^8.1.6",
+    "@upstash/redis": "^1.35.6",
     "@vercel/kv": "^2.0.0",
     "axios": "^1.7.9",
     "bcryptjs": "^2.4.3",
