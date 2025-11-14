@@ -23,7 +23,7 @@ async function streamToBuffer(stream) {
   });
 }
 
-// Download from S3
+// S3からダウンロード
 async function downloadFromS3(key) {
   const command = new GetObjectCommand({
     Bucket: S3_BUCKET,
@@ -39,27 +39,26 @@ async function downloadFromS3(key) {
   };
 }
 
-// Decryption function
-function decryptData(encryptedBuffer, password) {
+// 復号化関数 (upload.js と互換性を持たせる)
+function decryptBuffer(encryptedBuffer) {
   const algorithm = 'aes-256-gcm';
   
-  // Extract components
-  const salt = encryptedBuffer.slice(0, 32);
-  const iv = encryptedBuffer.slice(32, 48);
-  const authTag = encryptedBuffer.slice(48, 64);
-  const encrypted = encryptedBuffer.slice(64);
+  // upload.js の scryptSync と同じキーを導出
+  const key = crypto.scryptSync(process.env.ENCRYPTION_KEY || 'default-key-change-in-production', 'salt', 32);
   
-  // Derive key
-  const key = crypto.pbkdf2Sync(password, salt, 100000, 32, 'sha256');
+  // upload.js の構造 [iv(16)][authTag(16)][encrypted] に合わせる
+  const iv = encryptedBuffer.slice(0, 16);
+  const authTag = encryptedBuffer.slice(16, 32);
+  const encrypted = encryptedBuffer.slice(32);
   
-  // Decrypt
+  // 復号化
   const decipher = crypto.createDecipheriv(algorithm, key, iv);
   decipher.setAuthTag(authTag);
   
   return Buffer.concat([decipher.update(encrypted), decipher.final()]);
 }
 
-// Main handler
+// メインハンドラ
 module.exports = async function handler(req, res) {
   console.log('[Download] Request received:', req.method, req.url);
 
@@ -72,20 +71,33 @@ module.exports = async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const { fileId } = req.query;
+  // ⭐️ 修正点: fileId をクエリパラメータ (GET) またはボディ (POST) から取得
+  let fileId;
+  if (req.method === 'GET') {
+    fileId = req.query.fileId;
+  } else if (req.method === 'POST') {
+    // ⭐️ 修正点: 以前のコードは req.body を期待していたが、
+    // upload.js と同様に bodyParser: false が必要かもしれない。
+    // まずは Vercel のデフォルト (bodyParser: true) で試す。
+    // download.js の config で bodyParser: true が指定されているため、req.body が使える。
+    fileId = req.body.fileId || req.query.fileId;
+  }
 
   if (!fileId) {
     return res.status(400).json({ error: 'File ID is required' });
   }
 
   try {
-    // Get metadata from KV
-    const metadata = await kv.get(`file:${fileId}`);
+    // ⭐️ 修正点 1: KVから文字列として取得
+    const metadataString = await kv.get(`file:${fileId}`);
     
-    if (!metadata) {
+    if (!metadataString) {
       console.log('[Download] File not found:', fileId);
       return res.status(404).json({ error: 'ファイルが見つかりません' });
     }
+
+    // ⭐️ 修正点 2: JSONとしてパース
+    const metadata = JSON.parse(metadataString);
 
     // Handle POST (OTP verification and download)
     if (req.method === 'POST') {
@@ -94,6 +106,9 @@ module.exports = async function handler(req, res) {
       if (!otp) {
         return res.status(400).json({ error: '認証コードが必要です' });
       }
+
+      // ⭐️ 修正点 3: otpAttempts は upload.js の metadata にないので初期化
+      metadata.otpAttempts = metadata.otpAttempts || 0;
 
       // Check OTP attempts
       if (metadata.otpAttempts >= 5) {
@@ -105,8 +120,9 @@ module.exports = async function handler(req, res) {
       // Verify OTP
       if (otp !== metadata.otp) {
         // Increment attempts
-        metadata.otpAttempts = (metadata.otpAttempts || 0) + 1;
-        await kv.set(`file:${fileId}`, metadata, { ex: 7 * 24 * 60 * 60 });
+        metadata.otpAttempts += 1;
+        // ⭐️ 修正点 4: KV保存時は再度 stringify
+        await kv.set(`file:${fileId}`, JSON.stringify(metadata), { ex: 7 * 24 * 60 * 60 });
         
         return res.status(401).json({ 
           error: '認証コードが正しくありません',
@@ -118,29 +134,32 @@ module.exports = async function handler(req, res) {
       console.log('[Download] Downloading from S3:', metadata.s3Key);
       const { buffer: encryptedBuffer } = await downloadFromS3(metadata.s3Key);
 
-      // Decrypt file
-      const decryptedBuffer = decryptData(encryptedBuffer, metadata.password);
+      // Decrypt file (⭐️ 修正点 5: 互換性のある関数を使用)
+      const decryptedBuffer = decryptBuffer(encryptedBuffer);
 
       // Mark as downloaded
       metadata.downloaded = true;
       metadata.downloadDate = new Date().toISOString();
-      await kv.set(`file:${fileId}`, metadata, { ex: 7 * 24 * 60 * 60 });
+      await kv.set(`file:${fileId}`, JSON.stringify(metadata), { ex: 7 * 24 * 60 * 60 });
 
       // Set proper headers for file download
       res.setHeader('Content-Type', metadata.mimeType || 'application/octet-stream');
       res.setHeader('Content-Length', decryptedBuffer.length);
       
+      // ⭐️ 修正点 6: upload.js の 'originalName' を使う
+      const fileName = metadata.originalName || 'downloaded-file';
+      
       // Use RFC 5987 encoding for filename
-      const encodedFilename = encodeURIComponent(metadata.fileName)
+      const encodedFilename = encodeURIComponent(fileName)
         .replace(/['()]/g, escape)
         .replace(/\*/g, '%2A');
       
       res.setHeader(
         'Content-Disposition',
-        `attachment; filename="${metadata.fileName}"; filename*=UTF-8''${encodedFilename}`
+        `attachment; filename="${fileName}"; filename*=UTF-8''${encodedFilename}`
       );
 
-      console.log('[Download] Sending file:', metadata.fileName, decryptedBuffer.length, 'bytes');
+      console.log('[Download] Sending file:', fileName, decryptedBuffer.length, 'bytes');
       return res.send(decryptedBuffer);
     }
 
@@ -148,12 +167,13 @@ module.exports = async function handler(req, res) {
     if (req.method === 'GET') {
       return res.status(200).json({
         success: true,
-        fileName: metadata.fileName,
-        fileSize: metadata.fileSize,
-        uploadDate: metadata.uploadDate,
+        // ⭐️ 修正点 7: upload.js のキー名に合わせる
+        fileName: metadata.originalName,
+        fileSize: metadata.size,
+        uploadDate: metadata.createdAt,
         requiresOtp: true,
         downloaded: metadata.downloaded || false,
-        storageType: metadata.storageType || 'unknown'
+        storageType: metadata.storage || 'unknown'
       });
     }
 
@@ -178,10 +198,11 @@ module.exports = async function handler(req, res) {
   }
 };
 
+// ⭐️ 修正点 8: config のエクスポート形式を CommonJS に統一
 module.exports.config = {
   api: {
-    bodyParser: true,
+    bodyParser: true, // POSTで {otp: '...'} を受け取るため true が必要
     sizeLimit: '1mb',
-    responseLimit: '100mb'
+    responseLimit: '100mb' // S3からダウンロードしたファイルを返すため
   }
 };
