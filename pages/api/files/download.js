@@ -59,7 +59,6 @@ function decryptBuffer(encryptedBuffer) {
 }
 
 // メインハンドラ
-// ⬇️ 修正点: `module.exports` を `export default` に変更
 export default async function handler(req, res) {
   console.log('[Download] Request received:', req.method, req.url);
 
@@ -74,9 +73,24 @@ export default async function handler(req, res) {
 
   let fileId;
   if (req.method === 'GET') {
-    fileId = req.query.fileId;
+    // ⭐️ 修正点: /download/[fileId] のようなパスに対応
+    fileId = req.query.fileId || req.query.id;
+    if (Array.isArray(fileId)) {
+        fileId = fileId[0];
+    }
   } else if (req.method === 'POST') {
     fileId = req.body.fileId || req.query.fileId;
+    if (Array.isArray(fileId)) {
+        fileId = fileId[0];
+    }
+  }
+  
+  // ログから /download/[fileId] 形式で呼ばれているため、パスから取得
+  if (!fileId && req.url) {
+      const parts = req.url.split('/');
+      if (parts[parts.length - 1] && parts[parts.length - 2] === 'download') {
+          fileId = parts[parts.length - 1].split('?')[0];
+      }
   }
 
   if (!fileId) {
@@ -84,16 +98,15 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 1: KVから文字列として取得
-    const metadataString = await kv.get(`file:${fileId}`);
+    // ⭐️ 修正点 1: kv.get() は自動でオブジェクトを返す
+    const metadata = await kv.get(`file:${fileId}`);
     
-    if (!metadataString) {
+    if (!metadata) {
       console.log('[Download] File not found:', fileId);
       return res.status(404).json({ error: 'ファイルが見つかりません' });
     }
 
-    // 2: JSONとしてパース
-    const metadata = JSON.parse(metadataString);
+    // ⭐️ 修正点 2: JSON.parse(metadataString) を削除 (metadata は既にオブジェクト)
 
     // Handle POST (OTP verification and download)
     if (req.method === 'POST') {
@@ -103,7 +116,6 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: '認証コードが必要です' });
       }
 
-      // 3: otpAttempts は upload.js の metadata にないので初期化
       metadata.otpAttempts = metadata.otpAttempts || 0;
 
       // Check OTP attempts
@@ -117,8 +129,8 @@ export default async function handler(req, res) {
       if (otp !== metadata.otp) {
         // Increment attempts
         metadata.otpAttempts += 1;
-        // 4: KV保存時は再度 stringify
-        await kv.set(`file:${fileId}`, JSON.stringify(metadata), { ex: 7 * 24 * 60 * 60 });
+        // ⭐️ 修正点 3: kv.set には stringify せずオブジェクトを渡す
+        await kv.set(`file:${fileId}`, metadata, { ex: 7 * 24 * 60 * 60 });
         
         return res.status(401).json({ 
           error: '認証コードが正しくありません',
@@ -130,19 +142,19 @@ export default async function handler(req, res) {
       console.log('[Download] Downloading from S3:', metadata.s3Key);
       const { buffer: encryptedBuffer } = await downloadFromS3(metadata.s3Key);
 
-      // Decrypt file (5: 互換性のある関数を使用)
+      // Decrypt file
       const decryptedBuffer = decryptBuffer(encryptedBuffer);
 
       // Mark as downloaded
       metadata.downloaded = true;
       metadata.downloadDate = new Date().toISOString();
-      await kv.set(`file:${fileId}`, JSON.stringify(metadata), { ex: 7 * 24 * 60 * 60 });
+      // ⭐️ 修正点 4: kv.set には stringify せずオブジェクトを渡す
+      await kv.set(`file:${fileId}`, metadata, { ex: 7 * 24 * 60 * 60 });
 
       // Set proper headers for file download
       res.setHeader('Content-Type', metadata.mimeType || 'application/octet-stream');
       res.setHeader('Content-Length', decryptedBuffer.length);
       
-      // 6: upload.js の 'originalName' を使う
       const fileName = metadata.originalName || 'downloaded-file';
       
       // Use RFC 5987 encoding for filename
@@ -163,7 +175,6 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       return res.status(200).json({
         success: true,
-        // 7: upload.js のキー名に合わせる
         fileName: metadata.originalName,
         fileSize: metadata.size,
         uploadDate: metadata.createdAt,
@@ -173,12 +184,11 @@ export default async function handler(req, res) {
       });
     }
 
-    return res.status(45).json({ error: 'Method not allowed' });
+    return res.status(405).json({ error: 'Method not allowed' });
 
   } catch (error) {
     console.error('[Download] Error:', error);
     
-    // Better error messages
     if (error.name === 'NoSuchKey') {
       return res.status(404).json({ error: 'ファイルが見つかりません' });
     }
@@ -194,11 +204,10 @@ export default async function handler(req, res) {
   }
 };
 
-// ⬇️ 修正点: `module.exports.config` を `export const config` に変更
 export const config = {
   api: {
-    bodyParser: true, // POSTで {otp: '...'} を受け取るため true が必要
+    bodyParser: true,
     sizeLimit: '1mb',
-    responseLimit: '100mb' // S3からダウンロードしたファイルを返すため
+    responseLimit: '100mb'
   }
 };
