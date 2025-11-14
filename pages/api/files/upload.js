@@ -1,4 +1,4 @@
-import { kv } from '@vercel/kv';
+import { kv } from '../../../lib/kv-client.js';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import crypto from 'crypto';
 import pako from 'pako';
@@ -7,15 +7,14 @@ import fs from 'fs';
 
 // S3クライアント初期化
 const s3Client = new S3Client({
-  region: 'us-east-1', // ★ハードコード済み
+  region: process.env.AWS_REGION || 'ap-northeast-1',
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   },
 });
 
-// ★バケット名もハードコード
-const BUCKET_NAME = 'datagate-poc-138data';
+const BUCKET_NAME = process.env.AWS_S3_BUCKET_NAME;
 
 // Vercel設定
 export const config = {
@@ -187,7 +186,6 @@ export default async function handler(req, res) {
         fileSize: originalSize,
         downloadUrl,
         expiresAt: metadata.expiresAt,
-        otp: metadata.otp, // ★ OTPを渡す
       });
       console.log(`[Upload] Email sent to: ${to}`);
     } catch (emailError) {
