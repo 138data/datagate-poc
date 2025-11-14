@@ -4,7 +4,8 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const multiparty = require('multiparty');
 const { kv } = require('@vercel/kv');
-const sendEmail = require('../../lib/email-service.js');
+// ⬇️ 修正点: パスを ../../ から ../../../ に変更
+const sendEmail = require('../../../lib/email-service.js');
 
 // S3クライアントの初期化
 const s3Client = new S3Client({
@@ -100,7 +101,6 @@ async function uploadToS3(fileId, encryptedBuffer, metadata) {
 }
 
 // メイン処理
-// ⬇️ 修正点 1: `export default` を `module.exports` に変更
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -200,7 +200,7 @@ module.exports = async function handler(req, res) {
   }
 }
 
-// ⬇️ 修正点 2: `export const config` を `exports.config` に変更
+// CommonJS 形式
 exports.config = {
   api: {
     bodyParser: false,
