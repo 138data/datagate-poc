@@ -15,51 +15,33 @@ const s3Client = new S3Client({
 // ★バケット名もハードコード
 const BUCKET_NAME = 'datagate-poc-138data';
 
-// --- (ここからデバッグ版) ---
 function decryptFile(encryptedBuffer, password, salt) {
-  console.log('[DEBUG] decryptFile: CALLED');
   try {
-    console.log('[DEBUG] decryptFile: Trying 12-byte IV (new)...');
     return decryptWithIVLength(encryptedBuffer, password, salt, 12);
   } catch (error) {
-    console.log(`[DEBUG] 12-byte IV failed: ${error.message}. Trying 16-byte IV (legacy)...`);
     try {
       return decryptWithIVLength(encryptedBuffer, password, salt, 16);
     } catch (legacyError) {
-      console.log(`[DEBUG] 16-byte IV failed: ${legacyError.message}`);
       throw new Error('復号化に失敗しました（IVサイズ不一致）');
     }
   }
 }
 
 function decryptWithIVLength(encryptedBuffer, password, salt, ivLength) {
-  console.log(`[DEBUG] decryptWithIVLength: CALLED (ivLength: ${ivLength})`);
-  
-  console.log('[DEBUG] decryptWithIVLength: Slicing IV...');
   const iv = encryptedBuffer.subarray(0, ivLength);
-  
-  console.log('[DEBUG] decryptWithIVLength: Slicing AuthTag...');
   const authTag = encryptedBuffer.subarray(ivLength, ivLength + 16);
-  
-  console.log('[DEBUG] decryptWithIVLength: Slicing EncryptedData...');
   const encryptedData = encryptedBuffer.subarray(ivLength + 16);
 
-  console.log('[DEBUG] decryptWithIVLength: Deriving key (pbkdf2Sync)...');
   const key = crypto.pbkdf2Sync(password, salt, 100000, 32, 'sha256');
   
-  console.log('[DEBUG] decryptWithIVLength: Creating decipher...');
   const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
   
-  console.log('[DEBUG] decryptWithIVLength: Setting AuthTag...');
   decipher.setAuthTag(authTag);
 
-  console.log('[DEBUG] decryptWithIVLength: Decrypting (update/final)...');
   const decrypted = Buffer.concat([decipher.update(encryptedData), decipher.final()]);
   
-  console.log('[DEBUG] decryptWithIVLength: SUCCESS');
   return decrypted;
 }
-// --- (デバッグ版ここまで) ---
 
 // メイン処理
 export default async function handler(req, res) {
@@ -68,7 +50,6 @@ export default async function handler(req, res) {
   // GET: メタデータ取得 (変更なし)
   if (req.method === 'GET') {
     try {
-      const metadataStr = await kv.get(`file:${fileId}`);
       if (!metadataStr) {
         return res.status(404).json({ error: 'ファイルが見つかりません' });
       }
@@ -108,29 +89,23 @@ export default async function handler(req, res) {
 
   // POST: OTP検証 + ダウンロード
   if (req.method === 'POST') {
-    console.log(`[DEBUG] POST /api/files/download/${fileId}: HANDLER START`);
     try {
       const { otp } = req.body;
       if (!otp) {
-        console.log('[DEBUG] POST: Error 400 - OTP required');
         return res.status(400).json({ error: 'OTPが必要です' });
       }
 
       // 1. メタデータ取得
-      console.log('[DEBUG] POST: Getting metadata from KV...');
       const metadataStr = await kv.get(`file:${fileId}`);
       if (!metadataStr) {
-        console.log('[DEBUG] POST: Error 404 - File not found in KV');
         return res.status(404).json({ error: 'ファイルが見つかりません' });
       }
       const metadata = JSON.parse(metadataStr);
-      console.log('[DEBUG] POST: Metadata OK');
 
       // 2. OTPロック確認 (変更なし)
       if (metadata.otpLocked) {
         const lockExpiry = new Date(metadata.otpLockedUntil);
         if (lockExpiry > new Date()) {
-          console.log('[DEBUG] POST: Error 403 - OTP locked');
           return res.status(403).json({
             error: 'OTP試行回数超過',
             lockedUntil: metadata.otpLockedUntil,
@@ -149,46 +124,35 @@ export default async function handler(req, res) {
           metadata.otpLocked = true;
           metadata.otpLockedUntil = new Date(Date.now() + 15 * 60 * 1000).toISOString();
           await kv.set(`file:${fileId}`, JSON.stringify(metadata));
-          console.log('[DEBUG] POST: Error 403 - OTP 5 attempts failed');
           return res.status(403).json({
             error: 'OTP試行回数超過（5回）',
             lockedUntil: metadata.otpLockedUntil,
           });
         }
         await kv.set(`file:${fileId}`, JSON.stringify(metadata));
-        console.log('[DEBUG] POST: Error 401 - Invalid OTP');
         return res.status(401).json({
           error: 'OTPが正しくありません',
           attemptsRemaining: 5 - metadata.otpAttempts,
         });
       }
-      console.log('[DEBUG] POST: OTP OK');
 
       // 4. S3からファイル取得
       const s3Key = metadata.s3Key || `files/${fileId}`;
-      console.log(`[DEBUG] POST: Fetching from S3: ${s3Key}`);
       const getCommand = new GetObjectCommand({
         Bucket: BUCKET_NAME,
         Key: s3Key,
       });
       const s3Response = await s3Client.send(getCommand);
       const encryptedBuffer = await streamToBuffer(s3Response.Body);
-      console.log(`[DEBUG] POST: S3 file fetched: ${encryptedBuffer.length} bytes`);
 
       // 5. 復号化 (saltを使用)
-      console.log('[DEBUG] POST: Decoding salt from base64...');
       const salt = Buffer.from(metadata.salt, 'base64');
-      console.log('[DEBUG] POST: Calling decryptFile...');
       const decrypted = decryptFile(encryptedBuffer, metadata.otp, salt);
-      console.log(`[DEBUG] POST: Decrypted: ${decrypted.length} bytes`);
 
       // 6. 解凍
-      console.log('[DEBUG] POST: Ungzipping...');
       const decompressed = pako.ungzip(decrypted);
-      console.log(`[DEBUG] POST: Decompressed: ${decompressed.length} bytes`);
 
       // 7. ダウンロード状態更新
-      console.log('[DEBUG] POST: Updating KV status to downloaded...');
       if (!metadata.downloaded) {
         metadata.downloaded = true;
         metadata.downloadedAt = new Date().toISOString();
@@ -201,7 +165,6 @@ export default async function handler(req, res) {
       }
 
       // 8. ファイル送信
-      console.log('[DEBUG] POST: Sending file buffer to response...');
       const filename = metadata.filename;
       const encodedFilename = encodeURIComponent(filename);
       const fallbackFilename = filename.replace(/[^\x00-\x7F]/g, '_');
@@ -212,11 +175,9 @@ export default async function handler(req, res) {
       );
       res.setHeader('Content-Length', decompressed.length);
       
-      console.log('[DEBUG] POST: HANDLER SUCCESS');
       return res.status(200).send(Buffer.from(decompressed));
 
     } catch (error) {
-      console.error('[Download POST] CRITICAL ERROR:', error); // ★デバッグログ
       if (error.message.includes('復号化に失敗')) {
         return res.status(400).json({ error: '復号化エラー（OTP不一致）' });
       }
