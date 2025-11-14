@@ -80,3 +80,6 @@ datagate-smtp-gateway/
 
 # Backup files
 .env.local.backup*
+
+# Backup files
+*.bak
