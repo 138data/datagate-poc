@@ -5,17 +5,19 @@ import pako from 'pako';
 
 // S3クライアント初期化
 const s3Client = new S3Client({
-  region: 'us-east-1', // ★環境変数から変更
+  region: 'us-east-1', // ★ハードコード済み
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   },
 });
 
-const BUCKET_NAME = process.env.AWS_S3_BUCKET_NAME;
+// ★バケット名もハードコード
+const BUCKET_NAME = 'datagate-poc-138data';
 
 // ヘルパー: 復号化 (互換性対応 - 12/16バイトIV両対応)
 function decryptFile(encryptedBuffer, password, salt) {
+//... (以下、変更なし) ...
   // IVサイズ判定 (先頭バイトから推定)
   // 12バイトIV: [IV(12) + authTag(16) + data]
   // 16バイトIV: [IV(16) + authTag(16) + data] (旧形式)

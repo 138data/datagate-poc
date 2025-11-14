@@ -7,17 +7,19 @@ import fs from 'fs';
 
 // S3クライアント初期化
 const s3Client = new S3Client({
-  region: 'us-east-1', // ★環境変数から変更
+  region: 'us-east-1', // ★ハードコード済み
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   },
 });
 
-const BUCKET_NAME = process.env.AWS_S3_BUCKET_NAME;
+// ★バケット名もハードコード
+const BUCKET_NAME = 'datagate-poc-138data';
 
 // Vercel設定
 export const config = {
+//... (以下、変更なし) ...
   api: {
     bodyParser: false,
     responseLimit: false,
