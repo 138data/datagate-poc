@@ -1,417 +1,187 @@
-import { kv } from '@vercel/kv';
-import crypto from 'crypto';
+const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
+const crypto = require('crypto');
+const { kv } = require('@vercel/kv');
 
-export const config = {
-  api: {
-    bodyParser: false,
+// S3クライアントの初期化
+const s3Client = new S3Client({
+  region: process.env.AWS_REGION || 'us-east-1',
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   },
-};
+});
 
-export default async function handler(req, res) {
-  // GET /api/files/download?fileId=xxx でアクセスされる
-  if (req.method === 'GET') {
-    const { fileId } = req.query;
-    if (!fileId) {
-      return res.status(400).json({ error: 'ファイルIDが指定されていません' });
-    }
-    try {
-      // メタデータ取得
-      const metadata = await kv.get(`file:${fileId}:meta`);
-      if (!metadata) {
-        return res.status(404).json({ error: 'ファイルが見つかりません' });
-      }
-      // ダウンロードページHTML返却
-      const html = `
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DataGate - ファイルダウンロード</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      padding: 20px;
-    }
-    .container {
-      background: white;
-      border-radius: 16px;
-      padding: 40px;
-      max-width: 500px;
-      width: 100%;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    }
-    .header {
-      text-align: center;
-      margin-bottom: 30px;
-    }
-    .icon {
-      font-size: 48px;
-      margin-bottom: 10px;
-    }
-    h1 {
-      color: #333;
-      font-size: 24px;
-      margin-bottom: 10px;
-    }
-    .subtitle {
-      color: #666;
-      font-size: 14px;
-    }
-    .file-info {
-      background: #f8f9fa;
-      border-radius: 8px;
-      padding: 20px;
-      margin: 20px 0;
-    }
-    .info-row {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 10px;
-      padding-bottom: 10px;
-      border-bottom: 1px solid #e9ecef;
-    }
-    .info-row:last-child {
-      border-bottom: none;
-      margin-bottom: 0;
-      padding-bottom: 0;
-    }
-    .info-label {
-      color: #666;
-      font-size: 14px;
-    }
-    .info-value {
-      color: #333;
-      font-weight: 600;
-      font-size: 14px;
-    }
-    .form-group {
-      margin-bottom: 20px;
-    }
-    label {
-      display: block;
-      color: #333;
-      font-weight: 600;
-      margin-bottom: 8px;
-      font-size: 14px;
-    }
-    input {
-      width: 100%;
-      padding: 12px;
-      border: 2px solid #e9ecef;
-      border-radius: 8px;
-      font-size: 16px;
-      transition: border-color 0.3s;
-    }
-    input:focus {
-      outline: none;
-      border-color: #667eea;
-    }
-    .download-btn {
-      width: 100%;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      border: none;
-      padding: 15px;
-      border-radius: 8px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: transform 0.2s;
-    }
-    .download-btn:hover {
-      transform: translateY(-2px);
-    }
-    .download-btn:disabled {
-      background: #ccc;
-      cursor: not-allowed;
-      transform: none;
-    }
-    .error {
-      background: #fee;
-      color: #c33;
-      padding: 12px;
-      border-radius: 8px;
-      margin-bottom: 20px;
-      font-size: 14px;
-      display: none;
-    }
-    .success {
-      background: #efe;
-      color: #3c3;
-      padding: 12px;
-      border-radius: 8px;
-      margin-bottom: 20px;
-      font-size: 14px;
-      display: none;
-    }
-    .note {
-      background: #fff9e6;
-      border-left: 4px solid #ffd700;
-      padding: 15px;
-      margin-top: 20px;
-      border-radius: 4px;
-      font-size: 13px;
-      color: #666;
-    }
-    .note strong {
-      color: #333;
-      display: block;
-      margin-bottom: 5px;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <div class="icon">📦</div>
-      <h1>DataGate</h1>
-      <p class="subtitle">安全なファイル受け渡しサービス</p>
-    </div>
-    <div class="file-info">
-      <div class="info-row">
-        <span class="info-label">ファイル名:</span>
-        <span class="info-value">${metadata.fileName}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">ファイルサイズ:</span>
-        <span class="info-value">${formatFileSize(metadata.fileSize)}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">有効期限:</span>
-        <span class="info-value">${new Date(metadata.expiresAt).toLocaleString('ja-JP')}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">残りダウンロード回数:</span>
-        <span class="info-value">${metadata.downloadCount}回</span>
-      </div>
-    </div>
-    <div class="error" id="error"></div>
-    <div class="success" id="success"></div>
-    <form id="downloadForm">
-      <div class="form-group">
-        <label for="otp">ワンタイムパスワード (OTP):</label>
-        <input
-          type="text"
-          id="otp"
-          name="otp"
-          placeholder="6桁の数字を入力"
-          maxlength="6"
-          pattern="[0-9]{6}"
-          required
-          autocomplete="off"
-        >
-      </div>
-      <button type="submit" class="download-btn" id="downloadBtn">
-        📥 ダウンロード
-      </button>
-    </form>
-    <div class="note">
-      <strong>⚠️ ご注意</strong>
-      <ul style="margin-left: 20px; margin-top: 5px;">
-        <li>OTPはメールに記載されています</li>
-        <li>ダウンロードは${metadata.downloadCount}回まで可能です</li>
-        <li>有効期限を過ぎるとダウンロードできません</li>
-      </ul>
-    </div>
-  </div>
-  <script>
-    const fileId = '${fileId}';
-    const form = document.getElementById('downloadForm');
-    const otpInput = document.getElementById('otp');
-    const downloadBtn = document.getElementById('downloadBtn');
-    const errorDiv = document.getElementById('error');
-    const successDiv = document.getElementById('success');
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const otp = otpInput.value.trim();
-      if (!/^[0-9]{6}$/.test(otp)) {
-        showError('OTPは6桁の数字で入力してください');
-        return;
-      }
-      downloadBtn.disabled = true;
-      downloadBtn.textContent = 'ダウンロード中...';
-      hideMessages();
-      try {
-        const response = await fetch('/api/files/download', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ fileId, otp })
-        });
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || 'ダウンロードに失敗しました');
-        }
-        // ファイルダウンロード
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = '${metadata.fileName}';
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-        showSuccess('ファイルのダウンロードが完了しました');
-        // フォームをリセット
-        form.reset();
-        // ページをリロードして残り回数を更新
-        setTimeout(() => {
-          window.location.reload();
-        }, 2000);
-      } catch (error) {
-        showError(error.message);
-      } finally {
-        downloadBtn.disabled = false;
-        downloadBtn.textContent = '📥 ダウンロード';
-      }
-    });
-    function showError(message) {
-      errorDiv.textContent = message;
-      errorDiv.style.display = 'block';
-      successDiv.style.display = 'none';
-    }
-    function showSuccess(message) {
-      successDiv.textContent = message;
-      successDiv.style.display = 'block';
-      errorDiv.style.display = 'none';
-    }
-    function hideMessages() {
-      errorDiv.style.display = 'none';
-      successDiv.style.display = 'none';
-    }
-    // OTP入力時に数字のみ許可
-    otpInput.addEventListener('input', (e) => {
-      e.target.value = e.target.value.replace(/[^0-9]/g, '');
-    });
-  </script>
-</body>
-</html>
-`;
-      return res.status(200).setHeader('Content-Type', 'text/html; charset=utf-8').send(html);
-    } catch (error) {
-      console.error('Download page error:', error);
-      return res.status(500).json({ error: 'サーバーエラーが発生しました' });
-    }
-  }
-  // POST /api/files/download でファイルダウンロード実行
-  if (req.method === 'POST') {
-    try {
-      const body = await readBody(req);
-      const { fileId, otp } = JSON.parse(body);
-      if (!fileId || !otp) {
-        return res.status(400).json({ error: 'ファイルIDまたはOTPが指定されていません' });
-      }
-      // メタデータ取得
-      const metadata = await kv.get(`file:${fileId}:meta`);
-      if (!metadata) {
-        return res.status(404).json({ error: 'ファイルが見つかりません' });
-      }
-      // OTP検証
-      if (metadata.otp !== otp) {
-        return res.status(400).json({ error: '無効なワンタイムパスワードです' });
-      }
-      // ダウンロード回数チェック
-      if (metadata.downloadCount <= 0) {
-        return res.status(400).json({ error: 'ダウンロード回数の上限に達しました' });
-      }
-      // 暗号化データ取得
-      const encryptedData = await kv.get(`file:${fileId}:data`);
-      if (!encryptedData) {
-        return res.status(404).json({ error: 'ファイルデータが見つかりません' });
-      }
-      // 復号化（Bufferを直接返す）
-      console.log('[Download Debug] encryptedData type:', typeof encryptedData, 'length:', encryptedData?.length);
-      console.log('[Download Debug] encryptionKey:', metadata.encryptionKey ? 'exists' : 'MISSING');
-      console.log('[Download Debug] iv:', metadata.iv ? 'exists' : 'MISSING');
-      // KV から取得したデータは String なので Buffer に変換
-      let encryptedBuffer;
-      if (typeof encryptedData === 'string') {
-        try {
-          encryptedBuffer = Buffer.from(encryptedData, 'base64');
-          // Valid base64チェック: lengthが16の倍数 + padding確認
-          if (encryptedBuffer.length < 16) {
-            throw new Error(`Invalid encrypted data length: ${encryptedBuffer.length} (min 16)`);
-          }
-          console.log('[Download Debug] Buffer created, length:', encryptedBuffer.length);
-        } catch (convError) {
-          console.error('[Buffer Conv Error]', convError.message);
-          return res.status(500).json({ error: '暗号化データが破損しています (base64 invalid)' });
-        }
-      } else if (Buffer.isBuffer(encryptedData)) {
-        encryptedBuffer = encryptedData;
-      } else {
-        return res.status(500).json({ error: 'Unsupported encryptedData type' });
-      }
-      // decrypt呼び出し前チェック
-      console.log('[Decrypt Debug] key length (hex):', metadata.encryptionKey.length, 'iv length (hex):', metadata.iv.length);
-      const decryptedBuffer = decrypt(encryptedBuffer, metadata.encryptionKey, metadata.iv);
-      // ダウンロード回数を減らす
-      metadata.downloadCount -= 1;
-      await kv.set(`file:${fileId}:meta`, metadata, { ex: 7 * 24 * 60 * 60 });
-      // ファイル送信
-      res.setHeader('Content-Type', 'application/octet-stream');
-      res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(metadata.fileName)}"; filename*=UTF-8''${encodeURIComponent(metadata.fileName)}`);
-      return res.status(200).send(decryptedBuffer);
-    } catch (error) {
-      console.error('Download error:', error);
-      return res.status(500).json({ error: 'ダウンロードに失敗しました' });
-    }
-  }
-  return res.status(405).json({ error: 'Method not allowed' });
-}
+const S3_BUCKET = process.env.S3_BUCKET || 'datagate-poc-138data';
 
-// リクエストボディ読み取り
-function readBody(req) {
+// Helper: Stream to Buffer
+async function streamToBuffer(stream) {
   return new Promise((resolve, reject) => {
-    let body = '';
-    req.on('data', chunk => { body += chunk.toString(); });
-    req.on('end', () => resolve(body));
-    req.on('error', reject);
+    const chunks = [];
+    stream.on('data', chunk => chunks.push(chunk));
+    stream.on('end', () => resolve(Buffer.concat(chunks)));
+    stream.on('error', reject);
   });
 }
 
-// 復号化（Bufferを直接返す）
-function decrypt(encryptedBuffer, keyHex, ivHex) {
-  try {
-    const key = Buffer.from(keyHex, 'hex');
-    const iv = Buffer.from(ivHex, 'hex');
-    if (key.length !== 32 || iv.length !== 12) {
-      throw new Error(`Invalid key/iv length: key=${key.length}, iv=${iv.length}`);
-    }
-    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
-    const authTag = encryptedBuffer.slice(0, 16);
-    const ciphertext = encryptedBuffer.slice(16);
-    console.log('[Decrypt Debug] authTag length:', authTag.length, 'ciphertext length:', ciphertext.length);
-    decipher.setAuthTag(authTag);
-    const decrypted = Buffer.concat([
-      decipher.update(ciphertext),
-      decipher.final() // ここでエラーthrow
-    ]);
-    return decrypted;
-  } catch (error) {
-    console.error('[Decrypt Error]', error.message, { bufferLen: encryptedBuffer.length });
-    throw error; // 上位でキャッチ
-  }
+// Download from S3
+async function downloadFromS3(key) {
+  const command = new GetObjectCommand({
+    Bucket: S3_BUCKET,
+    Key: key,
+  });
+
+  const response = await s3Client.send(command);
+  const buffer = await streamToBuffer(response.Body);
+  
+  return {
+    buffer,
+    metadata: response.Metadata,
+  };
 }
 
-// ファイルサイズフォーマット
-function formatFileSize(bytes) {
-  if (bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+// Decryption function
+function decryptData(encryptedBuffer, password) {
+  const algorithm = 'aes-256-gcm';
+  
+  // Extract components
+  const salt = encryptedBuffer.slice(0, 32);
+  const iv = encryptedBuffer.slice(32, 48);
+  const authTag = encryptedBuffer.slice(48, 64);
+  const encrypted = encryptedBuffer.slice(64);
+  
+  // Derive key
+  const key = crypto.pbkdf2Sync(password, salt, 100000, 32, 'sha256');
+  
+  // Decrypt
+  const decipher = crypto.createDecipheriv(algorithm, key, iv);
+  decipher.setAuthTag(authTag);
+  
+  return Buffer.concat([decipher.update(encrypted), decipher.final()]);
 }
+
+// Main handler
+module.exports = async function handler(req, res) {
+  console.log('[Download] Request received:', req.method, req.url);
+
+  // CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  const { fileId } = req.query;
+
+  if (!fileId) {
+    return res.status(400).json({ error: 'File ID is required' });
+  }
+
+  try {
+    // Get metadata from KV
+    const metadata = await kv.get(`file:${fileId}`);
+    
+    if (!metadata) {
+      console.log('[Download] File not found:', fileId);
+      return res.status(404).json({ error: 'ファイルが見つかりません' });
+    }
+
+    // Handle POST (OTP verification and download)
+    if (req.method === 'POST') {
+      const { otp } = req.body;
+
+      if (!otp) {
+        return res.status(400).json({ error: '認証コードが必要です' });
+      }
+
+      // Check OTP attempts
+      if (metadata.otpAttempts >= 5) {
+        return res.status(429).json({ 
+          error: '試行回数が上限に達しました。しばらく待ってから再度お試しください。' 
+        });
+      }
+
+      // Verify OTP
+      if (otp !== metadata.otp) {
+        // Increment attempts
+        metadata.otpAttempts = (metadata.otpAttempts || 0) + 1;
+        await kv.set(`file:${fileId}`, metadata, { ex: 7 * 24 * 60 * 60 });
+        
+        return res.status(401).json({ 
+          error: '認証コードが正しくありません',
+          remainingAttempts: 5 - metadata.otpAttempts 
+        });
+      }
+
+      // Download file from S3
+      console.log('[Download] Downloading from S3:', metadata.s3Key);
+      const { buffer: encryptedBuffer } = await downloadFromS3(metadata.s3Key);
+
+      // Decrypt file
+      const decryptedBuffer = decryptData(encryptedBuffer, metadata.password);
+
+      // Mark as downloaded
+      metadata.downloaded = true;
+      metadata.downloadDate = new Date().toISOString();
+      await kv.set(`file:${fileId}`, metadata, { ex: 7 * 24 * 60 * 60 });
+
+      // Set proper headers for file download
+      res.setHeader('Content-Type', metadata.mimeType || 'application/octet-stream');
+      res.setHeader('Content-Length', decryptedBuffer.length);
+      
+      // Use RFC 5987 encoding for filename
+      const encodedFilename = encodeURIComponent(metadata.fileName)
+        .replace(/['()]/g, escape)
+        .replace(/\*/g, '%2A');
+      
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${metadata.fileName}"; filename*=UTF-8''${encodedFilename}`
+      );
+
+      console.log('[Download] Sending file:', metadata.fileName, decryptedBuffer.length, 'bytes');
+      return res.send(decryptedBuffer);
+    }
+
+    // Handle GET (return file info)
+    if (req.method === 'GET') {
+      return res.status(200).json({
+        success: true,
+        fileName: metadata.fileName,
+        fileSize: metadata.fileSize,
+        uploadDate: metadata.uploadDate,
+        requiresOtp: true,
+        downloaded: metadata.downloaded || false,
+        storageType: metadata.storageType || 'unknown'
+      });
+    }
+
+    return res.status(405).json({ error: 'Method not allowed' });
+
+  } catch (error) {
+    console.error('[Download] Error:', error);
+    
+    // Better error messages
+    if (error.name === 'NoSuchKey') {
+      return res.status(404).json({ error: 'ファイルが見つかりません' });
+    }
+    
+    if (error.code === 'ERR_INVALID_AUTH_TAG') {
+      return res.status(500).json({ error: 'ファイルの復号化に失敗しました' });
+    }
+    
+    return res.status(500).json({ 
+      error: 'ダウンロード処理に失敗しました',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+module.exports.config = {
+  api: {
+    bodyParser: true,
+    sizeLimit: '1mb',
+    responseLimit: '100mb'
+  }
+};
