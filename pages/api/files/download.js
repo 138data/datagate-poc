@@ -5,7 +5,7 @@ import pako from 'pako';
 
 // S3クライアント初期化
 const s3Client = new S3Client({
-  region: process.env.AWS_REGION || 'ap-northeast-1',
+  region: 'us-east-1', // ★環境変数から変更
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
