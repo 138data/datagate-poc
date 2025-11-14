@@ -1,11 +1,14 @@
-import { kv } from '../../../lib/kv-client.js';
-import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
-import crypto from 'crypto';
-import pako from 'pako';
+# 修正ファイルを作成
+@'
+// pages/api/files/[fileId].js
+const kv = require('../../../lib/kv-client');
+const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
+const crypto = require('crypto');
+const pako = require('pako');
 
 // S3クライアント初期化
 const s3Client = new S3Client({
-  region: process.env.AWS_REGION || 'ap-northeast-1',
+  region: process.env.AWS_REGION || 'us-east-1',
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
@@ -43,7 +46,7 @@ function decryptWithIVLength(encryptedBuffer, password, salt, ivLength) {
 }
 
 // メイン処理
-export default async function handler(req, res) {
+async function handler(req, res) {
   const { fileId } = req.query;
 
   // GET: メタデータ取得
@@ -225,3 +228,6 @@ async function streamToBuffer(stream) {
   }
   return Buffer.concat(chunks);
 }
+
+module.exports = handler;
+'@ | Out-File -Encoding UTF8 "pages/api/files/[fileId].js"
