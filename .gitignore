@@ -1,4 +1,4 @@
-﻿# Dependencies
+# Dependencies
 node_modules/
 .npm
 
@@ -6,6 +6,12 @@ node_modules/
 .env
 .env.local
 .env.production
+.env*.local
+.env.*.old
+.env.*.broken
+.env.*.before-*
+.env.backup-*
+.env.vercel-*
 
 # Vercel
 .vercel/
@@ -16,22 +22,34 @@ storage/*.txt
 storage/*.pdf
 storage/*.json
 storage/file_*
-
 # Keep storage folder structure
 !storage/.gitkeep
 
-# Test files
-test*.txt
-dl_test.txt
-download_test.txt
-quick.txt
+# Build artifacts
+.next/
+scripts/
+
+# Backup files
 *.bak
 *.bak2
 *.backup
+*.backup-*
+.env.local.backup*
+audit-logs*.csv
+deployed-*.html
+download-v2*.html
+download.html.backup*
 
 # Temporary files
 *.tmp
 temp/
+test*.txt
+dl_test.txt
+download_test.txt
+quick.txt
+test-*.js
+test-*.ps1
+files*.zip
 
 # OS files
 .DS_Store
@@ -41,45 +59,12 @@ Thumbs.db
 *.log
 npm-debug.log*
 
-# Development files
-check-storage.js
-api/test-mail.js
-.env*.local
-
-# API Keys
+# API Keys & Secrets
 SENDGRID_API_KEY.txt
 *.key
 *.secret
 
-.env*.local
-.vercel
-
-# Backup env files
-.env.*.old
-.env.*.broken
-.env.*.before-*
-.env.backup-*
-.env.vercel-*
-
-# Build artifacts
-.next/
-
-scripts/
-
-# Temporary and backup files
-*.backup
-*.backup-*
-audit-logs*.csv
-deployed-*.html
-download-v2*.html
-download.html.backup*
-test-*.js
-test-*.ps1
-files*.zip
+# Development files
+check-storage.js
+api/test-mail.js
 datagate-smtp-gateway/
-
-# Backup files
-.env.local.backup*
-
-# Backup files
-*.bak
